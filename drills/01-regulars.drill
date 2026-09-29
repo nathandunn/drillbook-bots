@@ -1,0 +1,12 @@
+# The line infantry of the period: close order, fire by volley on the word, stand under losses.
+drill "Regulars"
+about "Close order, volleys on the sergeant's word, stand under losses, go in with the bayonet after a good volley."
+type Even
+dials aggression 0.45 discipline 0.90 cohesion 0.85 cover 0.20 patience 0.60 nerve 0.65
+
+sergeant:
+  when enemy within 45 -> volley when 80% loaded
+
+man:
+  when volley called and loaded and enemy within 60 -> fire
+  otherwise -> follow sergeant

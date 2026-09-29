@@ -1,0 +1,17 @@
+# An example written from a description: "two ranks, shoulder to shoulder, volley at sixty
+# paces, never charge first, never run."
+drill "Thin Red Line"
+about "Shoulder to shoulder. Volleys from sixty paces, never charges first, never runs."
+type Marksman
+dials aggression 0.30 discipline 0.95 cohesion 0.90 cover 0.10 patience 0.60 nerve 0.95
+
+sergeant:
+  when enemy charging and enemy within 40  -> hold; form tight; stand fast; volley at 30
+  when my losses over 60%                  -> fall back 25
+  when enemy within 60 paces               -> hold; form tight; volley when 70% loaded
+  otherwise                                -> advance slow; form tight; hold fire
+
+man:
+  when volley called and loaded            -> fire
+  when enemy charging and loaded and enemy within 12 -> fire
+  otherwise                                -> keep slot tight

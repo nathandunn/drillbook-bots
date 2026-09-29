@@ -1,0 +1,12 @@
+# Raw levies: fire too early, hug cover, break when it goes badly.
+drill "Militia"
+about "Fire too early, hug cover, break when it goes badly."
+type Runner
+dials aggression 0.30 discipline 0.20 cohesion 0.40 cover 0.60 patience 0.15 nerve 0.25
+
+sergeant:
+  otherwise -> fire at will
+
+man:
+  when loaded and enemy within 70 -> fire
+  otherwise -> follow sergeant

@@ -1,0 +1,11 @@
+# Assault troops: one volley close in, then the bayonet.
+drill "Shock"
+about "One volley close in, then the bayonet. Never waits, rarely breaks."
+type Grenadier
+dials aggression 0.95 discipline 0.60 cohesion 0.70 cover 0.10 patience 0.25 nerve 0.85
+
+sergeant:
+  when enemy within 42 and not enemy outnumbers us by 45% -> charge
+
+man:
+  otherwise -> follow sergeant

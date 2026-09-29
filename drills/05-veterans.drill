@@ -1,0 +1,13 @@
+# Old soldiers: patient, use the ground, hold their fire, very hard to break.
+drill "Veterans"
+about "Patient: use the ground, hold fire until it counts, very hard to break."
+type Ironside
+dials aggression 0.55 discipline 0.75 cohesion 0.60 cover 0.55 patience 0.80 nerve 0.90
+
+sergeant:
+  when enemy beyond 40 -> hold fire
+  when enemy within 40 -> volley when 70% loaded
+
+man:
+  when volley called and loaded and enemy within 50 -> fire
+  otherwise -> follow sergeant

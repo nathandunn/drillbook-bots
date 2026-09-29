@@ -1,0 +1,19 @@
+# An example written from a description: "shoot from cover, give ground before a charge,
+# come back when it stops."
+drill "Fabian Screen"
+about "Shoot from cover, give ground before a charge, come back when it stops."
+type Marksman
+dials aggression 0.10 discipline 0.30 cohesion 0.10 cover 1.00 patience 0.50 nerve 0.60
+
+sergeant:
+  when enemy charging and enemy within 30  -> fall back 20; set phase giving
+  when phase is giving and enemy beyond 30 for 6s -> advance; set phase screen
+  when losing the exchange                 -> find cover; fire at will
+  when no harm for 20s                     -> advance
+  otherwise                                -> form skirmish; fire at will
+
+man:
+  when enemy charging and enemy within 20  -> fire; back 10
+  when in cover and loaded and enemy within 70 -> fire
+  when not in cover                        -> take cover within 12
+  otherwise                                -> reload kneeling
