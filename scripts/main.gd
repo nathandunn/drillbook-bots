@@ -402,7 +402,9 @@ func _next_round() -> void:
 		if campaign_round > 1:
 			_merge_broken(t, roster)
 		if not last:
-			# every company back to its size with recruits; a company with nobody left is struck off
+			# every company back to its size with recruits. A company with nobody left - wiped out, or
+			# its handful merged into the next company along - is raised again from recruits, so every
+			# company (and the drill it fights by) takes the field each round but the last.
 			for c in (manager.companies[t] as Array).size():
 				var co: Dictionary = manager.companies[t][c]
 				var have := 0
@@ -411,8 +413,6 @@ func _next_round() -> void:
 					if int(r.get("co", 0)) == c:
 						have += 1
 						next_no = maxi(next_no, int(r.get("no", 0)) + 1)
-				if campaign_round > 1 and have == 0:
-					continue
 				while have < int(co["size"]):
 					roster.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], co["name"], next_no], "no": next_no, "co": c,
 						"seed": randi(), "kills": 0, "rounds": 0, "recruit": true})
@@ -429,7 +429,7 @@ func _next_round() -> void:
 ## the last round was won, in which case keep the winning choice 70 % of the time.
 ## A company cut down to a handful (fewer than 3 men, or under a quarter of its size) is broken
 ## up: whoever is left joins the nearest company along the line that still has men, and the
-## broken company is struck off. A company with nobody left is simply struck off.
+## broken company loses its men to the neighbour; it is raised again from recruits next round (not the last).
 func _merge_broken(t: int, roster: Array) -> void:
 	var cos: Array = manager.companies[t]
 	var have := {}
