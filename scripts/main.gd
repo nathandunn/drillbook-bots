@@ -100,6 +100,19 @@ func _ready() -> void:
 				manager.team_types[t] = SoldierType.preset(args[key + "type"])
 				manager.team_type_names[t] = String(args[key + "type"])
 			manager.store_company(t)
+		if args.has(key + "mix"):
+			# --redmix="Drill/Type/Slot,Drill/Type/Slot,..." - one company per entry, `per` men each
+			var cos2 := []
+			var parts := String(args[key + "mix"]).split(",", false)
+			for c in mini(parts.size(), MatchManager.MAX_COMPANIES):
+				var f := parts[c].split("/")
+				var co := manager.new_company(t, c, f[0].strip_edges(), f[1].strip_edges() if f.size() > 1 else "Even",
+					f[2].strip_edges() if f.size() > 2 else MatchManager.SLOTS[mini(c, 3)], per)
+				if co.get("drill") == null:
+					push_warning("no drill called %s" % f[0])
+				cos2.append(co)
+			manager.companies[t] = cos2
+			manager.battalion_names[t] = "Mix"
 		manager.select_company(t, 0)
 	if args.has("seed"):
 		_base_seed = int(args["seed"])
@@ -336,9 +349,12 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 		manager.battalion_label(1), manager._types_label(1), wins[1], draws, int(dur / n)]
 	for t in 2:
 		var acc := float(tot["hits"][t]) / maxf(float(tot["shots"][t]), 1.0) * 100.0
-		txt += "%s per battle: %d shots at %d%%, %d volleys, %d charges, %d fall-backs, %d ran; killed %d by ball, %d by bayonet; %d friendly hits.  " % [
+		var kt: float = float(kills[t][0] + kills[t][1])
+		var dt: float = float(kills[1 - t][0] + kills[1 - t][1])
+		txt += "%s per battle: %d shots at %d%%, %d volleys, %d charges, %d fall-backs, %d ran; killed %d by ball, %d by bayonet; %d friendly hits; kills %.1f, deaths %.1f, K/D %.2f.  " % [
 			MatchManager.TEAM_NAMES[t], tot["shots"][t] / n, int(acc), tot["volleys"][t] / n, tot["charges"][t] / n,
-			tot["fallbacks"][t] / n, tot["routed"][t] / n, kills[t][0] / n, kills[t][1] / n, tot["friendly"][t] / n]
+			tot["fallbacks"][t] / n, tot["routed"][t] / n, kills[t][0] / n, kills[t][1] / n, tot["friendly"][t] / n,
+			kt / n, dt / n, kt / maxf(dt, 1.0)]
 	var battles := []
 	for r in results:
 		battles.append({"match": r["match"], "winner": r["winner"], "winner_name": r["winner_name"], "reason": r["reason"],

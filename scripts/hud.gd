@@ -999,6 +999,11 @@ func show_batch(summary: Dictionary) -> void:
 		["Company", ["%s / %s, %d men" % [d["presets"][0], d["types"][0], d["sizes"][0]], "%s / %s, %d men" % [d["presets"][1], d["types"][1], d["sizes"][1]]]],
 		["Wins", ["%d of %d" % [wins[0], n], "%d of %d" % [wins[1], n]]],
 	]
+	# the butcher's bill: what each side did and what it cost, per battle
+	var kd := [float(kills[0][0] + kills[0][1]), float(kills[1][0] + kills[1][1])]
+	rows.append(["Kills per battle", ["%.1f" % (kd[0] / n), "%.1f" % (kd[1] / n)]])
+	rows.append(["Deaths per battle", ["%.1f" % (kd[1] / n), "%.1f" % (kd[0] / n)]])
+	rows.append(["Kill / death", ["%.2f" % (kd[0] / maxf(kd[1], 1.0)), "%.2f" % (kd[1] / maxf(kd[0], 1.0))]])
 	for r in rows:
 		_cell(grid, r[0], true)
 		for t in 2:
