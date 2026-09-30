@@ -613,6 +613,16 @@ func shared_sense(id: String, args: Array, t: int, r: RandomNumberGenerator) -> 
 		"enemy_broken":
 			var alive_e := alive_count(1 - t)
 			return alive_e == 0 or float(fighting(1 - t).size()) / float(alive_e) < 0.5
+		"mates_running":
+			# two in five of my own side are routed: the line is going
+			var own_n := 0
+			var own_r := 0
+			for s in alive_soldiers():
+				if s.team == t:
+					own_n += 1
+					if s.is_routed:
+						own_r += 1
+			return own_n > 0 and float(own_r) / float(own_n) >= 0.4
 		"enemy_breaking":
 			var n := 0
 			var r_n := 0
@@ -672,6 +682,23 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 			return not c["seen"]
 		"enemy_reloading":
 			return shared_sense("enemy_loaded_under", [0.5], t, rng)
+		"spotted":
+			# a company is spotted when a third of the enemy men within 90 m are looking its way
+			if not bool(c["seen"]):
+				return false
+			var cen: Vector3 = c["centre"]
+			var near_n := 0
+			var facing_n := 0
+			for en in enemies:
+				var to_c: Vector3 = cen - en.global_position
+				to_c.y = 0.0
+				var dc: float = to_c.length()
+				if dc > 90.0 or dc < 0.01:
+					continue
+				near_n += 1
+				if en.facing_dir().dot(to_c / dc) > 0.34:
+					facing_n += 1
+			return near_n > 0 and float(facing_n) / float(near_n) >= 0.3
 		"loaded":
 			return float(c["loaded_frac"]) >= 0.5
 		"in_cover", "kneeling":

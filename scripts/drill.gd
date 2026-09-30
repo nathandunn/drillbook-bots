@@ -23,6 +23,8 @@ extends RefCounted
 ## #S seconds, #X number, $W one word, $R the rest of the atom.
 const CONDITIONS := [
 	[["always"], "always"],
+	[["spotted"], "spotted"],
+	[["mates", "running"], "mates_running"],
 	[["enemy", "within", "#D"], "enemy_within"],
 	[["enemy", "closer", "than", "#D"], "enemy_within"],
 	[["enemy", "beyond", "#D"], "enemy_beyond"],
@@ -90,6 +92,8 @@ const MAN_ACTIONS := [
 	[["back", "#D"], "back"],
 	[["fall", "back", "#D"], "back"],
 	[["advance"], "advance"],
+	[["sneak", "#D"], "sneak"],
+	[["sneak"], "sneak"],
 	[["hold", "kneeling"], "hold_kneel"],
 	[["hold"], "hold"],
 	[["follow", "sergeant"], "follow"],

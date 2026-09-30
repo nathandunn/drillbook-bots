@@ -1,0 +1,29 @@
+# The owner's first drill (2026-09-29). Sneak up under cover, ready the weapon, strike from the
+# flank; if seen far off, melt away; if seen close, shoot first; go in when the enemy wavers.
+drill "Ninjas"
+about "Creep from cover to cover toward his flank, weapon ready. Unseen and close: the blade. Seen close: shoot first. Seen far off: melt away."
+type Runner
+dials aggression 0.55 discipline 0.25 cohesion 0.10 cover 1.00 patience 0.90 nerve 0.70
+
+sergeant:
+  when enemy breaking or enemy broken                  -> charge
+  when spotted and enemy beyond 40                     -> fall back 20; find cover
+  when losing the exchange                             -> fall back 25; find cover; form skirmish
+  when winning the exchange                            -> advance slow; find cover; form skirmish; hold fire
+  otherwise                                            -> advance slow; find cover; form skirmish; hold fire
+
+man:
+  # the enemy wavers or runs: everyone goes in
+  when ( enemy breaking or enemy broken or enemy losses over 40% ) and enemy within 40 -> charge
+  # close and unseen: the blade. Close at all: in with the bayonet (a loaded man fires first)
+  when enemy within 12 and not spotted                 -> charge
+  when enemy within 12                                 -> charge
+  # they turned and saw me: shoot first, but never stand in the open at a distance to do it
+  when spotted and loaded and enemy within 25 and ( in cover or enemy within 15 ) -> fire
+  # seen from afar: melt away
+  when spotted and enemy beyond 25                     -> back 15
+  when spotted and in cover                            -> hold kneeling
+  when spotted                                         -> take cover within 10
+  # ready the weapon while nobody is looking
+  when not loaded                                      -> reload kneeling
+  otherwise                                            -> sneak 16

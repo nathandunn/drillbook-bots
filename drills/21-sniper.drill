@@ -1,0 +1,27 @@
+# The owner's second drill (2026-09-29). Creep under cover to shooting range, then shoot from
+# behind cover at will; when they come close, slip back to the next cover. Never charges.
+drill "Sniper"
+about "Creeps from cover to cover to shooting range, then fires at will from behind cover. Runs rather than fights; the bayonet only when cornered."
+type Marksman
+dials aggression 0.10 discipline 0.40 cohesion 0.15 cover 1.00 patience 0.90 nerve 0.75
+
+sergeant:
+  when enemy breaking or enemy broken                  -> advance slow; find cover; fire at will
+  when enemy charging and enemy within 40              -> fall back 20; find cover
+  when losing the exchange                             -> fall back 20; find cover; form skirmish; fire at will
+  when winning the exchange                            -> advance slow; find cover; form skirmish; fire at will
+  when enemy beyond 60                                 -> advance slow; find cover; form skirmish
+  otherwise                                            -> find cover; form skirmish; fire at will
+
+man:
+  # cornered: the bayonet is all that is left
+  when enemy within 4                                  -> bayonet
+  # they are too close: give ground to the next cover
+  when enemy within 20                                 -> back 15
+  # seen, in cover, loaded: hold ground and shoot
+  when in cover and loaded and enemy within 90         -> fire
+  when not in cover and enemy within 60                -> take cover within 15
+  when not loaded                                      -> reload kneeling
+  # not yet in range: creep forward under cover
+  when enemy beyond 60                                 -> sneak 14
+  otherwise                                            -> hold kneeling

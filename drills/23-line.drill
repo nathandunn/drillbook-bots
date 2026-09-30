@@ -1,0 +1,26 @@
+# The owner's fourth drill (2026-09-29). Establish a presence: skirmish forward, fire, step up,
+# fire again. Stand and volley a charge. The bayonet only once they are empty or on top of us.
+# Press when winning, go when losing, come back when the enemy stops. Never break the line.
+drill "Line"
+about "Skirmishes forward, fire and step up and fire again. Stands and volleys a charge; bayonet when they are empty or close. Presses when winning, runs when losing, returns when they stop."
+type Even
+dials aggression 0.50 discipline 0.85 cohesion 0.90 cover 0.20 patience 0.50 nerve 0.75
+
+sergeant:
+  when enemy charging and enemy within 40              -> hold; stand fast; volley at 30
+  when phase is gone and no harm for 8s                -> advance; set phase line
+  when losing the exchange                             -> fall back 30; set phase gone
+  when winning the exchange                            -> press; form tight
+  when enemy within 45                                 -> advance slow; form tight; fire at will
+  otherwise                                            -> advance; form skirmish; fire at will
+
+man:
+  # never break the line: close up if I have strayed
+  when alone                                           -> keep slot tight
+  when enemy within 6                                  -> bayonet
+  when enemy charging and loaded and enemy within 40   -> fire
+  when enemy charging                                  -> keep slot tight
+  # they are empty and close: go in before they can load again
+  when enemy reloading and enemy within 20 and not loaded -> bayonet
+  when loaded and enemy within 60                      -> fire
+  otherwise                                            -> follow sergeant

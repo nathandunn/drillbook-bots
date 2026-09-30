@@ -400,6 +400,8 @@ func _drill_sense(id: String, args: Array) -> bool:
 			return e == null or field.line_of_fire(global_position + Vector3(0, EYE_HEIGHT, 0), e.global_position + Vector3(0, 1.0, 0)) <= 0.0
 		"enemy_reloading":
 			return e != null and not e.loaded
+		"spotted":
+			return e != null and is_spotted_by(e)
 		"loaded":
 			return loaded
 		"in_cover":
@@ -423,6 +425,30 @@ func _drill_sense(id: String, args: Array) -> bool:
 		"charging":
 			return charging
 	return false
+
+
+## Which way the man is looking (flat, unit length). The body is turned yaw + PI in `_move`.
+func facing_dir() -> Vector3:
+	var f: Vector3 = -global_transform.basis.z
+	f.y = 0.0
+	return f.normalized()
+
+
+## The drill word "spotted": this watcher has me inside a ~140 degree cone, within 90 m, on a
+## clear line. A man behind cover, or one the watcher is not looking at, is not spotted.
+func is_spotted_by(watcher: Soldier) -> bool:
+	if watcher == null or not is_instance_valid(watcher):
+		return false
+	var to_me: Vector3 = global_position - watcher.global_position
+	to_me.y = 0.0
+	var d: float = to_me.length()
+	if d < 0.01:
+		return true
+	if d > 90.0:
+		return false
+	if watcher.facing_dir().dot(to_me / d) < 0.34:
+		return false
+	return field.line_of_fire(watcher.global_position + Vector3(0, EYE_HEIGHT, 0), global_position + Vector3(0, 1.0, 0)) > 0.0
 
 
 static func _mode_word(w: String) -> String:
@@ -537,6 +563,48 @@ func _drill_act(id: String, args: Array) -> bool:
 			toward.y = 0.0
 			goal = field.free_point(global_position + toward.normalized() * minf(6.0, maxf(ed - 3.0, 0.0)))
 			action = "form"
+			face_point = e.global_position
+			return true
+		"sneak":
+			# Creep from cover to cover toward the enemy, walking, drifting toward his flank.
+			# No cover ahead: a slow walk on the same slant. Never runs.
+			if e == null:
+				return false
+			var to_e: Vector3 = e.global_position - global_position
+			to_e.y = 0.0
+			var dirn: Vector3 = to_e.normalized()
+			var hop: float = float(args[0]) if not args.is_empty() else 16.0
+			var spot: Dictionary = _cover_spot if (not _cover_spot.is_empty() and _cover_hold > 0.0) else {}
+			if spot.is_empty():
+				var side: float = signf(global_position.x - e.global_position.x)
+				if side == 0.0:
+					side = 1.0 if slot % 2 == 0 else -1.0
+				var best_score := -INF
+				for sp in field.spots_near(global_position, dirn, hop):
+					var sp_pos: Vector3 = sp["pos"]
+					var progress: float = ed - sp_pos.distance_to(e.global_position)
+					if progress < 3.0:
+						continue
+					var lateral: float = (sp_pos.x - global_position.x) * side
+					var score: float = progress + 0.35 * lateral
+					if score > best_score and manager.claim_spot(self, sp):
+						best_score = score
+						spot = sp
+				if not spot.is_empty():
+					_cover_spot = spot
+					_cover_hold = 3.0 + global_position.distance_to(spot["pos"]) * 0.6
+			if not spot.is_empty():
+				goal = spot["pos"]
+				kneeling = global_position.distance_to(goal) < 0.8
+			else:
+				var side2: float = signf(global_position.x - e.global_position.x)
+				if side2 == 0.0:
+					side2 = 1.0 if slot % 2 == 0 else -1.0
+				var slant: Vector3 = dirn.rotated(Vector3.UP, side2 * -0.6)
+				goal = field.free_point(global_position + slant * minf(5.0, maxf(ed - 3.0, 0.0)))
+				kneeling = false
+			action = "cover"
+			want_run = false
 			face_point = e.global_position
 			return true
 		"hold", "hold_kneel":

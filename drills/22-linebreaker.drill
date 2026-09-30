@@ -1,0 +1,22 @@
+# The owner's third drill (2026-09-29). Grenadiers in open order go for the centre of the line,
+# a shot now and then to spoil the enemy's aim; stand and volley at a charge, then counter-charge.
+drill "Linebreaker"
+about "Charges the centre in open order, a shot now and then to disrupt. Fires once at close range, then the bayonet. Stands and volleys a charge, then counter-charges. Runs when the rest run."
+type Grenadier
+dials aggression 0.95 discipline 0.50 cohesion 0.20 cover 0.00 patience 0.10 nerve 0.85
+
+sergeant:
+  when enemy charging and enemy within 10              -> charge; form open
+  when enemy charging and enemy within 40              -> hold; volley at 30
+  otherwise                                            -> charge; form open
+
+man:
+  when mates running                                   -> run
+  # a charge is coming: stand and shoot, then meet it
+  when enemy charging and enemy beyond 10 and enemy within 40 and loaded -> fire
+  when enemy charging and enemy beyond 10 and enemy within 40            -> hold
+  # close: the charge fires at point blank first, then the bayonet
+  when enemy within 12                                 -> charge
+  # on the way in, a shot now and then to disrupt
+  when enemy within 60 and loaded and chance 4%        -> fire
+  otherwise                                            -> charge
