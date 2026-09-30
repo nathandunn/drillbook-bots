@@ -57,7 +57,7 @@ Volley Bots README.
 AI battle in Godot 4 (3D, web export). Two companies of up to **20 men a side** meet on
 rolling ground - every field has its hills - with stone walls, fences, big rocks, roofless
 ruins you can fight from inside, and trees. Mid-19th-century kit: a
-muzzle-loading rifle (one shot, ~9 s to reload, poor at range), a bayonet, two legs and a
+muzzle-loading rifle (one shot, 20 s at the quickest to reload, 40 rounds a man, poor at range), a bayonet, two legs and a
 temper. Nobody takes orders — formation, spacing, cover, when to fire, whether to fire
 together or go in with the bayonet, and when to fall back all come out of the men's
 personalities.

@@ -15,7 +15,8 @@ signal thrust(soldier: Soldier, landed: bool)
 const MAX_HP := 100.0
 const WALK := 1.7
 const RUN := 4.6
-const RELOAD := 9.0            # seconds, an even type; ~3 rounds a minute for a rifled musket
+const RELOAD := 20.0           # seconds: the fastest a man can shoot, one round every 20 s (owner, 2026-09-30)
+const AMMO := 40               # rounds in the cartridge box, the loaded one included
 const MAX_RANGE := 100.0
 const POINT_BLANK := 12.0
 const STEEL_RANGE := 3.0        # an enemy this close is a bayonet matter; no one shoots with a blade coming in
@@ -57,6 +58,7 @@ var hp := MAX_HP
 var alive := true
 var loaded := true
 var reload_left := 0.0
+var ammo := AMMO               # rounds left, the one in the barrel included
 var stamina := STAMINA_MAX
 var wounded := false
 var running := false
@@ -151,7 +153,9 @@ func apply_type() -> void:
 	var run_m := 0.6 + 0.8 * st.skill("run")
 	walk_speed = WALK * (0.8 + 0.4 * st.skill("run"))
 	run_speed = RUN * run_m
-	reload_time = RELOAD / (0.8 + 0.4 * st.skill("accuracy"))
+	# a trained marksman reloads in the 20 s floor; an even man ~24 s, a raw hand ~30 s
+	reload_time = RELOAD * 1.2 / (0.8 + 0.4 * st.skill("accuracy"))
+	ammo = AMMO
 	melee_mult = 0.55 + 0.9 * st.skill("melee")
 	stamina_max = STAMINA_MAX * (0.6 + 0.8 * st.skill("stamina"))
 	regen_mult = 0.6 + 0.8 * st.skill("stamina")
@@ -184,7 +188,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _tick_timers(delta: float) -> void:
-	if not loaded:
+	if not loaded and ammo > 0:
 		var r := 1.0
 		if tired():
 			r = 0.7
@@ -405,6 +409,10 @@ func _drill_sense(id: String, args: Array) -> bool:
 			return e != null and is_spotted_by(e)
 		"loaded":
 			return loaded
+		"out_of_ammo":
+			return ammo <= 0 and not loaded
+		"ammo_under":
+			return ammo < int(args[0])
 		"in_cover":
 			return not _cover_spot.is_empty() and global_position.distance_to(_cover_spot["pos"]) < 1.2
 		"kneeling":
@@ -503,7 +511,7 @@ func _drill_act(id: String, args: Array) -> bool:
 				_fire(e)
 			return true
 		"reload", "reload_kneel":
-			if loaded:
+			if loaded or ammo <= 0:
 				return false
 			goal = global_position
 			action = "reload"
@@ -680,6 +688,7 @@ func _can_fire_at(enemy: Soldier) -> bool:
 
 func _fire(enemy: Soldier) -> void:
 	loaded = false
+	ammo = maxi(ammo - 1, 0)
 	reload_left = reload_time
 	_halt = 1.2
 	shots += 1

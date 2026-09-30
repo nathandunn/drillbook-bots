@@ -823,9 +823,10 @@ func _refresh_sliders(t: int) -> void:
 		type_chips[t][n].button_pressed = (n == tn)
 	if _acc_help[t] != null:
 		var sk: float = manager.team_types[t].skill("accuracy")
-		_acc_help[t].text = "Musketry and reload. On the range he hits a man %d%% at 50 m, %d%% at 100 m (spread %.1f mrad; a trained marksman 99/84, a raw recruit 49/22). In the smoke of a battle, standing: %d%% at 20 m, %d%% at 50 m." % [
+		_acc_help[t].text = "Musketry and reload. On the range he hits a man %d%% at 50 m, %d%% at 100 m (spread %.1f mrad; a trained marksman 99/84, a raw recruit 49/22). In the smoke of a battle, standing: %d%% at 20 m, %d%% at 50 m. Reloads in %d s (never under %d s); %d rounds in the box." % [
 			int(round(100.0 * Ballistics.p_range(sk, 50.0))), int(round(100.0 * Ballistics.p_range(sk, 100.0))),
-			Ballistics.sigma_range(sk), int(round(100.0 * Ballistics.p_range(sk, 20.0, true))), int(round(100.0 * Ballistics.p_range(sk, 50.0, true)))]
+			Ballistics.sigma_range(sk), int(round(100.0 * Ballistics.p_range(sk, 20.0, true))), int(round(100.0 * Ballistics.p_range(sk, 50.0, true))),
+				int(round(Soldier.RELOAD * 1.2 / (0.8 + 0.4 * sk))), int(Soldier.RELOAD), Soldier.AMMO]
 	if help_labels[t].has("persona"):
 		var dd: Drill = manager.team_drills[t]
 		help_labels[t]["persona"].text = dd.about if dd != null else ""

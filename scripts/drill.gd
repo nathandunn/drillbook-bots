@@ -51,6 +51,8 @@ const CONDITIONS := [
 	[["losses", "over", "#P"], "losses_over"],
 	[["#P", "loaded"], "frac_loaded"],
 	[["loaded"], "loaded"],
+	[["out", "of", "ammo"], "out_of_ammo"],
+	[["ammo", "under", "#X"], "ammo_under"],
 	[["in", "cover"], "in_cover"],
 	[["kneeling"], "kneeling"],
 	[["tired"], "tired"],

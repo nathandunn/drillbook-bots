@@ -1107,6 +1107,17 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 			return float(k) / maxf(men.size(), 1) >= (0.3 if id == "wounded" else 0.5)
 		"courage_under":
 			return float(c["courage"]) < float(args[0])
+		"out_of_ammo", "ammo_under":
+			# the company: half its men empty (out of ammo), or its mean rounds left under N
+			var k := 0
+			var rounds := 0.0
+			for m in men:
+				rounds += m.ammo
+				if m.ammo <= 0 and not m.loaded:
+					k += 1
+			if id == "out_of_ammo":
+				return float(k) / maxf(men.size(), 1) >= 0.5
+			return rounds / maxf(men.size(), 1) < float(args[0])
 		"alone":
 			return men.size() <= 2
 		"volley_called":
