@@ -25,6 +25,12 @@ var results_title: Label
 var speed_buttons: Array[Button] = []
 var pause_btn: Button
 var size_labels: Array[Label] = []
+var size_sliders: Array = [null, null]
+var _strip := [null, null]         # the company strip per side
+var _bat_chips := [{}, {}]
+var _slot_chips := [{}, {}]
+var _co_title := [null, null]
+var _totals := [null, null]
 var persona_sliders := [{}, {}]
 var persona_vals := [{}, {}]
 var type_sliders := [{}, {}]
@@ -92,7 +98,7 @@ func setup(m: MatchManager) -> void:
 		else:
 			campaign_requested.emit())
 	row.add_child(_top_campaign_btn)
-	var teams_btn := _button("Edit Company")
+	var teams_btn := _button("Edit Battalion")
 	teams_btn.pressed.connect(func(): _close_overlays(); teams_overlay.visible = true)
 	row.add_child(teams_btn)
 	var fight := _button("» New battle")
@@ -305,7 +311,7 @@ func _overlay(title_text: String) -> Array:
 
 
 func _build_teams_overlay() -> void:
-	var parts := _overlay("Edit Company")
+	var parts := _overlay("Edit Battalion")
 	teams_overlay = parts[0]
 	var box: VBoxContainer = parts[1]
 	_setup_note = Label.new()
@@ -343,7 +349,7 @@ func _build_teams_overlay() -> void:
 	head.add_child(fight0)
 	_fight_btn0 = fight0
 	var note := Label.new()
-	note.text = "Nobody takes orders. Pick what the men are (four properties on one budget) and the drill they fight by - a short set of written rules for when to volley, charge, take cover and give ground. Simulation: one battle, or Sim x10 for the numbers. Campaign: five rounds along a front of ten fields - the men who stand or run carry over, the dead do not; recruits fill the ranks until the last round, which is fought with what is left. Types and drills may both be changed between rounds - by you, or by the computer for a side you hand it."
+	note.text = "Nobody takes orders. Build a battalion: up to six companies a side, each with its own men, type, drill and place in the line (or in reserve). A drill is a short set of written rules for when to volley, charge, take cover and give ground; each company's sergeant reads his own. The captain only sends in the reserve. Simulation: one battle, or Sim x10 for the numbers. Campaign: five rounds along a front of ten fields - the men who stand or run carry over, the dead do not; recruits fill the ranks until the last round, which is fought with what is left. Types and drills may both be changed between rounds - by you, or by the computer for a side you hand it."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", 13)
 	note.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
@@ -419,10 +425,84 @@ func _build_team_panel(t: int) -> Control:
 	var panel := VBoxContainer.new()
 	frame.add_child(panel)
 	var name_l := Label.new()
-	name_l.text = "%s company" % MatchManager.TEAM_NAMES[t]
+	name_l.text = "%s battalion" % MatchManager.TEAM_NAMES[t]
 	name_l.add_theme_font_size_override("font_size", 18)
 	name_l.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[t].lightened(0.45))
 	panel.add_child(name_l)
+
+	# a whole battalion at a tap, then company by company
+	var bl := Label.new()
+	bl.text = "Battalion (fills every company; edit any after)"
+	bl.add_theme_font_size_override("font_size", 15)
+	bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(bl)
+	var brow := HFlowContainer.new()
+	panel.add_child(brow)
+	for bn in MatchManager.BATTALIONS:
+		var b := Button.new()
+		b.text = bn
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, 38)
+		b.add_theme_font_size_override("font_size", 14)
+		b.tooltip_text = MatchManager.BATTALION_HELP.get(bn, "")
+		b.pressed.connect(func():
+			manager.set_battalion(t, bn, int(manager.companies[t][manager.sel[t]]["size"]), true)
+			_refresh_sliders(t))
+		brow.add_child(b)
+		_bat_chips[t][bn] = b
+		_type_controls[t].append(b)
+	var tot := Label.new()
+	tot.add_theme_font_size_override("font_size", 13)
+	tot.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
+	tot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(tot)
+	_totals[t] = tot
+	# the company strip: one card per company; tap one to edit it below
+	var strip := HFlowContainer.new()
+	strip.add_theme_constant_override("h_separation", 6)
+	strip.add_theme_constant_override("v_separation", 6)
+	panel.add_child(strip)
+	_strip[t] = strip
+	var ops := HFlowContainer.new()
+	panel.add_child(ops)
+	var add := _button("+ Add company")
+	add.pressed.connect(func(): manager.add_company(t); _refresh_sliders(t))
+	ops.add_child(add)
+	_type_controls[t].append(add)
+	var rem := _button("× Remove this company")
+	_style(rem, "stop")
+	rem.pressed.connect(func(): manager.remove_company(t); _refresh_sliders(t))
+	ops.add_child(rem)
+	_type_controls[t].append(rem)
+	var dup := _button("Apply this company to all")
+	dup.pressed.connect(func(): _apply_to_all(t))
+	ops.add_child(dup)
+	_type_controls[t].append(dup)
+
+	var co_t := Label.new()
+	co_t.add_theme_font_size_override("font_size", 17)
+	co_t.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[t].lightened(0.55))
+	panel.add_child(co_t)
+	_co_title[t] = co_t
+	var sll := Label.new()
+	sll.text = "Where it stands (from %s's own left)" % MatchManager.TEAM_NAMES[t]
+	sll.add_theme_font_size_override("font_size", 14)
+	sll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(sll)
+	var srow := HFlowContainer.new()
+	panel.add_child(srow)
+	for sn in MatchManager.SLOTS:
+		var b := Button.new()
+		b.text = sn
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, 36)
+		b.add_theme_font_size_override("font_size", 13)
+		b.pressed.connect(func():
+			manager.companies[t][manager.sel[t]]["slot"] = sn
+			_refresh_sliders(t))
+		srow.add_child(b)
+		_slot_chips[t][sn] = b
+		_type_controls[t].append(b)
 
 	# size
 	var size_row := HBoxContainer.new()
@@ -430,6 +510,7 @@ func _build_team_panel(t: int) -> Control:
 	var sl := Label.new()
 	sl.text = "Men: %d" % int(manager.team_sizes[t])
 	sl.custom_minimum_size = Vector2(90, 0)
+	sl.add_theme_font_size_override("font_size", 15)
 	size_row.add_child(sl)
 	size_labels.append(sl)
 	var size_slider := HSlider.new()
@@ -438,8 +519,17 @@ func _build_team_panel(t: int) -> Control:
 	size_slider.step = 1
 	size_slider.value = int(manager.team_sizes[t])
 	size_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	size_slider.custom_minimum_size = Vector2(0, 32)
-	size_slider.value_changed.connect(func(v: float): manager.team_sizes[t] = int(v); sl.text = "Men: %d" % int(v))
+	size_slider.custom_minimum_size = Vector2(0, 40)
+	size_slider.tick_count = 5
+	size_slider.ticks_on_borders = true
+	size_slider.value_changed.connect(func(v: float):
+		if _updating:
+			return
+		var room: int = MatchManager.MAX_SIDE - (manager.side_total(t) - int(manager.team_sizes[t]))
+		manager.team_sizes[t] = mini(int(v), room)
+		_refresh_sliders(t))
+	size_sliders[t] = size_slider
+	_type_controls[t].append(size_slider)
 	size_row.add_child(size_slider)
 
 	# type
@@ -476,7 +566,7 @@ func _build_team_panel(t: int) -> Control:
 		crow.add_child(b)
 		_commander_chips[t][who] = b
 	var chelp := Label.new()
-	chelp.text = "The computer picks a drill and a type for each round, answering what the other side fielded, the ground, and what has worked this campaign."
+	chelp.text = "The computer picks a drill and a type for every company each round - never the same for all four - answering what the other battalion fielded, the ground, and what has worked this campaign."
 	chelp.add_theme_font_size_override("font_size", 12)
 	chelp.add_theme_color_override("font_color", Color(0.7, 0.7, 0.65))
 	chelp.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -490,7 +580,7 @@ func _build_team_panel(t: int) -> Control:
 	panel.add_child(_chip_row(t, Drill.names(), false))
 	var phelp := Label.new()
 	phelp.name = "PersonaHelp"
-	phelp.text = Personality.PRESET_HELP.get(manager.team_preset_names[t], "")
+	phelp.text = manager.team_drills[t].about if manager.team_drills[t] != null else ""
 	phelp.add_theme_font_size_override("font_size", 12)
 	phelp.add_theme_color_override("font_color", Color(0.7, 0.7, 0.65))
 	phelp.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -584,7 +674,7 @@ func show_drill(t: int) -> void:
 		c.queue_free()
 	results_title.text = "%s - the drill" % d.name
 	var who := Label.new()
-	who.text = "%s company fights this drill. Rules are read top to bottom; the first that holds and can be done decides. Anything no rule decides falls to the dials." % MatchManager.TEAM_NAMES[t]
+	who.text = "%s company %s fights this drill. Rules are read top to bottom; the first that holds and can be done decides. Anything no rule decides falls to the dials." % [MatchManager.TEAM_NAMES[t], manager.companies[t][manager.sel[t]]["name"]]
 	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	who.add_theme_font_size_override("font_size", 13)
 	who.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[t].lightened(0.45))
@@ -652,8 +742,71 @@ func _on_type_slider(t: int, prop: String, v: float) -> void:
 	_refresh_sliders(t)
 
 
+## Copy the selected company's type, personality and size to every company of the side.
+func _apply_to_all(t: int) -> void:
+	manager.store_company(t)
+	var src: Dictionary = manager.companies[t][manager.sel[t]]
+	for co in manager.companies[t]:
+		if co == src:
+			continue
+		co["persona"] = (src["persona"] as Personality).jittered(manager.rng, 0.0)
+		co["persona_name"] = src["persona_name"]
+		co["drill"] = src.get("drill")
+		co["type"] = (src["type"] as SoldierType).copy()
+		co["type_name"] = src["type_name"]
+		co["size"] = src["size"]
+	_refresh_sliders(t)
+
+
+func selected_company(t: int) -> int:
+	return manager.sel[t]
+
+
+## The company strip: a card per company, the selected one pressed.
+func _rebuild_strip(t: int) -> void:
+	var strip: HFlowContainer = _strip[t]
+	if strip == null:
+		return
+	for ch in strip.get_children():
+		ch.queue_free()
+	var cos: Array = manager.companies[t]
+	for c in cos.size():
+		var co: Dictionary = cos[c]
+		var b := Button.new()
+		b.toggle_mode = true
+		b.button_pressed = c == manager.sel[t]
+		b.text = "%s · %d men\n%s / %s\n%s\n%s" % [co["name"], int(co["size"]), co["persona_name"], co["type_name"], co["slot"], MatchManager.mark_for(c)["name"]]
+		b.custom_minimum_size = Vector2(118, 0)
+		b.add_theme_font_size_override("font_size", 13)
+		b.pressed.connect(func():
+			manager.store_company(t)
+			manager.select_company(t, c)
+			_refresh_sliders(t))
+		strip.add_child(b)
+	var tl: Label = _totals[t]
+	tl.text = "%d men in %d companies (up to %d men, %d companies a side)" % [manager.side_total(t), cos.size(), MatchManager.MAX_SIDE, MatchManager.MAX_COMPANIES]
+	(_co_title[t] as Label).text = "Company %s" % cos[manager.sel[t]]["name"]
+	var slot: String = cos[manager.sel[t]]["slot"]
+	for sn in _slot_chips[t]:
+		_slot_chips[t][sn].button_pressed = sn == slot
+	var label := manager.battalion_label(t)
+	for bn in _bat_chips[t]:
+		_bat_chips[t][bn].button_pressed = bn == label
+	_cursor_for_tree(strip)
+
+
+func _cursor_for_tree(n: Node) -> void:
+	for ch in n.get_children():
+		_cursor_for(ch)
+
+
 func _refresh_sliders(t: int) -> void:
+	manager.store_company(t)
+	_rebuild_strip(t)
 	_updating = true
+	if size_sliders[t] != null:
+		size_sliders[t].value = int(manager.team_sizes[t])
+		size_labels[t].text = "Men: %d" % int(manager.team_sizes[t])
 	for tr in Personality.TRAITS:
 		if persona_sliders[t].has(tr):
 			persona_sliders[t][tr].value = manager.team_personalities[t].get_trait(tr)
@@ -722,16 +875,22 @@ func _process(delta: float) -> void:
 		return
 	_tick = 0.25
 	for t in 2:
-		var o: Dictionary = manager.orders[t]
-		if o.is_empty():
+		var os: Array = manager.orders[t]
+		if os.is_empty() or manager.stats.is_empty():
 			continue
 		var st: Dictionary = manager.stats
 		var fighting := manager.fighting(t).size()
 		var alive := manager.alive_count(t)
-		var mode: String = o.get("mode", "")
-		var sgt: String = o.get("sergeant", "")
-		team_labels[t].text = "%s: %d standing (%d in line) · %s · volleys %d · shots %d/%d · %s leads" % [
-			MatchManager.TEAM_NAMES[t], alive, fighting, mode.replace("_", " "), st["volleys"][t], st["hits"][t], st["shots"][t], sgt]
+		var modes := []
+		for c in os.size():
+			if manager.fighting_company(t, c).is_empty():
+				modes.append("%s ✕" % manager.companies[t][c]["name"])
+			elif manager.is_reserve(t, c):
+				modes.append("%s reserve" % manager.companies[t][c]["name"])
+			else:
+				modes.append("%s %s" % [manager.companies[t][c]["name"], String(os[c].get("mode", "")).replace("_", " ")])
+		team_labels[t].text = "%s: %d standing (%d in line) · %s · shots %d/%d" % [
+			MatchManager.TEAM_NAMES[t], alive, fighting, ", ".join(modes), st["hits"][t], st["shots"][t]]
 	if manager.running:
 		var clock := "%d:%02d" % [int(manager.elapsed) / 60, int(manager.elapsed) % 60]
 		status_label.text = (_batch_text + " · " + clock) if _batch_text != "" else clock
@@ -754,6 +913,40 @@ func show_result(res: Dictionary) -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[t].lightened(0.4))
 		results_box.add_child(l)
+	# the companies
+	_section(results_box, "The companies")
+	var cg := GridContainer.new()
+	cg.columns = 6
+	cg.add_theme_constant_override("h_separation", 10)
+	results_box.add_child(cg)
+	for h in ["Company", "Fielded as", "Stood", "Ran", "Fell", "Kills (bayonet)"]:
+		_cell(cg, h, true)
+	var cstats := {}
+	for m in res["soldiers"]:
+		var key := "%d:%d" % [int(m["team"]), int(m.get("company", 0))]
+		if not cstats.has(key):
+			cstats[key] = [0, 0, 0, 0, 0]
+		var cs: Array = cstats[key]
+		if not m["alive"]:
+			cs[2] += 1
+		elif m["routed"] or m["gone"]:
+			cs[1] += 1
+		else:
+			cs[0] += 1
+		cs[3] += int(m["kills"])
+		cs[4] += int(m["bayonet_kills"])
+	var cos: Array = res.get("companies", [[], []])
+	for t in 2:
+		for c in (cos[t] as Array).size():
+			var co: Dictionary = cos[t][c]
+			var cs: Array = cstats.get("%d:%d" % [t, c], [0, 0, 0, 0, 0])
+			var col: Color = MatchManager.TEAM_COLORS[t].lightened(0.45)
+			_cell(cg, "%s %s" % [MatchManager.TEAM_NAMES[t], co["name"]], true, col)
+			_cell(cg, "%s / %s, %s" % [co["persona"], co["type"], co["slot"]], false, col)
+			_cell(cg, str(cs[0]), false)
+			_cell(cg, str(cs[1]), false)
+			_cell(cg, str(cs[2]), false)
+			_cell(cg, "%d (%d)" % [cs[3], cs[4]], false)
 	# the men, best first
 	var men: Array = res["soldiers"].duplicate()
 	men.sort_custom(func(a, b): return a["kills"] > b["kills"] or (a["kills"] == b["kills"] and a["hits"] > b["hits"]))
@@ -776,7 +969,7 @@ func show_result(res: Dictionary) -> void:
 	_style(again, "go")
 	again.pressed.connect(func(): _close_overlays(); new_match_requested.emit())
 	row.add_child(again)
-	var teams := _button("Edit Company")
+	var teams := _button("Edit Battalion")
 	teams.pressed.connect(func(): _close_overlays(); teams_overlay.visible = true)
 	row.add_child(teams)
 	results_overlay.visible = true
@@ -827,24 +1020,49 @@ func show_batch(summary: Dictionary) -> void:
 	_stat_row(g4, "Fall-backs ordered", [tot["fallbacks"][0] / n, tot["fallbacks"][1] / n])
 	_stat_row(g4, "Men who ran", [tot["routed"][0] / n, tot["routed"][1] / n])
 	_stat_row(g4, "Killed, all told", [(kills[1][0] + kills[1][1]) / n, (kills[0][0] + kills[0][1]) / n])
+	# company by company, per battle
+	var cst: Array = d.get("co_stats", [{}, {}])
+	var ccos: Array = d.get("companies", [[], []])
+	_section(results_box, "The companies, per battle")
+	var cg := GridContainer.new()
+	cg.columns = 6
+	cg.add_theme_constant_override("h_separation", 10)
+	results_box.add_child(cg)
+	for h in ["Company", "Fielded as", "Stood / ran / fell", "Shots", "Hits", "Kills (bayonet)"]:
+		_cell(cg, h, true)
+	for t in 2:
+		for c in (ccos[t] as Array).size():
+			var co: Dictionary = ccos[t][c]
+			var st: Dictionary = (cst[t] as Dictionary).get(c, {})
+			if st.is_empty():
+				continue
+			var col: Color = MatchManager.TEAM_COLORS[t].lightened(0.45)
+			_cell(cg, "%s %s" % [MatchManager.TEAM_NAMES[t], co["name"]], true, col)
+			_cell(cg, "%s / %s, %s" % [co["persona"], co["type"], co["slot"]], false, col)
+			_cell(cg, "%.1f / %.1f / %.1f" % [float(st["stood"]) / n, float(st["ran"]) / n, float(st["fell"]) / n], false)
+			_cell(cg, "%.1f" % (float(st["shots"]) / n), false)
+			_cell(cg, "%d%%" % int(100.0 * float(st["hits"]) / maxf(float(st["shots"]), 1.0)), false)
+			_cell(cg, "%.1f (%.1f)" % [float(st["kills"]) / n, float(st["bayonet"]) / n], false)
 	# the drills: which rule decided how often - the way to see whether a drill does what was meant
 	var tally: Array = d.get("tally", [{}, {}])
 	for t in 2:
-		var dr: Drill = manager.team_drills[t]
-		if dr == null:
-			continue
-		_section(results_box, "%s: %s - rules that decided, per battle" % [MatchManager.TEAM_NAMES[t], dr.name])
-		var gt := GridContainer.new()
-		gt.columns = 2
-		gt.add_theme_constant_override("h_separation", 10)
-		for rules in [dr.sergeant_rules, dr.man_rules]:
-			for r in rules:
-				var cnt: int = int((tally[t] as Dictionary).get(r["line"], 0))
-				_cell(gt, "%d" % int(round(float(cnt) / n)), true, MatchManager.TEAM_COLORS[t].lightened(0.45))
-				gt.get_child(gt.get_child_count() - 1).custom_minimum_size = Vector2(44, 0)
-				(gt.get_child(gt.get_child_count() - 1) as Control).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-				_cell(gt, ("sergeant: " if rules == dr.sergeant_rules else "man: ") + String(r["text"]), false)
-		results_box.add_child(gt)
+		for dn in (tally[t] as Dictionary):
+			var dr: Drill = Drill.named(String(dn))
+			if dr == null:
+				continue
+			_section(results_box, "%s: %s - rules that decided, per battle" % [MatchManager.TEAM_NAMES[t], dr.name])
+			var gt := GridContainer.new()
+			gt.columns = 2
+			gt.add_theme_constant_override("h_separation", 10)
+			var per: Dictionary = tally[t][dn]
+			for rules in [dr.sergeant_rules, dr.man_rules]:
+				for r in rules:
+					var cnt: int = int(per.get(r["line"], per.get(str(r["line"]), 0)))
+					_cell(gt, "%d" % int(round(float(cnt) / n)), true, MatchManager.TEAM_COLORS[t].lightened(0.45))
+					gt.get_child(gt.get_child_count() - 1).custom_minimum_size = Vector2(44, 0)
+					(gt.get_child(gt.get_child_count() - 1) as Control).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+					_cell(gt, ("sergeant: " if rules == dr.sergeant_rules else "man: ") + String(r["text"]), false)
+			results_box.add_child(gt)
 	_section(results_box, "The battles (avg %d:%02d)" % [int(d["avg_duration"]) / 60, int(d["avg_duration"]) % 60])
 	var g5 := GridContainer.new()
 	g5.columns = 5
@@ -870,7 +1088,7 @@ func show_batch(summary: Dictionary) -> void:
 	_style(batch, "go")
 	batch.pressed.connect(func(): _close_overlays(); batch_requested.emit(BATCH_N))
 	row.add_child(batch)
-	var teams := _button("Edit Company")
+	var teams := _button("Edit Battalion")
 	teams.pressed.connect(func(): _close_overlays(); teams_overlay.visible = true)
 	row.add_child(teams)
 	var pad := Control.new()
@@ -911,7 +1129,7 @@ func open_setup(why: String) -> void:
 	_setup_note.text = why
 	_setup_note.visible = why != ""
 	teams_overlay.visible = true
-	status_label.text = "Nothing running - choose under Edit Company."
+	status_label.text = "Nothing running - choose under Edit Battalion."
 
 
 func _set_commander(t: int, who: String) -> void:
@@ -1019,7 +1237,7 @@ func show_round(sm: Dictionary) -> void:
 					what = "%s: %s" % [docs[t], what]
 				_stat_row(g3, "%s (computer) will field" % MatchManager.TEAM_NAMES[t], [what if t == 0 else "", what if t == 1 else ""])
 		var nl := Label.new()
-		nl.text = "Types and personalities may be changed under Edit Company before the next round." if picks[0] == "" or picks[1] == "" else "Both sides are the computer's to command; watch how they answer each other."
+		nl.text = "Types and personalities may be changed under Edit Battalion before the next round." if picks[0] == "" or picks[1] == "" else "Both sides are the computer's to command; watch how they answer each other."
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.add_theme_font_size_override("font_size", 13)
 		nl.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
@@ -1054,7 +1272,7 @@ func show_round(sm: Dictionary) -> void:
 		_style(nxt, "go")
 		nxt.pressed.connect(func(): _close_overlays(); next_round_requested.emit())
 		row.add_child(nxt)
-		var teams := _button("Edit Company")
+		var teams := _button("Edit Battalion")
 		teams.pressed.connect(func(): _close_overlays(); teams_overlay.visible = true)
 		row.add_child(teams)
 		var quit := _button("× Abandon campaign")

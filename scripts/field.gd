@@ -6,11 +6,27 @@ extends Node3D
 ## is stone walls, rail fences, boulders, roofless ruins you can fight from inside, and trees;
 ## a low piece is fired over, a tall piece stops the ball.
 
-const HALF_X := 28.0
-const HALF_Z := 50.0
+const HALF_X := 56.0
+const HALF_Z := 100.0
 const LAYER_WORLD := 1
 const LAYER_GROUND := 4   # terrain and rim: ragdolls only; the living ride height_at()
-const GRID := 1.0   # metres between terrain vertices
+const GRID := 2.0   # metres between terrain vertices
+const SCALE := 2.0  # the Volley Bots layouts below are drawn for a 56 x 100 field; this one is twice each way
+
+## More of each layout's own ground, scattered by a fixed seed so a field is the same every
+## time: a battalion needs ground for every company to fight over.
+const EXTRA := {
+	"Open Plain": {"boulder": 5, "tree": 4},
+	"Walled Farm": {"wall": 7, "fence": 5, "ruin": 2, "boulder": 3, "tree": 6},
+	"Woodland": {"tree": 42, "boulder": 7},
+	"Village": {"ruin": 9, "wall": 6, "fence": 3, "tree": 4},
+	"Hedgerows": {"fence": 14, "tree": 6, "boulder": 2},
+	"Churchyard": {"wall": 6, "boulder": 4, "tree": 6, "ruin": 2},
+	"Orchard": {"tree": 34, "wall": 3},
+	"Crossroads": {"ruin": 4, "fence": 5, "boulder": 4, "wall": 4},
+	"Ridge": {"boulder": 11, "tree": 5},
+	"Sunken Road": {"fence": 6, "boulder": 5, "tree": 5, "ruin": 2},
+}
 
 ## The hills of each layout: x, z, radius_x, radius_z, height (negative digs a hollow).
 ## A hill is a smooth dome; two side by side make a ridge.
@@ -168,7 +184,9 @@ func slope(p: Vector3, dir: Vector3) -> float:
 
 
 func _ready() -> void:
-	hills = HILLS.get(layout_name, [])
+	hills = []
+	for h in HILLS.get(layout_name, []):
+		hills.append([h[0] * SCALE, h[1] * SCALE, h[2] * SCALE, h[3] * SCALE, h[4] * 1.25])
 	_build_terrain()
 
 	var wall_mat := StandardMaterial3D.new()
@@ -186,7 +204,7 @@ func _ready() -> void:
 
 	# ruins become their four walls (with a door in each flank) before anything is built
 	var pieces_src: Array = []
-	for p in LAYOUTS.get(layout_name, LAYOUTS["Walled Farm"]):
+	for p in scaled_pieces(layout_name):
 		if p[5] == "ruin":
 			pieces_src.append_array(_ruin_walls(p))
 		else:
@@ -259,6 +277,62 @@ func _ready() -> void:
 		pieces.append({"rect": rect, "h": float(p[4]), "kind": kind, "tall": tall})
 	for i in pieces.size():
 		_make_spots(i, pieces[i]["rect"], pieces[i]["kind"])
+
+
+## The layout at battalion scale: every piece moved out to twice the distance (walls and fences
+## drawn longer, ruins and rocks a little bigger), then the layout's own kinds of ground added.
+static func scaled_pieces(layout: String) -> Array:
+	var out := []
+	for p in LAYOUTS.get(layout, LAYOUTS["Walled Farm"]):
+		var q: Array = p.duplicate()
+		q[0] = float(q[0]) * SCALE
+		q[1] = float(q[1]) * SCALE
+		match String(q[5]):
+			"wall", "fence":
+				if float(q[2]) > float(q[3]):
+					q[2] = float(q[2]) * 1.7
+				else:
+					q[3] = float(q[3]) * 1.7
+			"ruin":
+				q[2] = float(q[2]) * 1.25
+				q[3] = float(q[3]) * 1.25
+			"boulder":
+				q[2] = float(q[2]) * 1.2
+				q[3] = float(q[3]) * 1.2
+		out.append(q)
+	var r := RandomNumberGenerator.new()
+	r.seed = hash(layout)
+	var extra: Dictionary = EXTRA.get(layout, {})
+	for kind in extra:
+		for n in int(extra[kind]):
+			for attempt in 30:
+				var x := r.randf_range(-HALF_X + 6.0, HALF_X - 6.0)
+				var z := r.randf_range(-HALF_Z + 32.0, HALF_Z - 32.0)
+				var q: Array = []
+				match String(kind):
+					"wall":
+						var l := r.randf_range(8.0, 14.0)
+						q = [x, z, l, 0.6, 1.0, "wall"] if r.randf() < 0.7 else [x, z, 0.6, l, 1.0, "wall"]
+					"fence":
+						var l := r.randf_range(8.0, 14.0)
+						q = [x, z, l, 0.4, 1.1, "fence"] if r.randf() < 0.7 else [x, z, 0.4, l, 1.1, "fence"]
+					"ruin":
+						q = [x, z, r.randf_range(6.0, 7.5), r.randf_range(4.5, 5.5), 1.7, "ruin"]
+					"boulder":
+						q = [x, z, r.randf_range(3.0, 4.0), r.randf_range(2.6, 3.2), r.randf_range(1.8, 2.1), "boulder"]
+					_:
+						q = [x, z, 1.0, 1.0, 5.0, "tree"]
+				var rect := Rect2(float(q[0]) - float(q[2]) * 0.5, float(q[1]) - float(q[3]) * 0.5, float(q[2]), float(q[3])).grow(3.0)
+				var clear := true
+				for o in out:
+					var ro := Rect2(float(o[0]) - float(o[2]) * 0.5, float(o[1]) - float(o[3]) * 0.5, float(o[2]), float(o[3]))
+					if rect.intersects(ro):
+						clear = false
+						break
+				if clear:
+					out.append(q)
+					break
+	return out
 
 
 ## A ruin: four walls 0.5 m thick, no roof, and a 1.8 m doorway in the middle of each flank
@@ -361,7 +435,7 @@ func _build_terrain() -> void:
 	var line_mat := StandardMaterial3D.new()
 	line_mat.albedo_color = Color(0.85, 0.85, 0.8)
 	for zz in [-HALF_Z + 6.0, HALF_Z - 6.0]:
-		for k in range(-13, 14):
+		for k in range(-int(HALF_X / 2.0), int(HALF_X / 2.0) + 1):
 			var l := MeshInstance3D.new()
 			l.mesh = _box_mesh(Vector3(2.0, 0.04, 0.15))
 			l.material_override = line_mat

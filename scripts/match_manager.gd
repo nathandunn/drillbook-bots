@@ -1,15 +1,55 @@
 class_name MatchManager
 extends Node
-## Spawns the two companies, runs the sergeants, keeps the score. The sergeant of a side is
-## simply the steadiest man still standing (highest discipline + nerve); what he "orders" is a
-## blend of his own traits and the line's, and his men follow it only as far as their own
-## traits take them - see soldier.gd.
+## Spawns the two battalions - several companies a side - runs a sergeant per company and a
+## captain per side, keeps the score. A company's sergeant is its steadiest man still standing;
+## what he "orders" is a blend of his own traits and his company's, and his men follow it only as
+## far as their own traits take them - see soldier.gd. The captain only places companies,
+## sends in the reserve and lets a rout in one company be felt by its neighbours.
 
 signal match_started(match_index: int)
 signal match_ended(result: Dictionary)
 
-const MAX_SIZE := 20
+const MAX_SIZE := 20            # men in one company
+const MAX_COMPANIES := 6
+const MAX_SIDE := 80            # men a side, all companies together
+const CO_NAMES := ["A", "B", "C", "D", "E", "F"]
+const SLOTS := ["Left", "Centre-left", "Centre-right", "Right", "Reserve"]
+const SLOT_X := [37.5, 12.5, -12.5, -37.5, 0.0]   # from the side's own left (Red's left is +x)
+const CAPTAIN_TICK := 1.0
+## Battalion presets: [personality, type, slot] per company.
+const BATTALIONS := {
+	"Line battalion": [["Regulars", "Even", "Left"], ["Regulars", "Even", "Centre-left"], ["Regulars", "Even", "Centre-right"], ["Regulars", "Even", "Right"]],
+	"Light battalion": [["Skirmishers", "Marksman", "Left"], ["Regulars", "Even", "Centre-left"], ["Regulars", "Even", "Centre-right"], ["Skirmishers", "Marksman", "Right"]],
+	"Assault column": [["Regulars", "Even", "Left"], ["Shock", "Grenadier", "Centre-left"], ["Shock", "Grenadier", "Centre-right"], ["Regulars", "Even", "Right"]],
+	"Mixed": [["Skirmishers", "Marksman", "Left"], ["Regulars", "Even", "Centre-left"], ["Regulars", "Even", "Centre-right"], ["Shock", "Grenadier", "Reserve"]],
+	"Old guard": [["Veterans", "Ironside", "Left"], ["Veterans", "Ironside", "Centre-left"], ["Veterans", "Marksman", "Centre-right"], ["Skirmishers", "Marksman", "Right"]],
+	"Your drills": [["Sniper", "Marksman", "Left"], ["Line", "Even", "Centre-left"], ["Linebreaker", "Grenadier", "Centre-right"], ["Ninjas", "Runner", "Right"]],
+}
+const BATTALION_HELP := {
+	"Line battalion": "Four companies of regulars shoulder to shoulder across the front",
+	"Light battalion": "Skirmishers on both flanks, a line in the centre",
+	"Assault column": "Two storming companies in the centre, regulars holding the flanks",
+	"Mixed": "A skirmish screen, two line companies, and a storming party in reserve",
+	"Old guard": "Three companies of veterans and a screen of marksmen",
+	"Your drills": "The owner's four drills, one company each: snipers on the left, Line and linebreakers in the centre, ninjas on the right",
+}
 const TEAM_NAMES := ["Red", "Blue"]
+## How each company is told apart on the field: a pattern and an accent colour, by company index.
+## pattern: sash | spots | stripes | bands | cross | chevron
+const MARKS := [
+	{"name": "white sash", "pattern": "sash", "color": Color(0.95, 0.95, 0.92)},
+	{"name": "yellow spots", "pattern": "spots", "color": Color(0.98, 0.85, 0.2)},
+	{"name": "black stripes", "pattern": "stripes", "color": Color(0.08, 0.08, 0.1)},
+	{"name": "white sleeve bands", "pattern": "bands", "color": Color(0.95, 0.95, 0.92)},
+	{"name": "gold cross-belts", "pattern": "cross", "color": Color(0.9, 0.7, 0.15)},
+	{"name": "green chevrons", "pattern": "chevron", "color": Color(0.25, 0.75, 0.35)},
+]
+
+
+static func mark_for(c: int) -> Dictionary:
+	return MARKS[c % MARKS.size()]
+
+
 const TEAM_COLORS := [Color(0.8, 0.22, 0.2), Color(0.2, 0.35, 0.8)]
 const SERGEANT_TICK := 0.5
 const VOLLEY_COOLDOWN := 2.5
@@ -23,21 +63,33 @@ var team_personalities: Array[Personality] = [Personality.preset("Regulars"), Pe
 var team_preset_names: Array[String] = ["Regulars", "Skirmishers"]
 var team_types: Array[SoldierType] = [SoldierType.preset("Even"), SoldierType.preset("Even")]
 var team_type_names: Array[String] = ["Even", "Even"]
-var team_sizes := [TEAM_SIZE, TEAM_SIZE]
-var team_drills: Array = [null, null]        # Drill per side; null = the engine on the dials
-var drill_phase := ["", ""]                   # "set phase X" / "phase is X", per company
-var stand_fast_until := [-1.0, -1.0]
-var rule_tally := [{}, {}]                    # rule line -> ticks it decided, this battle
+var team_sizes := [TEAM_SIZE, TEAM_SIZE]   # the SELECTED company's size, per side (see select_company)
+## The battalions: per side, an Array of company dictionaries
+## {name, size, persona: Personality, persona_name, type: SoldierType, type_name, slot}.
+## team_personalities / team_types / team_sizes / *_names above are a view of the company the
+## setup panel has selected (`sel`), so the one-company editor works unchanged on each company.
+var companies: Array = [[], []]
+var battalion_names := ["Your drills", "Line battalion"]
+var sel := [0, 0]
+var side_n := [0, 0]            # men fielded at the start, per side
+var co_n := {}                  # ck -> men fielded at the start
+var committed := {}             # ck -> x the reserve was sent to
+var co_labels: Dictionary = {}  # ck -> Label3D over the company
+var co_bars: Dictionary = {}    # ck -> [QuadMesh fill, starting men] - strength bar under the label
+var team_drills: Array = [null, null]        # the SELECTED company's drill, per side (view, like team_personalities)
+var drill_phase := {}                         # ck -> "set phase X" / "phase is X", per company
+var stand_fast_until := {}                    # ck -> time the sergeant's "stand fast" runs to
+var rule_tally := {}                          # ck -> {rule line -> ticks it decided}, this battle
 var round_no := 0                             # campaign round, for "round N"
-var _sgt_memory := [{}, {}]
+var _sgt_memory := {}                         # ck -> the drill's "for Ns" memory for that sergeant
 var _plan: Dictionary = {}                    # this tick's sergeant plan from the drill
 ## Campaign rosters: per team, the men to field this round as records
 ## {name, seed, kills, rounds, recruit}. Empty means a fresh company of team_sizes[t].
 var rosters: Array = [[], []]
 
 var soldiers: Array[Soldier] = []
-var orders: Array[Dictionary] = [{}, {}]
-var sergeants: Array = [null, null]
+var orders: Array = [[], []]     # per side, one order dict per company
+var sergeants: Dictionary = {}   # ck -> Soldier
 var elapsed := 0.0
 var time_limit := -1.0
 var running := false
@@ -46,19 +98,25 @@ var rng := RandomNumberGenerator.new()
 var stats := {}
 var _tick := 0.0
 var _spot_claims := {}   # "x,z" -> soldier
-var _last_volley_t := [-100.0, -100.0]
-var _volley_ids := [0, 0]
-var _charge_since := [-1.0, -1.0]
-var _exch := [[0.0, 0.0], [0.0, 0.0]]   # hits given, hits taken - lately (decays)
-var _last_harm_t := 0.0                # when anyone last hit anyone
-var _press_since := [-1.0, -1.0]
-var _fallback_since := [-1.0, -1.0]
+var _last_volley_t := {}   # ck -> time
+var _volley_ids := {}
+var _charge_since := {}
+var _exch := {}            # ck -> [hits given, hits taken] lately (decays)
+var _last_harm_t := 0.0    # when anyone last hit anyone
+var _press_since := {}
+var _fallback_since := {}
+var _captain_tick := 0.0
+var _fight_cache := [[], []]
+var _fight_frame := -1
+var _grid := {}
+var _grid_frame := -1
 var _alive_cache: Array[Soldier] = []
 var _cache_frame := -1
 var _hist_frame := -1
 
 
-## Put a side on a drill: its rules, and its dials as the personality everything else reads.
+## Put the selected company of a side on a drill: its rules, and its dials as the personality
+## everything else reads. The company itself is written by store_company.
 func set_drill(t: int, drill_name: String) -> bool:
 	var d := Drill.named(drill_name)
 	if d == null:
@@ -67,6 +125,140 @@ func set_drill(t: int, drill_name: String) -> bool:
 	team_personalities[t] = d.personality()
 	team_preset_names[t] = d.name
 	return true
+
+
+## The rule tally of one company (created on first use).
+func tally_for(t: int, c: int) -> Dictionary:
+	var k := ck(t, c)
+	if not rule_tally.has(k):
+		rule_tally[k] = {}
+	return rule_tally[k]
+
+
+func _init() -> void:
+	set_battalion(0, "Your drills")
+	set_battalion(1, "Line battalion")
+
+
+## A short name for what a side fielded: its preset if it still is one, else the companies.
+func battalion_label(t: int) -> String:
+	var cos: Array = companies[t]
+	var spec: Array = BATTALIONS.get(battalion_names[t], [])
+	if spec.size() == cos.size():
+		var same := true
+		for c in cos.size():
+			var co: Dictionary = cos[c]
+			if co["persona_name"] != spec[c][0] or co["type_name"] != spec[c][1] or co["slot"] != spec[c][2]:
+				same = false
+				break
+		if same:
+			return battalion_names[t]
+	var parts := []
+	for co in cos:
+		parts.append(String(co["persona_name"]).substr(0, 4))
+	return "/".join(parts)
+
+
+static func ck(t: int, c: int) -> int:
+	return t * MAX_COMPANIES + c
+
+
+## A company fights by a drill; persona_name is the drill's name and persona its dials.
+func new_company(t: int, c: int, persona_name: String, type_name: String, slot: String, size: int) -> Dictionary:
+	var d := Drill.named(persona_name)
+	return {"name": CO_NAMES[c] if c < CO_NAMES.size() else str(c + 1), "size": size,
+		"drill": d, "persona": d.personality() if d != null else Personality.preset(persona_name),
+		"persona_name": d.name if d != null else persona_name,
+		"type": SoldierType.preset(type_name), "type_name": type_name, "slot": slot}
+
+
+## Fill a side from a battalion preset, `per` men a company (or, with keep_sizes, companies that
+## already exist keep their size). The company being edited stays selected.
+func set_battalion(t: int, bname: String, per: int = 10, keep_sizes := false) -> void:
+	var spec: Array = BATTALIONS.get(bname, BATTALIONS["Line battalion"])
+	var old: Array = companies[t] if t < companies.size() and companies[t] is Array else []
+	var cos := []
+	for c in spec.size():
+		var row: Array = spec[c]
+		var n: int = int(old[c]["size"]) if keep_sizes and c < old.size() else per
+		cos.append(new_company(t, c, row[0], row[1], row[2], n))
+	companies[t] = cos
+	battalion_names[t] = bname
+	select_company(t, clampi(sel[t], 0, cos.size() - 1))
+
+
+## Load a company into the one-company view the editor works on.
+func select_company(t: int, c: int) -> void:
+	var cos: Array = companies[t]
+	c = clampi(c, 0, cos.size() - 1)
+	sel[t] = c
+	var co: Dictionary = cos[c]
+	team_personalities[t] = co["persona"]
+	team_preset_names[t] = co["persona_name"]
+	team_drills[t] = co.get("drill")
+	team_types[t] = co["type"]
+	team_type_names[t] = co["type_name"]
+	team_sizes[t] = co["size"]
+
+
+## Write the view back into the selected company.
+func store_company(t: int) -> void:
+	var co: Dictionary = companies[t][sel[t]]
+	co["persona"] = team_personalities[t]
+	co["persona_name"] = team_preset_names[t]
+	co["drill"] = team_drills[t]
+	co["type"] = team_types[t]
+	co["type_name"] = team_type_names[t]
+	co["size"] = clampi(int(team_sizes[t]), 1, MAX_SIZE)
+
+
+func side_total(t: int) -> int:
+	var n := 0
+	for co in companies[t]:
+		n += int(co["size"])
+	return n
+
+
+func add_company(t: int) -> void:
+	var cos: Array = companies[t]
+	if cos.size() >= MAX_COMPANIES:
+		return
+	var src: Dictionary = cos[sel[t]]
+	var co := new_company(t, cos.size(), src["persona_name"], src["type_name"], "Reserve", mini(int(src["size"]), MAX_SIDE - side_total(t)))
+	co["persona"] = (src["persona"] as Personality).jittered(rng, 0.0)
+	co["type"] = (src["type"] as SoldierType).copy()
+	if int(co["size"]) < 1:
+		return
+	cos.append(co)
+	select_company(t, cos.size() - 1)
+
+
+func remove_company(t: int) -> void:
+	var cos: Array = companies[t]
+	if cos.size() <= 1:
+		return
+	cos.remove_at(sel[t])
+	for c in cos.size():
+		cos[c]["name"] = CO_NAMES[c]
+	select_company(t, mini(sel[t], cos.size() - 1))
+
+
+## Where a company stands across the front: its slot's x in the side's own frame.
+func band_x(t: int, c: int) -> float:
+	var k := ck(t, c)
+	if committed.has(k):
+		return committed[k]
+	var slot: String = companies[t][c]["slot"]
+	var i := SLOTS.find(slot)
+	return SLOT_X[maxi(i, 0)] * (1.0 if t == 0 else -1.0)
+
+
+func is_reserve(t: int, c: int) -> bool:
+	return String(companies[t][c]["slot"]) == "Reserve" and not committed.has(ck(t, c))
+
+
+func toward(t: int) -> float:
+	return signf(-home_z(t))
 
 
 func home_z(team: int) -> float:
@@ -83,47 +275,95 @@ func start_match(seed_value: int = -1) -> void:
 	elapsed = 0.0
 	stats = _fresh_stats()
 	for t in 2:
+		store_company(t)
 		var roster: Array = rosters[t]
-		var n: int = roster.size() if not roster.is_empty() else clampi(int(team_sizes[t]), 1, MAX_SIZE)
-		var spacing := 1.0
-		var order := _blank_order(t, n)
-		order["spacing"] = spacing
-		orders[t] = order
-		for i in n:
-			var rec: Dictionary = roster[i] if not roster.is_empty() else {}
-			var s := Soldier.new()
-			s.team = t
-			s.team_color = TEAM_COLORS[t]
-			s.soldier_name = rec.get("name", "%s %d" % [TEAM_NAMES[t][0], i + 1])
-			# a man's own quirks come from his seed, so a veteran is the same man every round
-			var prng := RandomNumberGenerator.new()
-			prng.seed = int(rec.get("seed", rng.randi()))
-			s.personality = team_personalities[t].jittered(prng, 0.1)
-			s.drill = team_drills[t]
-			s.soldier_type = team_types[t].jittered(prng, 0.02)
-			s.kills = int(rec.get("kills", 0))
-			s.rounds = int(rec.get("rounds", 0))
-			s.record_seed = prng.seed
-			s.manager = self
-			s.field = field
-			s.slot = i
-			s.rng = RandomNumberGenerator.new()
-			s.rng.seed = rng.randi()
-			var x := (float(i) - float(n - 1) * 0.5) * spacing
-			s.position = Vector3(x, field.height_at(x, home_z(t)), home_z(t))
-			s.rotation.y = PI if t == 0 else 0.0
-			s.fired.connect(_on_fired)
-			s.damaged.connect(_on_damaged)
-			s.died.connect(_on_died)
-			s.routed.connect(_on_routed)
-			s.fled.connect(_on_fled)
-			s.thrust.connect(_on_thrust)
-			world.add_child(s)
-			soldiers.append(s)
-		# face the enemy
-		for s in soldiers:
-			if s.team == t:
+		var cos: Array = companies[t]
+		orders[t] = []
+		side_n[t] = 0
+		var per_slot := {}
+		for c in cos.size():
+			var co: Dictionary = cos[c]
+			var k := ck(t, c)
+			# this company's men: its campaign records, or a fresh company of its size
+			var recs := []
+			for r in roster:
+				if int(r.get("co", 0)) == c:
+					recs.append(r)
+			var n: int = recs.size() if not roster.is_empty() else clampi(int(co["size"]), 1, MAX_SIZE)
+			co_n[k] = n
+			side_n[t] += n
+			var order := _blank_order(t, n)
+			var reserve: bool = String(co["slot"]) == "Reserve"
+			var stack: int = int(per_slot.get(co["slot"], 0))
+			per_slot[co["slot"]] = stack + 1
+			var z0: float = home_z(t) + toward(t) * (0.0 if reserve else 22.0) - toward(t) * 8.0 * stack
+			order["line_z"] = z0
+			order["rally_z"] = z0
+			order["center_x"] = band_x(t, c)
+			order["spacing"] = 1.2
+			orders[t].append(order)
+			_last_volley_t[k] = -100.0
+			_volley_ids[k] = 0
+			_charge_since[k] = -1.0
+			_press_since[k] = -1.0
+			_fallback_since[k] = -1.0
+			_exch[k] = [0.0, 0.0]
+			drill_phase[k] = ""
+			stand_fast_until[k] = -1.0
+			rule_tally[k] = {}
+			_sgt_memory[k] = {}
+			if n == 0:
+				continue
+			for i in n:
+				var rec: Dictionary = recs[i] if not roster.is_empty() else {}
+				var s := Soldier.new()
+				s.team = t
+				s.company = c
+				s.team_color = TEAM_COLORS[t]
+				s.soldier_name = rec.get("name", "%s%s %d" % [TEAM_NAMES[t][0], co["name"], i + 1])
+				# a man's own quirks come from his seed, so a veteran is the same man every round
+				var prng := RandomNumberGenerator.new()
+				prng.seed = int(rec.get("seed", rng.randi()))
+				s.personality = (co["persona"] as Personality).jittered(prng, 0.1)
+				s.drill = co.get("drill")
+				s.soldier_type = (co["type"] as SoldierType).jittered(prng, 0.02)
+				s.kills = int(rec.get("kills", 0))
+				s.rounds = int(rec.get("rounds", 0))
+				s.record_seed = prng.seed
+				s.manager = self
+				s.field = field
+				s.slot = i
+				s.rng = RandomNumberGenerator.new()
+				s.rng.seed = rng.randi()
+				var x: float = band_x(t, c) + (float(i) - float(n - 1) * 0.5) * 1.2
+				s.position = Vector3(x, field.height_at(x, z0), z0)
 				s.rotation.y = 0.0 if t == 0 else PI
+				s.fired.connect(_on_fired)
+				s.damaged.connect(_on_damaged)
+				s.died.connect(_on_died)
+				s.routed.connect(_on_routed)
+				s.fled.connect(_on_fled)
+				s.thrust.connect(_on_thrust)
+				world.add_child(s)
+				soldiers.append(s)
+			if not headless:
+				var lab := Label3D.new()
+				lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+				lab.no_depth_test = true
+				lab.fixed_size = true
+				lab.pixel_size = LABEL_PX
+				lab.font_size = 16
+				lab.outline_size = 3
+				lab.modulate = TEAM_COLORS[t].lightened(0.45)
+				lab.text = String(co["name"])
+				lab.position = Vector3(band_x(t, c), z0 + 5.0, z0)
+				lab.position = Vector3(band_x(t, c), field.height_at(band_x(t, c), z0) + 5.0, z0)
+				world.add_child(lab)
+				co_labels[k] = lab
+				# strength bar under the letter: starts full, shrinks as the company loses men
+				var fill := _bar_quad(lab, Color(0.1, 0.1, 0.1, 0.75), BAR_W + 0.002, BAR_H + 0.002, 0.0, 0)
+				fill = _bar_quad(lab, TEAM_COLORS[t].lightened(0.35), BAR_W, BAR_H, 0.0, 1)
+				co_bars[k] = [fill, n]
 	running = true
 	match_started.emit(match_index)
 
@@ -134,6 +374,13 @@ func _blank_order(t: int, n: int) -> Dictionary:
 
 
 func clear() -> void:
+	for k in co_labels:
+		if is_instance_valid(co_labels[k]):
+			co_labels[k].queue_free()
+	co_labels.clear()
+	co_bars.clear()
+	committed.clear()
+	sergeants.clear()
 	for s in soldiers:
 		if is_instance_valid(s):
 			if s.ragdoll != null and is_instance_valid(s.ragdoll):
@@ -141,16 +388,18 @@ func clear() -> void:
 			s.queue_free()
 	soldiers.clear()
 	_spot_claims.clear()
-	_last_volley_t = [-100.0, -100.0]
-	_charge_since = [-1.0, -1.0]
-	_fallback_since = [-1.0, -1.0]
-	_exch = [[0.0, 0.0], [0.0, 0.0]]
+	_last_volley_t = {}
+	_charge_since = {}
+	_fallback_since = {}
+	_exch = {}
 	_last_harm_t = 0.0
-	_press_since = [-1.0, -1.0]
-	drill_phase = ["", ""]
-	stand_fast_until = [-1.0, -1.0]
-	rule_tally = [{}, {}]
-	_sgt_memory = [{}, {}]
+	_press_since = {}
+	_fight_frame = -1
+	_grid_frame = -1
+	drill_phase = {}
+	stand_fast_until = {}
+	rule_tally = {}
+	_sgt_memory = {}
 	running = false
 	_cache_frame = -1
 
@@ -179,11 +428,40 @@ func alive_soldiers() -> Array[Soldier]:
 
 ## Men still in the fight: alive, on the field, and not running for the rear.
 func fighting(team: int) -> Array[Soldier]:
+	# asked for hundreds of times a frame with a battalion a side: worked out once per frame
+	var f := Engine.get_physics_frames()
+	if f != _fight_frame:
+		_fight_frame = f
+		var a: Array[Soldier] = []
+		var b: Array[Soldier] = []
+		for s in alive_soldiers():
+			if not s.is_routed:
+				if s.team == 0:
+					a.append(s)
+				else:
+					b.append(s)
+		_fight_cache = [a, b]
+	return _fight_cache[team]
+
+
+func fighting_company(team: int, c: int) -> Array[Soldier]:
 	var out: Array[Soldier] = []
-	for s in alive_soldiers():
-		if s.team == team and not s.is_routed:
+	for s in fighting(team):
+		if s.company == c:
 			out.append(s)
 	return out
+
+
+## Losses of one company, against the men it fielded.
+func company_losses(t: int, c: int) -> float:
+	var n: int = int(co_n.get(ck(t, c), 0))
+	if n == 0:
+		return 1.0
+	var a := 0
+	for s in alive_soldiers():
+		if s.team == t and s.company == c:
+			a += 1
+	return 1.0 - float(a) / float(n)
 
 
 func alive_count(team: int) -> int:
@@ -195,7 +473,7 @@ func alive_count(team: int) -> int:
 
 
 func loss_fraction(team: int) -> float:
-	var n: int = team_sizes[team]
+	var n: int = side_n[team]
 	return 1.0 - float(alive_count(team)) / maxf(float(n), 1.0)
 
 
@@ -277,7 +555,23 @@ func stray_victim(s: Soldier, from: Vector3, to: Vector3) -> Soldier:
 func separation(s: Soldier) -> Vector3:
 	var push := Vector3.ZERO
 	var p := s.global_position
-	for o in alive_soldiers():
+	# a 4 m grid, rebuilt once a frame: a man only looks at the nine cells round him
+	var f := Engine.get_physics_frames()
+	if f != _grid_frame:
+		_grid_frame = f
+		_grid = {}
+		for o in alive_soldiers():
+			var key := Vector2i(floori(o.global_position.x / 4.0), floori(o.global_position.z / 4.0))
+			if not _grid.has(key):
+				_grid[key] = []
+			_grid[key].append(o)
+	var cx := floori(p.x / 4.0)
+	var cz := floori(p.z / 4.0)
+	var near := []
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			near.append_array(_grid.get(Vector2i(cx + dx, cz + dz), []))
+	for o: Soldier in near:
 		if o == s:
 			continue
 		var d := p - o.global_position
@@ -290,7 +584,7 @@ func separation(s: Soldier) -> Vector3:
 
 ## How far this man is ahead (toward the enemy) of the mean of his fighting mates.
 func ahead_of_line(s: Soldier) -> float:
-	var men := fighting(s.team)
+	var men := fighting_company(s.team, s.company)
 	if men.size() < 2:
 		return 0.0
 	var z := 0.0
@@ -313,6 +607,69 @@ func claim_spot(s: Soldier, spot: Dictionary) -> bool:
 	return false
 
 
+# ---------------------------------------------------------------- the company labels
+
+const LABEL_PX := 0.0008      # company label: world units per font pixel, at fixed screen size
+const BAR_W := 0.028          # strength bar, same fixed-size units as the label
+const BAR_H := 0.0035
+const BAR_Y := -0.013         # below the letter
+
+
+## A flat billboard quad that keeps its size on screen, drawn over everything, as a child of `lab`.
+func _bar_quad(lab: Node3D, col: Color, w: float, h: float, x: float, prio: int) -> QuadMesh:
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(w, h)
+	q.center_offset = Vector3(x, BAR_Y, 0)
+	mi.mesh = q
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.fixed_size = true
+	m.no_depth_test = true
+	m.render_priority = prio
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lab.add_child(mi)
+	return q
+
+
+const MODE_GLYPH := {"advance": "»", "hold": "■", "at_will": "■", "charge": "⚔", "fallback": "«"}
+
+
+func _process(_delta: float) -> void:
+	if not running or co_labels.is_empty():
+		return
+	for t in 2:
+		for c in (companies[t] as Array).size():
+			var k := ck(t, c)
+			if not co_labels.has(k):
+				continue
+			var lab: Label3D = co_labels[k]
+			var men := fighting_company(t, c)
+			if men.is_empty():
+				lab.visible = false
+				continue
+			var cen := Vector3.ZERO
+			var top := -INF
+			for m in men:
+				cen += m.global_position
+				top = maxf(top, m.global_position.y)
+			cen /= men.size()
+			lab.visible = true
+			lab.position = Vector3(cen.x, top + 4.0, cen.z)
+			var mode: String = orders[t][c].get("mode", "")
+			var glyph: String = "·" if is_reserve(t, c) else MODE_GLYPH.get(mode, "")
+			lab.text = "%s %s" % [companies[t][c]["name"], glyph]
+			if co_bars.has(k):
+				var q: QuadMesh = co_bars[k][0]
+				var frac: float = clampf(float(men.size()) / maxf(float(co_bars[k][1]), 1.0), 0.0, 1.0)
+				q.size.x = BAR_W * frac
+				q.center_offset = Vector3(-BAR_W * (1.0 - frac) * 0.5, BAR_Y, 0)
+
+
 # ---------------------------------------------------------------- the sergeants
 
 func _physics_process(delta: float) -> void:
@@ -320,12 +677,19 @@ func _physics_process(delta: float) -> void:
 		return
 	elapsed += delta
 	for t in 2:
-		orders[t]["volley_age"] = elapsed - _last_volley_t[t]
+		for c in (orders[t] as Array).size():
+			orders[t][c]["volley_age"] = elapsed - float(_last_volley_t.get(ck(t, c), -100.0))
 	_tick -= delta
 	if _tick <= 0.0:
 		_tick = SERGEANT_TICK
 		for t in 2:
-			_run_sergeant(t)
+			for c in (orders[t] as Array).size():
+				_run_sergeant(t, c)
+	_captain_tick -= delta
+	if _captain_tick <= 0.0:
+		_captain_tick = CAPTAIN_TICK
+		for t in 2:
+			_run_captain(t)
 	# the fight is over when one side has nobody left standing on the field
 	var f0 := fighting(0).size()
 	var f1 := fighting(1).size()
@@ -344,9 +708,10 @@ func _physics_process(delta: float) -> void:
 
 ## The line's mind. Traits are the sergeant's own blended half-and-half with his men's mean,
 ## so a company of cowards with one iron sergeant still holds better than one without him.
-func _run_sergeant(t: int) -> void:
-	var men := fighting(t)
-	var order := orders[t]
+func _run_sergeant(t: int, c: int) -> void:
+	var k := ck(t, c)
+	var men := fighting_company(t, c)
+	var order: Dictionary = orders[t][c]
 	order["count"] = maxi(men.size(), 1)
 	order["alone"] = men.size() <= 2
 	if men.is_empty():
@@ -359,8 +724,8 @@ func _run_sergeant(t: int) -> void:
 		if v > best:
 			best = v
 			sgt = m
-	if sergeants[t] != sgt:
-		sergeants[t] = sgt
+	if sergeants.get(k) != sgt:
+		sergeants[k] = sgt
 		order["sergeant"] = sgt.soldier_name
 	var sorted := men.duplicate()
 	sorted.sort_custom(func(a, b): return a.global_position.x < b.global_position.x)
@@ -383,23 +748,31 @@ func _run_sergeant(t: int) -> void:
 	for m in men:
 		centre += m.global_position
 	centre /= men.size()
+	# the enemy this company faces: the ten men of theirs nearest to it, not the whole battalion
+	var by_d := []
+	for e in enemies:
+		by_d.append([e.global_position.distance_squared_to(centre), e])
+	by_d.sort_custom(func(a, b): return a[0] < b[0])
+	var near_e := []
+	for i in mini(10, by_d.size()):
+		near_e.append(by_d[i][1])
 	var enemy_centre := Vector3.ZERO
 	var nearest_d := INF
-	for e in enemies:
+	for e in near_e:
 		enemy_centre += e.global_position
 		nearest_d = minf(nearest_d, e.global_position.distance_to(centre))
-	if not enemies.is_empty():
-		enemy_centre /= enemies.size()
+	if not near_e.is_empty():
+		enemy_centre /= near_e.size()
 	var toward := signf(-home_z(t))   # +1 for red (marching +z), -1 for blue
 	var loaded_frac := 0.0
 	var in_range := 0
 	var engage: float = 68.0 - 42.0 * float(mix["patience"])
 	# can the line see the enemy at all? A hill between them and there is nothing to hold for
 	var seen := true
-	if not enemies.is_empty() and not field.hills.is_empty():
+	if not near_e.is_empty() and not field.hills.is_empty() and nearest_d < Soldier.MAX_RANGE + 10.0:
 		seen = false
 		var eye := Vector3(0, Soldier.EYE_HEIGHT, 0)
-		for e in enemies:
+		for e in near_e:
 			if field.line_of_fire(sgt.global_position + eye, e.global_position + Vector3(0, 1.0, 0)) > 0.0:
 				seen = true
 				break
@@ -421,7 +794,9 @@ func _run_sergeant(t: int) -> void:
 
 	order["spacing"] = 0.8 + (1.0 - mix["cohesion"]) * 3.0
 	# the line's centre creeps toward the enemy's, a sergeant with cohesion keeps it together
-	order["center_x"] = lerpf(order["center_x"], clampf(enemy_centre.x if not enemies.is_empty() else 0.0, -18.0, 18.0), 0.06)
+	# ... within its own stretch of the front: the captain gives each company a band
+	var bx := band_x(t, c)
+	order["center_x"] = lerpf(order["center_x"], clampf(enemy_centre.x if not near_e.is_empty() else bx, bx - 15.0, bx + 15.0), 0.06)
 
 	var mean_courage := 0.0
 	for m in men:
@@ -431,45 +806,53 @@ func _run_sergeant(t: int) -> void:
 
 	# --- the exchange: a sergeant can count. Taking two balls for every one he gives while
 	# the enemy sits behind walls is a firefight lost, and standing in it is not a plan.
-	_exch[t][0] *= 0.98
-	_exch[t][1] *= 0.98
-	var given: float = _exch[t][0]
-	var taken: float = _exch[t][1]
+	_exch[k][0] *= 0.98
+	_exch[k][1] *= 0.98
+	var given: float = _exch[k][0]
+	var taken: float = _exch[k][1]
 	var losing_fire: bool = not enemies.is_empty() and taken >= 2.0 * given + 2.0 and nearest_d < engage + 15.0
 	# ... and if nobody has hurt anybody for a while, somebody has to go and find the enemy
 	var stalled: bool = not enemies.is_empty() and elapsed > 30.0 and elapsed - _last_harm_t > 25.0 and nearest_d > 22.0
-	var pressing: bool = _press_since[t] >= 0.0
+	var pressing: bool = _press_since[k] >= 0.0
 	if pressing and (nearest_d < 22.0 or enemies.is_empty()):
-		_press_since[t] = -1.0
+		_press_since[k] = -1.0
 		pressing = false
 	if stalled and not pressing and mix["aggression"] >= 0.15:
-		_press_since[t] = elapsed
+		_press_since[k] = elapsed
 		pressing = true
+
+	# --- the reserve stands where it was put until the captain sends it in, or the enemy comes to it
+	if is_reserve(t, c):
+		if nearest_d <= engage:
+			committed[k] = clampf(centre.x, -Field.HALF_X + 10.0, Field.HALF_X - 10.0)
+		else:
+			order["mode"] = "hold"
+			return
 
 	# --- the drill: the sergeant's rules make a plan; whatever the plan leaves out, the engine decides
 	_plan = {}
-	var drill: Drill = team_drills[t]
+	var drill: Drill = companies[t][c].get("drill")
 	if drill != null and not drill.sergeant_rules.is_empty():
-		var ctx := {"t": t, "men": men, "enemies": enemies, "nearest_d": nearest_d, "losses": losses,
+		var ctx := {"t": t, "co": c, "men": men, "enemies": near_e, "nearest_d": nearest_d, "losses": company_losses(t, c),
 			"loaded_frac": loaded_frac, "courage": mean_courage, "seen": seen, "centre": centre,
 			"enemy_centre": enemy_centre}
 		drill.run(drill.sergeant_rules, func(id: String, args: Array) -> bool: return _sgt_sense(id, args, ctx),
-			func(id: String, args: Array) -> bool: return _sgt_act(id, args, ctx), _sgt_memory[t], elapsed, rule_tally[t])
+			func(id: String, args: Array) -> bool: return _sgt_act(id, args, ctx), _sgt_memory[k], elapsed, tally_for(t, c))
 		if _plan.get("press", false) and not pressing:
-			_press_since[t] = elapsed
+			_press_since[k] = elapsed
 			pressing = true
 
 	# --- mode
 	var mode: String = order["mode"]
 	if _plan.has("mode"):
-		mode = _plan_mode(t, mode, centre, toward, enemies)
+		mode = _plan_mode(t, c, mode, centre, toward, enemies)
 	elif mode == "charge":
 		# the charge runs until the enemy is broken off or the blood cools
-		if enemies.is_empty() or nearest_d > 40.0 or (elapsed - _charge_since[t] > 25.0 and nearest_d > 6.0):
+		if enemies.is_empty() or nearest_d > 40.0 or (elapsed - _charge_since[k] > 25.0 and nearest_d > 6.0):
 			mode = "advance"
 	elif mode == "fallback":
 		var rallied := absf(centre.z - order["rally_z"]) < 6.0
-		if rallied and (loaded_frac > 0.6 or elapsed - _fallback_since[t] > 20.0):
+		if rallied and (loaded_frac > 0.6 or elapsed - _fallback_since[k] > 20.0):
 			mode = "hold"
 	if not _plan.has("mode") and mode != "charge" and mode != "fallback":
 		# fall back: losses or a bad exchange, and a sergeant with the nerve to admit it
@@ -477,12 +860,12 @@ func _run_sergeant(t: int) -> void:
 		if losses > break_point and mean_courage < 0.45 and mix["aggression"] < 0.75 and nearest_d < 40.0:
 			mode = "fallback"
 			order["rally_z"] = clampf(centre.z - toward * 22.0, -Field.HALF_Z + 4.0, Field.HALF_Z - 4.0)
-			_fallback_since[t] = elapsed
+			_fallback_since[k] = elapsed
 			stats["fallbacks"][t] += 1
 		else:
 			# the charge: close enough, and either the volley is just gone or the fight is going our way
 			var charge_range: float = 12.0 + 32.0 * float(mix["aggression"])
-			var just_volleyed: bool = elapsed - float(_last_volley_t[t]) < 4.0
+			var just_volleyed: bool = elapsed - float(_last_volley_t[k]) < 4.0
 			var ratio := strength_ratio(t)
 			if losing_fire:
 				# the bayonet decides what the rifle cannot: a sergeant with any blood in him
@@ -492,18 +875,18 @@ func _run_sergeant(t: int) -> void:
 				and (just_volleyed or loaded_frac < 0.35 or mix["aggression"] > 0.85 or losing_fire) \
 				and ratio > (0.4 if losing_fire else 0.5 + (1.0 - mix["aggression"]) * 0.6):
 				mode = "charge"
-				_charge_since[t] = elapsed
-				_press_since[t] = -1.0
+				_charge_since[k] = elapsed
+				_press_since[k] = -1.0
 				stats["charges"][t] += 1
 			elif losing_fire and mix["aggression"] <= 0.2 and mix["cover"] < 0.5:
 				mode = "fallback"
 				order["rally_z"] = clampf(centre.z - toward * 25.0, -Field.HALF_Z + 4.0, Field.HALF_Z - 4.0)
-				_fallback_since[t] = elapsed
+				_fallback_since[k] = elapsed
 				stats["fallbacks"][t] += 1
 			elif losing_fire and mix["aggression"] > 0.2:
 				mode = "advance"
 				if not pressing:
-					_press_since[t] = elapsed
+					_press_since[k] = elapsed
 					pressing = true
 			elif not enemies.is_empty() and nearest_d <= engage and not pressing:
 				mode = "hold"
@@ -516,7 +899,7 @@ func _run_sergeant(t: int) -> void:
 	if _plan.has("spacing"):
 		order["spacing"] = _plan["spacing"]
 	if _plan.has("wheel"):
-		order["center_x"] = clampf(float(order["center_x"]) + float(_plan["wheel"]) * toward * 1.5, -20.0, 20.0)
+		order["center_x"] = clampf(float(order["center_x"]) + float(_plan["wheel"]) * toward * 1.5, bx - 20.0, bx + 20.0)
 	if mode == "charge":
 		# a line coming on with the bayonet is a fearful thing before it ever arrives
 		for e in enemies:
@@ -567,10 +950,10 @@ func _run_sergeant(t: int) -> void:
 				ready += 1
 		var need: float = float(_plan.get("volley_need", 0.45 + 0.4 * float(mix["discipline"])))
 		var cooldown: float = VOLLEY_COOLDOWN + 4.0 * mix["patience"]
-		if _plan.get("volley_now", false) and float(ready) / men.size() >= 0.3 and elapsed - _last_volley_t[t] > 1.5:
-			_call_volley(t)
-		elif float(ready) / men.size() >= need and elapsed - _last_volley_t[t] > cooldown:
-			_call_volley(t)
+		if _plan.get("volley_now", false) and float(ready) / men.size() >= 0.3 and elapsed - _last_volley_t[k] > 1.5:
+			_call_volley(t, c)
+		elif float(ready) / men.size() >= need and elapsed - _last_volley_t[k] > cooldown:
+			_call_volley(t, c)
 		elif _plan.get("at_will", false) or (not _plan.has("volley_at") and not _plan.has("volley_need") and mix["discipline"] < 0.35):
 			order["mode"] = "at_will" if mode == "hold" else mode
 
@@ -578,14 +961,16 @@ func _run_sergeant(t: int) -> void:
 # ---------------------------------------------------------------- the drill's words, for a sergeant
 
 ## Sensors every drill word shares, man or sergeant; null if the id is not one of them.
-func shared_sense(id: String, args: Array, t: int, r: RandomNumberGenerator) -> Variant:
+## `c` is the asking company: the exchange, the phase and "my losses" are that company's own.
+func shared_sense(id: String, args: Array, t: int, c: int, r: RandomNumberGenerator) -> Variant:
+	var k := ck(t, c)
 	match id:
 		"always":
 			return true
 		"losing_exchange":
-			return _exch[t][1] >= 2.0 * _exch[t][0] + 2.0
+			return _exch[k][1] >= 2.0 * _exch[k][0] + 2.0
 		"winning_exchange":
-			return _exch[t][0] >= 2.0 * _exch[t][1] + 2.0
+			return _exch[k][0] >= 2.0 * _exch[k][1] + 2.0
 		"no_harm_for":
 			return elapsed - _last_harm_t > float(args[0])
 		"time_over":
@@ -599,11 +984,11 @@ func shared_sense(id: String, args: Array, t: int, r: RandomNumberGenerator) -> 
 		"field_is":
 			return field != null and field.layout_name.to_lower() == String(args[0]).to_lower()
 		"phase_is":
-			return String(drill_phase[t]) == String(args[0])
+			return String(drill_phase.get(k, "")) == String(args[0])
 		"chance":
 			return r.randf() < float(args[0])
 		"losses_over":
-			return loss_fraction(t) > float(args[0])
+			return company_losses(t, c) > float(args[0])
 		"enemy_losses_over":
 			return loss_fraction(1 - t) > float(args[0])
 		"enemy_outnumbers":
@@ -653,7 +1038,8 @@ func shared_sense(id: String, args: Array, t: int, r: RandomNumberGenerator) -> 
 
 func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 	var t: int = c["t"]
-	var shared: Variant = shared_sense(id, args, t, rng)
+	var co: int = c["co"]
+	var shared: Variant = shared_sense(id, args, t, co, rng)
 	if shared != null:
 		return shared
 	var men: Array = c["men"]
@@ -665,7 +1051,13 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 		"enemy_beyond":
 			return nd > float(args[0])
 		"enemy_charging":
-			return String(orders[1 - t].get("mode", "")) == "charge" and nd < 50.0
+			# any company of theirs among the men this company faces has gone in with the bayonet
+			if nd >= 50.0:
+				return false
+			for e in enemies:
+				if e.charging or String(orders[1 - t][e.company].get("mode", "")) == "charge":
+					return true
+			return false
 		"enemy_in_cover":
 			var k := 0
 			for e in enemies:
@@ -681,7 +1073,7 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 		"enemy_hidden":
 			return not c["seen"]
 		"enemy_reloading":
-			return shared_sense("enemy_loaded_under", [0.5], t, rng)
+			return shared_sense("enemy_loaded_under", [0.5], t, co, rng)
 		"spotted":
 			# a company is spotted when a third of the enemy men within 90 m are looking its way
 			if not bool(c["seen"]):
@@ -718,16 +1110,17 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 		"alone":
 			return men.size() <= 2
 		"volley_called":
-			return float(orders[t].get("volley_age", 999.0)) < 0.7
+			return float(orders[t][co].get("volley_age", 999.0)) < 0.7
 		"mode_is":
-			return String(orders[t].get("mode", "")) == Soldier._mode_word(String(args[0]))
+			return String(orders[t][co].get("mode", "")) == Soldier._mode_word(String(args[0]))
 		"charging":
-			return String(orders[t].get("mode", "")) == "charge"
+			return String(orders[t][co].get("mode", "")) == "charge"
 	return false
 
 
 func _sgt_act(id: String, args: Array, c: Dictionary) -> bool:
 	var t: int = c["t"]
+	var k := ck(t, int(c["co"]))
 	var enemies: Array = c["enemies"]
 	match id:
 		"advance", "advance_slow", "advance_fast":
@@ -788,24 +1181,25 @@ func _sgt_act(id: String, args: Array, c: Dictionary) -> bool:
 			_plan["wheel"] = -1.0
 			return true
 		"stand_fast":
-			stand_fast_until[t] = elapsed + SERGEANT_TICK + 0.1
+			stand_fast_until[k] = elapsed + SERGEANT_TICK + 0.1
 			return true
 		"set_phase":
-			drill_phase[t] = String(args[0])
+			drill_phase[k] = String(args[0])
 			return true
 	return false
 
 
 ## The mode the plan asks for, with the bookkeeping a change of mode needs.
-func _plan_mode(t: int, current: String, centre: Vector3, toward: float, enemies: Array) -> String:
+func _plan_mode(t: int, c: int, current: String, centre: Vector3, toward: float, enemies: Array) -> String:
+	var k := ck(t, c)
 	var want: String = _plan["mode"]
 	if want == "charge" and current != "charge":
-		_charge_since[t] = elapsed
-		_press_since[t] = -1.0
+		_charge_since[k] = elapsed
+		_press_since[k] = -1.0
 		stats["charges"][t] += 1
 	elif want == "fallback" and current != "fallback":
-		orders[t]["rally_z"] = clampf(centre.z - toward * float(_plan.get("fall_dist", 22.0)), -Field.HALF_Z + 4.0, Field.HALF_Z - 4.0)
-		_fallback_since[t] = elapsed
+		orders[t][c]["rally_z"] = clampf(centre.z - toward * float(_plan.get("fall_dist", 22.0)), -Field.HALF_Z + 4.0, Field.HALF_Z - 4.0)
+		_fallback_since[k] = elapsed
 		stats["fallbacks"][t] += 1
 	return want
 
@@ -836,11 +1230,12 @@ func _cover_row_ahead(t: int, line_z: float, engage: float, enemy_centre: Vector
 	return best
 
 
-func _call_volley(t: int) -> void:
-	_last_volley_t[t] = elapsed
-	_volley_ids[t] += 1
-	orders[t]["volley_id"] = _volley_ids[t]
-	orders[t]["volley_age"] = 0.0
+func _call_volley(t: int, c: int) -> void:
+	var k := ck(t, c)
+	_last_volley_t[k] = elapsed
+	_volley_ids[k] = int(_volley_ids.get(k, 0)) + 1
+	orders[t][c]["volley_id"] = _volley_ids[k]
+	orders[t][c]["volley_age"] = 0.0
 	stats["volleys"][t] += 1
 
 
@@ -849,7 +1244,7 @@ func _call_volley(t: int) -> void:
 ## The shock of a volley: balls arriving together frighten the men around the mark, hit or
 ## miss, far more than the same balls one at a time. Only shots fired on the word count.
 func volley_pressure(shooter: Soldier, mark: Vector3, hit: bool) -> void:
-	var o: Dictionary = orders[shooter.team]
+	var o: Dictionary = orders[shooter.team][shooter.company]
 	if float(o.get("volley_age", 999.0)) > 1.2:
 		return
 	for s in alive_soldiers():
@@ -864,8 +1259,8 @@ func _on_fired(s: Soldier, victim: Soldier, hit: bool) -> void:
 	stats["shots"][s.team] += 1
 	if hit and victim.team != s.team:
 		stats["hits"][s.team] += 1
-		_exch[s.team][0] += 1.0
-		_exch[victim.team][1] += 1.0
+		_exch[ck(s.team, s.company)][0] += 1.0
+		_exch[ck(victim.team, victim.company)][1] += 1.0
 		_last_harm_t = elapsed
 	elif hit:
 		stats["friendly"][s.team] += 1
@@ -889,6 +1284,40 @@ func _on_died(s: Soldier, source: String, attacker: Soldier) -> void:
 
 func _on_routed(s: Soldier) -> void:
 	stats["routed"][s.team] += 1
+	# a rout is felt by the next company along: men of other companies within 40 m see it go
+	for o in fighting(s.team):
+		if o.company != s.company and o.global_position.distance_to(s.global_position) < 40.0:
+			o.fear = minf(o.fear + 0.05 * (1.0 - 0.5 * o.p("nerve")), 0.6)
+
+
+## The captain: every second, sends the reserve where the line is going worst - or where it is
+## going best, if he has the blood for it - and keeps the company labels over their men.
+func _run_captain(t: int) -> void:
+	var cos: Array = companies[t]
+	var agg := 0.0
+	for co in cos:
+		agg += (co["persona"] as Personality).get_trait("aggression")
+	agg /= maxf(cos.size(), 1)
+	for c in cos.size():
+		if not is_reserve(t, c) or fighting_company(t, c).is_empty():
+			continue
+		# the worst-off company in the line, and the best
+		var worst := -1
+		var worst_l := 0.0
+		for o in cos.size():
+			if o == c or is_reserve(t, o):
+				continue
+			var l := company_losses(t, o)
+			if fighting_company(t, o).is_empty():
+				l = 1.0
+			if l > worst_l:
+				worst_l = l
+				worst = o
+		var trigger := 0.45 - 0.25 * agg   # an eager captain sends it in sooner
+		if worst >= 0 and worst_l >= trigger:
+			committed[ck(t, c)] = band_x(t, worst)
+		elif elapsed > 90.0 and agg > 0.6 and strength_ratio(t) > 1.3:
+			committed[ck(t, c)] = 0.0   # the day is going our way: finish it
 
 
 func _on_fled(s: Soldier) -> void:
@@ -899,6 +1328,41 @@ func _on_thrust(s: Soldier, landed: bool) -> void:
 	stats["thrusts"][s.team] += 1
 	if landed:
 		stats["thrust_hits"][s.team] += 1
+
+
+## Which rule decided how often, per side, by drill: [{drill name: {line: ticks}}, ...].
+## Companies on the same drill add together.
+func _tally_summary() -> Array:
+	var out := [{}, {}]
+	for t in 2:
+		for c in (companies[t] as Array).size():
+			var d: Drill = companies[t][c].get("drill")
+			if d == null:
+				continue
+			var per: Dictionary = out[t].get(d.name, {})
+			var tl: Dictionary = rule_tally.get(ck(t, c), {})
+			for ln in tl:
+				per[ln] = int(per.get(ln, 0)) + int(tl[ln])
+			out[t][d.name] = per
+	return out
+
+
+func _types_label(t: int) -> String:
+	var parts := []
+	for co in companies[t]:
+		parts.append(String(co["type_name"]).substr(0, 4))
+	return "/".join(parts)
+
+
+## Each side's companies as fielded: for the results panels.
+func _company_summary() -> Array:
+	var out := [[], []]
+	for t in 2:
+		for c in (companies[t] as Array).size():
+			var co: Dictionary = companies[t][c]
+			out[t].append({"name": co["name"], "persona": co["persona_name"], "type": co["type_name"], "slot": co["slot"],
+				"size": int(co_n.get(ck(t, c), co["size"]))})
+	return out
 
 
 func end_match(reason: String) -> void:
@@ -935,9 +1399,10 @@ func end_match(reason: String) -> void:
 			"seed": s.record_seed, "rounds": s.rounds, "career_kills": s.kills,
 			"shots": s.shots, "hits": s.hits, "kills": s.kills - s.kills_before, "bayonet_kills": s.bayonet_kills,
 			"thrusts": s.thrusts, "thrust_hits": s.thrust_hits, "dmg": s.dmg_done, "hp": s.hp,
-			"persona": s.personality.label(), "type": s.soldier_type.label()})
+			"persona": s.personality.label(), "type": s.soldier_type.label(), "company": s.company})
 	var result := {"match": match_index, "winner": winner, "winner_name": TEAM_NAMES[winner] if winner >= 0 else "Draw",
 		"reason": reason, "duration": elapsed, "alive": a, "fighting": f, "stats": stats.duplicate(true),
-		"sizes": team_sizes.duplicate(), "soldiers": per,
-		"presets": team_preset_names.duplicate(), "types": team_type_names.duplicate(), "tally": rule_tally.duplicate(true)}
+		"sizes": side_n.duplicate(), "soldiers": per, "companies": _company_summary(),
+		"presets": [battalion_label(0), battalion_label(1)], "types": [_types_label(0), _types_label(1)],
+		"tally": _tally_summary()}
 	match_ended.emit(result)

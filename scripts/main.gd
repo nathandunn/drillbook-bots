@@ -66,34 +66,41 @@ func _ready() -> void:
 				print("ERROR ", e)
 		get_tree().quit(0 if d.errors.is_empty() else 1)
 		return
-	for t in 2:
-		manager.set_drill(t, ["Regulars", "Skirmishers"][t])
 	headless = (DisplayServer.get_name() == "headless" or args.has("sim")) and not args.has("ui")
 	manager.headless = headless
 	if args.has("field") and Field.LAYOUTS.has(args["field"]):
 		_rebuild_field(args["field"])
-	if args.has("size"):
-		var n := clampi(int(args["size"]), 1, MatchManager.MAX_SIZE)
-		manager.team_sizes = [n, n]
-	if args.has("redsize"):
-		manager.team_sizes[0] = clampi(int(args["redsize"]), 1, MatchManager.MAX_SIZE)
-	if args.has("bluesize"):
-		manager.team_sizes[1] = clampi(int(args["bluesize"]), 1, MatchManager.MAX_SIZE)
+	# the battalions: --companies=4 --csize=10, --redbat="Light battalion"; --red / --redtype /
+	# --redtraits apply to every company of that side; --size is men per company
+	var per: int = clampi(int(args.get("csize", args.get("size", "10"))), 1, MatchManager.MAX_SIZE)
 	for t in 2:
 		var key: String = ["red", "blue"][t]
-		if args.has(key):
-			if not manager.set_drill(t, String(args[key])):
+		manager.set_battalion(t, String(args.get(key + "bat", manager.battalion_names[t])), per)
+		if args.has("companies"):
+			var want := clampi(int(args["companies"]), 1, MatchManager.MAX_COMPANIES)
+			var cos: Array = manager.companies[t]
+			while cos.size() > want:
+				cos.pop_back()
+			while cos.size() < want:
+				var src: Dictionary = cos[cos.size() % maxi(cos.size(), 1)]
+				cos.append(manager.new_company(t, cos.size(), src["persona_name"], src["type_name"], "Reserve", per))
+		for c in (manager.companies[t] as Array).size():
+			manager.select_company(t, c)
+			if args.has(key) and not manager.set_drill(t, String(args[key])):
 				push_warning("no drill called %s; drills: %s" % [args[key], ", ".join(Drill.names())])
-		if args.has(key + "traits"):
-			# --redtraits=aggression:0.1,cover:1 - overrides on top of the preset
-			for kv in String(args[key + "traits"]).split(","):
-				var pair := kv.split(":")
-				if pair.size() == 2:
-					manager.team_personalities[t].set_trait(pair[0], float(pair[1]))
-			manager.team_preset_names[t] = manager.team_personalities[t].label()
-		if args.has(key + "type"):
-			manager.team_types[t] = SoldierType.preset(args[key + "type"])
-			manager.team_type_names[t] = String(args[key + "type"])
+			if args.has(key + "traits"):
+				# --redtraits=aggression:0.1,cover:1 - overrides on top of the preset
+				manager.team_personalities[t] = manager.team_personalities[t].jittered(manager.rng, 0.0)
+				for kv in String(args[key + "traits"]).split(","):
+					var pair := kv.split(":")
+					if pair.size() == 2:
+						manager.team_personalities[t].set_trait(pair[0], float(pair[1]))
+				manager.team_preset_names[t] = manager.team_personalities[t].label()
+			if args.has(key + "type"):
+				manager.team_types[t] = SoldierType.preset(args[key + "type"])
+				manager.team_type_names[t] = String(args[key + "type"])
+			manager.store_company(t)
+		manager.select_company(t, 0)
 	if args.has("seed"):
 		_base_seed = int(args["seed"])
 
@@ -101,9 +108,9 @@ func _ready() -> void:
 		manager.time_limit = float(args.get("cap", "400"))
 		set_sim_speed(20.0)
 		batch_left = maxi(int(args.get("sim", "5")), 1)
-		print("Drillbook Bots headless sim: %d battles, Red %s/%s (%d) vs Blue %s/%s (%d)" % [batch_left,
-			manager.team_preset_names[0], manager.team_type_names[0], manager.team_sizes[0],
-			manager.team_preset_names[1], manager.team_type_names[1], manager.team_sizes[1]])
+		print("Drillbook Bots headless sim: %d battles, Red %s [%s] (%d men) vs Blue %s [%s] (%d men)" % [batch_left,
+			manager.battalion_label(0), manager._types_label(0), manager.side_total(0),
+			manager.battalion_label(1), manager._types_label(1), manager.side_total(1)])
 		_start_next()
 		return
 
@@ -169,7 +176,7 @@ func _build_lighting() -> void:
 	sun.light_energy = 1.3
 	sun.light_color = Color(1.0, 0.96, 0.88)
 	sun.shadow_enabled = not headless
-	sun.directional_shadow_max_distance = 160.0
+	sun.directional_shadow_max_distance = 300.0
 	add_child(sun)
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
@@ -268,6 +275,30 @@ func _on_match_ended(result: Dictionary) -> void:
 		print(JSON.stringify(result))
 
 
+## Per company over a batch: men fielded, stood / ran / fell, shots, hits, kills.
+func _co_stats(results: Array[Dictionary]) -> Array:
+	var out := [{}, {}]
+	for r in results:
+		for m in r["soldiers"]:
+			var t: int = m["team"]
+			var c: int = int(m.get("company", 0))
+			if not out[t].has(c):
+				out[t][c] = {"men": 0, "stood": 0, "ran": 0, "fell": 0, "shots": 0, "hits": 0, "kills": 0, "bayonet": 0}
+			var st: Dictionary = out[t][c]
+			st["men"] += 1
+			if not m["alive"]:
+				st["fell"] += 1
+			elif m["routed"] or m["gone"]:
+				st["ran"] += 1
+			else:
+				st["stood"] += 1
+			st["shots"] += int(m["shots"])
+			st["hits"] += int(m["hits"])
+			st["kills"] += int(m["kills"])
+			st["bayonet"] += int(m["bayonet_kills"])
+	return out
+
+
 func _summarize(results: Array[Dictionary]) -> Dictionary:
 	var wins := [0, 0]
 	var draws := 0
@@ -289,17 +320,20 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 				tot[k][t] += s[k][t]
 			kills[t][0] += s["kills"][t][0]
 			kills[t][1] += s["kills"][t][1]
-	# which rules decided, summed over the batch: line -> ticks
+	# which rules decided, summed over the batch: per side, drill name -> {line -> ticks}
 	var tally := [{}, {}]
 	for r in results:
 		for t in 2:
 			var rt: Dictionary = r.get("tally", [{}, {}])[t]
-			for k in rt:
-				tally[t][k] = int(tally[t].get(k, 0)) + int(rt[k])
+			for dn in rt:
+				var per: Dictionary = tally[t].get(dn, {})
+				for k in rt[dn]:
+					per[k] = int(per.get(k, 0)) + int(rt[dn][k])
+				tally[t][dn] = per
 	var n := maxi(results.size(), 1)
 	var txt := "Batch of %d: Red (%s/%s) %d wins, Blue (%s/%s) %d wins, %d draws, avg %ds.  " % [
-		results.size(), manager.team_preset_names[0], manager.team_type_names[0], wins[0],
-		manager.team_preset_names[1], manager.team_type_names[1], wins[1], draws, int(dur / n)]
+		results.size(), manager.battalion_label(0), manager._types_label(0), wins[0],
+		manager.battalion_label(1), manager._types_label(1), wins[1], draws, int(dur / n)]
 	for t in 2:
 		var acc := float(tot["hits"][t]) / maxf(float(tot["shots"][t]), 1.0) * 100.0
 		txt += "%s per battle: %d shots at %d%%, %d volleys, %d charges, %d fall-backs, %d ran; killed %d by ball, %d by bayonet; %d friendly hits.  " % [
@@ -310,8 +344,8 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 		battles.append({"match": r["match"], "winner": r["winner"], "winner_name": r["winner_name"], "reason": r["reason"],
 			"duration": r["duration"], "alive": r["alive"], "fighting": r["fighting"]})
 	return {"text": txt, "data": {"matches": results.size(), "wins": wins, "draws": draws, "avg_duration": dur / n,
-		"totals": tot, "kills": kills, "presets": manager.team_preset_names.duplicate(), "types": manager.team_type_names.duplicate(),
-		"sizes": manager.team_sizes.duplicate(), "battles": battles, "tally": tally}}
+		"totals": tot, "kills": kills, "presets": [manager.battalion_label(0), manager.battalion_label(1)], "types": [manager._types_label(0), manager._types_label(1)],
+		"sizes": manager.side_n.duplicate(), "battles": battles, "companies": manager._company_summary(), "co_stats": _co_stats(results), "tally": tally}}
 
 
 # ---------------------------------------------------------------- campaign
@@ -365,15 +399,25 @@ func _next_round() -> void:
 	var last := campaign_round >= CAMPAIGN_ROUNDS
 	for t in 2:
 		var roster: Array = campaign_rosters[t].duplicate(true)
+		if campaign_round > 1:
+			_merge_broken(t, roster)
 		if not last:
-			var want: int = clampi(int(manager.team_sizes[t]), 1, MatchManager.MAX_SIZE)
-			var next_no := 1
-			for r in roster:
-				next_no = maxi(next_no, int(r.get("no", 0)) + 1)
-			while roster.size() < want:
-				roster.append({"name": "%s %d" % [MatchManager.TEAM_NAMES[t][0], next_no], "no": next_no,
-					"seed": randi(), "kills": 0, "rounds": 0, "recruit": true})
-				next_no += 1
+			# every company back to its size with recruits; a company with nobody left is struck off
+			for c in (manager.companies[t] as Array).size():
+				var co: Dictionary = manager.companies[t][c]
+				var have := 0
+				var next_no := 1
+				for r in roster:
+					if int(r.get("co", 0)) == c:
+						have += 1
+						next_no = maxi(next_no, int(r.get("no", 0)) + 1)
+				if campaign_round > 1 and have == 0:
+					continue
+				while have < int(co["size"]):
+					roster.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], co["name"], next_no], "no": next_no, "co": c,
+						"seed": randi(), "kills": 0, "rounds": 0, "recruit": true})
+					next_no += 1
+					have += 1
 		manager.rosters[t] = roster
 	hud.set_round(campaign_round, CAMPAIGN_ROUNDS, layout, [manager.rosters[0].size(), manager.rosters[1].size()], campaign_field)
 	hud.set_plan(campaign_field, layout, campaign_round, CAMPAIGN_ROUNDS)
@@ -383,8 +427,69 @@ func _next_round() -> void:
 ## The computer's choice of personality for its side, applied to the manager for the coming
 ## round. Opening round: any of the five. After that: answer what the enemy fielded, unless
 ## the last round was won, in which case keep the winning choice 70 % of the time.
+## A company cut down to a handful (fewer than 3 men, or under a quarter of its size) is broken
+## up: whoever is left joins the nearest company along the line that still has men, and the
+## broken company is struck off. A company with nobody left is simply struck off.
+func _merge_broken(t: int, roster: Array) -> void:
+	var cos: Array = manager.companies[t]
+	var have := {}
+	for r in roster:
+		var c: int = int(r.get("co", 0))
+		have[c] = int(have.get(c, 0)) + 1
+	for c in cos.size():
+		var n: int = int(have.get(c, 0))
+		if n == 0 or (n >= 3 and n * 4 >= int(cos[c]["size"])):
+			continue
+		# the nearest company along the line (by slot) that is not itself broken
+		var slot_i := MatchManager.SLOTS.find(String(cos[c]["slot"]))
+		var best := -1
+		var best_d := 99
+		for o in cos.size():
+			var on: int = int(have.get(o, 0))
+			if o == c or on < 3 or on * 4 < int(cos[o]["size"]):
+				continue
+			var d: int = absi(MatchManager.SLOTS.find(String(cos[o]["slot"])) - slot_i)
+			if d < best_d:
+				best_d = d
+				best = o
+		if best < 0:
+			continue   # nobody fit to take them in: they stay a (small) company of their own
+		for r in roster:
+			if int(r.get("co", 0)) == c:
+				r["co"] = best
+				r["merged_from"] = String(cos[c]["name"])
+		have[best] = int(have.get(best, 0)) + n
+		have[c] = 0
+
+
+## The computer's picks for a whole battalion: a doctrine per company, answering the enemy
+## battalion's average temper, never the same doctrine for every company.
 func _ai_pick(t: int, opening: bool) -> String:
-	var e: Personality = manager.team_personalities[1 - t]
+	var e := Personality.preset("Balanced")
+	var ecos: Array = manager.companies[1 - t]
+	for tr in Personality.TRAITS:
+		var m := 0.0
+		for co in ecos:
+			m += (co["persona"] as Personality).get_trait(tr)
+		e.set_trait(tr, m / maxf(ecos.size(), 1))
+	var used := {}
+	var names := []
+	for c in (manager.companies[t] as Array).size():
+		manager.select_company(t, c)
+		var d := _ai_pick_company(t, opening, e, used)
+		used[d] = int(used.get(d, 0)) + 1
+		names.append(d)
+		manager.store_company(t)
+	manager.select_company(t, hud.selected_company(t) if hud != null else 0)
+	if hud != null:
+		hud._refresh_sliders(t)
+	_ai_picks[t] = manager.battalion_label(t)
+	_ai_type_picks[t] = manager._types_label(t)
+	_last_doctrine[t] = ", ".join(names)
+	return _ai_picks[t]
+
+
+func _ai_pick_company(t: int, opening: bool, e: Personality, used: Dictionary) -> String:
 	var e_aggr := e.get_trait("aggression")
 	var e_cover := e.get_trait("cover")
 	var e_nerve := e.get_trait("nerve")
@@ -427,6 +532,8 @@ func _ai_pick(t: int, opening: bool) -> String:
 		# what this campaign has taught
 		var rec: Array = _doctrine_record[t].get(d["name"], [0, 0])
 		sc += 1.5 * rec[0] - 2.0 * rec[1]
+		# a battalion is a mix: each company already on a doctrine makes it less likely again
+		sc -= 1.2 * int(used.get(d["name"], 0))
 		sc += randf() * 0.6
 		scored.append([sc, d])
 	scored.sort_custom(func(a, b): return a[0] > b[0])
@@ -439,11 +546,7 @@ func _ai_pick(t: int, opening: bool) -> String:
 	manager.set_drill(t, pick)
 	manager.team_types[t] = SoldierType.preset(tpick)
 	manager.team_type_names[t] = tpick
-	hud._refresh_sliders(t)
-	_ai_picks[t] = pick
-	_ai_type_picks[t] = tpick
-	_last_doctrine[t] = d["name"]
-	return pick
+	return d["name"]
 
 
 ## The computer's choices: every drill in the book, read by its dials (which preset it is
@@ -483,7 +586,7 @@ func _on_round_ended(result: Dictionary) -> void:
 		else:
 			counts[t]["stood"] += 1
 		var no := int(String(m["name"]).get_slice(" ", 1)) if String(m["name"]).contains(" ") else 0
-		survivors[t].append({"name": m["name"], "no": no, "seed": m["seed"], "kills": m["career_kills"],
+		survivors[t].append({"name": m["name"], "no": no, "co": int(m.get("company", 0)), "seed": m["seed"], "kills": m["career_kills"],
 			"rounds": int(m["rounds"]) + 1, "recruit": false})
 	for t in 2:
 		campaign_kills[t] += st["kills"][t][0] + st["kills"][t][1]
@@ -500,13 +603,13 @@ func _on_round_ended(result: Dictionary) -> void:
 		"fielded": [result["presets"][0], result["presets"][1]]})
 	_last_fielded = [result["presets"][0], result["presets"][1]]
 	for t in 2:
-		if _last_doctrine[t] != "":
-			var rec: Array = _doctrine_record[t].get(_last_doctrine[t], [0, 0])
+		for dn in String(_last_doctrine[t]).split(", ", false):
+			var rec: Array = _doctrine_record[t].get(dn, [0, 0])
 			if w == t:
 				rec[0] += 1
 			elif w == 1 - t:
 				rec[1] += 1
-			_doctrine_record[t][_last_doctrine[t]] = rec
+			_doctrine_record[t][dn] = rec
 	_ai_picks = ["", ""]
 	_ai_type_picks = ["", ""]
 	for t in 2:
@@ -518,7 +621,7 @@ func _on_round_ended(result: Dictionary) -> void:
 		"next_field": next_layout, "next_field_no": campaign_field, "wins": campaign_wins.duplicate(),
 		"kills": campaign_kills.duplicate(), "history": campaign_rounds.duplicate(true), "counts": counts,
 		"next_sizes": [survivors[0].size(), survivors[1].size()], "last_next": campaign_round + 1 >= CAMPAIGN_ROUNDS,
-		"team_sizes": manager.team_sizes.duplicate(), "over": over, "result": result, "ai_picks": _ai_picks.duplicate(),
+		"team_sizes": [manager.side_total(0), manager.side_total(1)], "over": over, "result": result, "ai_picks": _ai_picks.duplicate(),
 		"ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate()}
 	if not over:
 		# the next battlefield goes up now, so it can be surveyed before personalities are chosen

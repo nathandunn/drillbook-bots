@@ -1,9 +1,19 @@
 # Drillbook Bots — personalities written as drills
 
-A fork of [Volley Bots](https://github.com/nathandunn/volley-bots): one company of up to 20 a
-side, the same types (run / melee / accuracy / stamina on one budget), the same rifle, ground,
-front and campaign - but the six personality sliders are replaced by **drills**: short,
-readable rule files in `drills/*.drill` that say what the sergeant and each man do and when.
+A fork of [Volley Bots](https://github.com/nathandunn/volley-bots) with the battalions of
+[Battalion Bots](https://github.com/nathandunn/battalion-bots): **1-6 companies a side** (default
+4 × 10, up to 20 men a company and 80 a side) on the 112 × 200 m field, each company with its own
+size, type (run / melee / accuracy / stamina on one budget), place in the line (Left, Centre-left,
+Centre-right, Right, Reserve) and **drill**. The six personality sliders are replaced by drills:
+short, readable rule files in `drills/*.drill` that say what the sergeant and each man do and when.
+Each company has its own sergeant reading its own drill; a captain per side only sends in the
+reserve. Battalion presets: Line, Light, Assault column, Mixed, Old guard, and **Your drills**
+(Sniper, Line, Linebreaker, Ninjas - the default for Red).
+
+Per company, not per side: the exchange (`winning/losing the exchange`), `phase is`,
+`my losses over`, `volley called`, `mode is`, `charging`. Per side: `enemy broken/breaking`,
+`outnumbers`, `mates running`. A sergeant's `enemy …` words look at the ten enemy men nearest
+his company.
 
 ```
 drill "Thin Red Line"
@@ -30,9 +40,10 @@ outnumbers, losses, loaded, in cover, tired, winded, courage, volley called, mod
 exchange, no harm for Ns, time, round, field, phase, chance, `for Ns`; actions for the sergeant
 and for the man). There is no eval - only those words.
 
-- In the app: drill chips per side, **Read the drill** shows the text, Sim ×10 lists how often
-  each rule decided.
-- Lint: `godot --headless --path . -- --lint=drills/x.drill`. Battles: `--red="Thin Red Line"`.
+- In the app: Edit Battalion → pick a company card → drill chips, **Read the drill** shows the
+  text; Sim ×10 lists, per drill a side fielded, how often each rule decided.
+- Lint: `godot --headless --path . -- --lint=drills/x.drill`. Battles: `--redbat="Your drills"`,
+  `--red="Thin Red Line"` (every company of that side), `--companies=4 --csize=10`.
 - Seed drills Regulars, Skirmishers, Shock, Militia, Veterans reproduce the Volley Bots presets
   within batch noise; Thin Red Line and Fabian Screen are worked examples.
 

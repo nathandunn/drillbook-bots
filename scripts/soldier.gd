@@ -43,6 +43,7 @@ var manager: MatchManager = null
 var field: Field = null
 var rng: RandomNumberGenerator
 var slot := 0
+var company := 0              # which company of his battalion
 
 # derived from the type
 var walk_speed := WALK
@@ -214,7 +215,7 @@ func _tick_timers(delta: float) -> void:
 	# ... and a man with nobody at his elbow feels every bit of it: loose order has its price
 	courage = p("nerve") * 1.15 - losses * 0.75 - hurt * 0.3 - fear * 0.35 - outnumbered * 0.25 - alone * 0.2 + 0.05
 	_stand_fast = maxf(_stand_fast - delta, 0.0)
-	if not is_routed and courage < 0.1 and manager.elapsed > 3.0 and _stand_fast <= 0.0 and manager.stand_fast_until[team] < manager.elapsed:
+	if not is_routed and courage < 0.1 and manager.elapsed > 3.0 and _stand_fast <= 0.0 and float(manager.stand_fast_until.get(MatchManager.ck(team, company), -1.0)) < manager.elapsed:
 		_rout()
 
 
@@ -227,7 +228,7 @@ func _rout() -> void:
 
 
 func _decide() -> void:
-	var order: Dictionary = manager.orders[team]
+	var order: Dictionary = manager.orders[team][company]
 	var enemy := manager.nearest_enemy(self)
 	var enemy_d := INF
 	if enemy != null:
@@ -271,7 +272,7 @@ func _decide() -> void:
 		_d_enemy_d = enemy_d
 		_d_order = order
 		_d_follow = false
-		if drill.run(drill.man_rules, _drill_sense, _drill_act, _d_memory, manager.elapsed, manager.rule_tally[team]) and not _d_follow:
+		if drill.run(drill.man_rules, _drill_sense, _drill_act, _d_memory, manager.elapsed, manager.tally_for(team, company)) and not _d_follow:
 			return
 
 	# the charge: the sergeant's, or my own blood up
@@ -376,7 +377,7 @@ func _decide() -> void:
 # ---------------------------------------------------------------- the drill's words, for a man
 
 func _drill_sense(id: String, args: Array) -> bool:
-	var shared: Variant = manager.shared_sense(id, args, team, rng)
+	var shared: Variant = manager.shared_sense(id, args, team, company, rng)
 	if shared != null:
 		return shared
 	var e := _d_enemy
@@ -387,7 +388,7 @@ func _drill_sense(id: String, args: Array) -> bool:
 		"enemy_beyond":
 			return e == null or ed > float(args[0])
 		"enemy_charging":
-			return e != null and (e.charging or (String(manager.orders[1 - team].get("mode", "")) == "charge" and ed < 40.0))
+			return e != null and (e.charging or (String(manager.orders[1 - team][e.company].get("mode", "")) == "charge" and ed < 40.0))
 		"enemy_in_cover":
 			return e != null and (e.kneeling or e.action == "cover")
 		"enemy_uphill":
@@ -624,7 +625,7 @@ func _drill_act(id: String, args: Array) -> bool:
 			_rout()
 			return true
 		"set_phase":
-			manager.drill_phase[team] = String(args[0])
+			manager.drill_phase[MatchManager.ck(team, company)] = String(args[0])
 			return true
 	return false
 
@@ -645,7 +646,7 @@ func _slot_position(order: Dictionary, line_z: float) -> Vector3:
 ## A cover spot near the slot, if this man values cover more than his place in the line.
 func _pick_cover(slot_pos: Vector3, enemy: Soldier) -> Dictionary:
 	var want := p("cover") - 0.35 * p("discipline")
-	if manager.orders[team].get("seek_cover", false):
+	if manager.orders[team][company].get("seek_cover", false):
 		want = maxf(want, 0.5)   # the sergeant has seen the exchange; any wall will do
 	if want < 0.2:
 		return {}
@@ -786,7 +787,7 @@ func _fire(enemy: Soldier) -> void:
 
 ## Is this shot on the sergeant's word?
 func order_volley() -> bool:
-	var o: Dictionary = manager.orders[team]
+	var o: Dictionary = manager.orders[team][company]
 	return float(o.get("volley_age", 999.0)) < 0.7
 
 
@@ -959,6 +960,7 @@ func _build_body() -> void:
 	body_root.add_child(arm_r)
 	leg_l = _leg(trouser, -0.14)
 	leg_r = _leg(trouser, 0.14)
+	_add_markings(torso, cap)
 	# the rifle: stock, barrel, bayonet
 	rifle = Node3D.new()
 	rifle.position = Vector3(0.22, 1.3, -0.25)
@@ -1014,12 +1016,14 @@ func _build_body() -> void:
 
 	label = Label3D.new()
 	label.text = soldier_name if rounds == 0 else "%s *%d" % [soldier_name, rounds]   # *n: rounds survived
-	label.font_size = 26
-	label.pixel_size = 0.012
+	label.font_size = 24
+	label.pixel_size = 0.0045
+	label.outline_size = 4
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	label.position = Vector3(0, 2.35, 0)
-	label.modulate = Color(1, 1, 1, 0.85)
+	label.modulate = Color(1, 1, 1, 0.7)
+	label.visible = false   # no name tag over each man; the company label above says who they are
 	add_child(label)
 	# hp bar
 	var bar_bg := MeshInstance3D.new()
@@ -1036,6 +1040,62 @@ func _build_body() -> void:
 	_bar_fg.material_override = _bar_material(Color(0.3, 0.9, 0.3, 0.95), 2)
 	_bar_fg.position = Vector3(0, 2.12, 0.001)
 	add_child(_bar_fg)
+
+
+## Stripes, spots and the rest, by company, so the units can be told apart at a glance.
+func _add_markings(torso: Node3D, cap: MeshInstance3D) -> void:
+	var mk: Dictionary = MatchManager.mark_for(company)
+	var mm := StandardMaterial3D.new()
+	mm.albedo_color = mk["color"]
+	var cap_band := MeshInstance3D.new()          # every company wears its colour round the cap
+	cap_band.mesh = _box(Vector3(0.34, 0.05, 0.36))
+	cap_band.material_override = mm
+	cap_band.position = Vector3(0, -0.05, 0)
+	cap.add_child(cap_band)
+	for side in [-1.0, 1.0]:                      # front (-z) and back (+z)
+		var z: float = 0.155 * side
+		match String(mk["pattern"]):
+			"sash":
+				_mark(torso, mm, Vector3(0.52, 0.1, 0.02), Vector3(0, 0.02, z))
+			"spots":
+				for p in [Vector2(-0.13, 0.17), Vector2(0.13, 0.17), Vector2(0, 0.0), Vector2(-0.13, -0.17), Vector2(0.13, -0.17)]:
+					_mark(torso, mm, Vector3(0.09, 0.09, 0.02), Vector3(p.x, p.y, z), true)
+			"stripes":
+				for x in [-0.15, 0.0, 0.15]:
+					_mark(torso, mm, Vector3(0.05, 0.62, 0.02), Vector3(x, 0, z))
+			"bands":
+				_mark(torso, mm, Vector3(0.52, 0.06, 0.02), Vector3(0, 0.12, z))
+				_mark(torso, mm, Vector3(0.52, 0.06, 0.02), Vector3(0, -0.12, z))
+			"cross":
+				for a in [0.62, -0.62]:
+					var b := _mark(torso, mm, Vector3(0.07, 0.8, 0.02), Vector3(0, 0, z))
+					b.rotation.z = a
+			"chevron":
+				for a in [0.6, -0.6]:
+					for dy in [0.1, -0.06]:
+						var b := _mark(torso, mm, Vector3(0.3, 0.06, 0.02), Vector3(-0.1 * signf(a), dy, z))
+						b.rotation.z = a
+	if String(mk["pattern"]) == "bands" or String(mk["pattern"]) == "stripes":
+		for arm in [arm_l, arm_r]:               # a band round each sleeve too
+			_mark(arm, mm, Vector3(0.16, 0.08, 0.16), Vector3(0, 0.1, 0))
+
+
+func _mark(parent: Node3D, mat: Material, size: Vector3, pos: Vector3, round_spot := false) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	if round_spot:
+		var sp := SphereMesh.new()
+		sp.radius = size.x * 0.5
+		sp.height = size.x
+		sp.radial_segments = 8
+		sp.rings = 4
+		m.mesh = sp
+		m.scale = Vector3(1, 1, 0.3)
+	else:
+		m.mesh = _box(size)
+	m.material_override = mat
+	m.position = pos
+	parent.add_child(m)
+	return m
 
 
 func _leg(mat: Material, x: float) -> Node3D:

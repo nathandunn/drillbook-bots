@@ -4,7 +4,7 @@ config_version=5
 [application]
 
 config/name="Drillbook Bots"
-config/description="Drillbook Bots: two companies of mid-19th-century infantry whose behaviour is written as drills - a small readable language for when to volley, charge, take cover and give ground."
+config/description="Drillbook Bots: two battalions of mid-19th-century infantry, several companies a side, each fighting by its own drill - a small readable language for when to volley, charge, take cover and give ground."
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.svg"
