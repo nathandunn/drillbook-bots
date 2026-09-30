@@ -59,6 +59,9 @@ var alive := true
 var loaded := true
 var reload_left := 0.0
 var ammo := AMMO               # rounds left, the one in the barrel included
+## Has he been under fire yet: shot at, hit, a mate fallen near him, or a bayonet charge on him.
+## A man who has not cannot run - raw troops break under fire, not at the sight of it.
+var under_fire := false
 var stamina := STAMINA_MAX
 var wounded := false
 var running := false
@@ -215,11 +218,13 @@ func _tick_timers(delta: float) -> void:
 	# courage: nerve, less what the day has cost
 	var losses: float = manager.loss_fraction(team)
 	var hurt := 1.0 - hp / MAX_HP
-	var outnumbered: float = clampf(1.0 - manager.strength_ratio(team), 0.0, 1.0)
+	# men of his own side who have run count half: a mate running is bad, but it is not the
+	# same as a mate killed - otherwise one jumpy man sets off the whole line
+	var outnumbered: float = clampf(1.0 - manager.morale_ratio(team), 0.0, 1.0)
 	# ... and a man with nobody at his elbow feels every bit of it: loose order has its price
 	courage = p("nerve") * 1.15 - losses * 0.75 - hurt * 0.3 - fear * 0.35 - outnumbered * 0.25 - alone * 0.2 + 0.05
 	_stand_fast = maxf(_stand_fast - delta, 0.0)
-	if not is_routed and courage < 0.1 and manager.elapsed > 3.0 and _stand_fast <= 0.0 and float(manager.stand_fast_until.get(MatchManager.ck(team, company), -1.0)) < manager.elapsed:
+	if not is_routed and under_fire and courage < 0.1 and manager.elapsed > 3.0 and _stand_fast <= 0.0 and float(manager.stand_fast_until.get(MatchManager.ck(team, company), -1.0)) < manager.elapsed:
 		_rout()
 
 
@@ -687,6 +692,7 @@ func _can_fire_at(enemy: Soldier) -> bool:
 
 
 func _fire(enemy: Soldier) -> void:
+	enemy.under_fire = true   # being aimed at and fired on is being under fire
 	loaded = false
 	ammo = maxi(ammo - 1, 0)
 	reload_left = reload_time
@@ -830,6 +836,7 @@ func take_damage(amount: float, source: String, attacker: Soldier) -> void:
 	if not alive:
 		return
 	hp -= amount
+	under_fire = true
 	damaged.emit(self, amount, source, attacker)
 	_flash()
 	if hp <= 0.0:
@@ -843,6 +850,8 @@ func take_damage(amount: float, source: String, attacker: Soldier) -> void:
 
 func notice_death(where: Vector3) -> void:
 	var d := global_position.distance_to(where)
+	if d < 15.0:
+		under_fire = true
 	if d < 6.0:
 		fear = minf(fear + 0.12 * (1.0 - d / 6.0) + 0.04, 0.6)
 

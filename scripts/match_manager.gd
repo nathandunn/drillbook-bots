@@ -477,6 +477,13 @@ func loss_fraction(team: int) -> float:
 	return 1.0 - float(alive_count(team)) / maxf(float(n), 1.0)
 
 
+## For a man's courage: like strength_ratio, but his own side's routed men count half.
+func morale_ratio(team: int) -> float:
+	var f := fighting(team).size()
+	var mine := float(f) + 0.5 * float(alive_count(team) - f)
+	return mine / maxf(float(fighting(1 - team).size()), 1.0)
+
+
 func strength_ratio(team: int) -> float:
 	var mine := fighting(team).size()
 	var theirs := fighting(1 - team).size()
@@ -908,6 +915,7 @@ func _run_sergeant(t: int, c: int) -> void:
 				if m.charging and m.global_position.distance_to(e.global_position) < 15.0:
 					close += 1
 			if close >= 3:
+				e.under_fire = true
 				# ... and loose order cannot receive one: a man with nobody at his elbow
 				# feels three bayonets as thirty
 				var loose: float = 1.0 + 2.5 * e.alone
@@ -1263,6 +1271,7 @@ func volley_pressure(shooter: Soldier, mark: Vector3, hit: bool) -> void:
 			continue
 		var d := s.global_position.distance_to(mark)
 		if d < 5.0:
+			s.under_fire = true
 			s.fear = minf(s.fear + (0.05 if hit else 0.025) * (1.0 - d / 5.0) + 0.01, 0.6)
 
 
