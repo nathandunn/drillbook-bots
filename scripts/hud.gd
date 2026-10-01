@@ -397,7 +397,7 @@ func _build_teams_overlay() -> void:
 	_field_help = fhelp
 	_section(box, "The campaign")
 	var fnote := Label.new()
-	fnote.text = "A war along a front of eleven fields drawn at random from the thirteen; it opens on the middle field. Each army is twelve companies of twenty, patterned on the companies set up here (A-D, then repeated), and four fight each battle - the freshest four by default; swap them between battles. No recruits: the dead are gone, the living fight on, and a company cut under five joins another. Each win pushes the fight one field into the loser's country. The war is won by winning on the enemy's last field - or when the enemy has nobody left."
+	fnote.text = "A war along a front of eleven fields drawn at random from the thirteen; it opens on the middle field. Each army is twelve companies of ten, patterned on the companies set up here (A-D, then repeated), and four fight each battle - the freshest four by default; swap them between battles. No recruits: the dead are gone, the living fight on, and a company cut under three joins another. Each win pushes the fight one field into the loser's country. The war is won by winning on the enemy's last field - or when the enemy has nobody left."
 	fnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	fnote.add_theme_font_size_override("font_size", 13)
 	fnote.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))

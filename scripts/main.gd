@@ -14,13 +14,14 @@ var batch_results: Array[Dictionary] = []
 var _restart_timer := -1.0
 var _base_seed := -1
 
-# --- campaign: a front of eleven fields drawn at random; armies of twelve companies of twenty,
+# --- campaign: a front of eleven fields drawn at random; armies of twelve companies of ten,
 # four fighting at a time, no recruits; won by carrying the enemy's last field or by the enemy
 # having nobody left
 const FRONT_LEN := 11
 const ARMY_COMPANIES := 12
-const COMPANY_MEN := 20
+const COMPANY_MEN := 10
 const FIGHTING := 4
+const MERGE_BELOW := 3   # a company with fewer men than this joins another
 const ROUND_CAP := 30
 const ARMY_NAMES := ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 var front: Array[String] = []
@@ -419,7 +420,7 @@ func _start_campaign() -> void:
 	_ai_type_picks = ["", ""]
 	_doctrine_record = [{}, {}]
 	_last_doctrine = ["", ""]
-	# the armies: twelve companies of twenty, patterned on the companies set up under Edit
+	# the armies: twelve companies of ten (forty a side in each battle), patterned on the companies set up under Edit
 	# Battalion (A-D as set up, then repeated); the first four fight first
 	for t in 2:
 		manager.store_company(t)
@@ -564,20 +565,20 @@ func _next_round() -> void:
 	_start_next()
 
 
-## A company cut to fewer than five (a quarter of twenty) is broken up: its men join the
+## A company cut to fewer than three is broken up: its men join the
 ## standing company with the most room. Returns what happened, for the round panel.
 func _merge_army(t: int) -> Array:
 	var ar: Array = armies[t]
 	var notes := []
 	for i in ar.size():
 		var n: int = (ar[i]["men"] as Array).size()
-		if n == 0 or n >= COMPANY_MEN / 4:
+		if n == 0 or n >= MERGE_BELOW:
 			continue
 		var best := -1
 		var best_room := 0
 		for o in ar.size():
 			var on: int = (ar[o]["men"] as Array).size()
-			if o == i or on < COMPANY_MEN / 4:
+			if o == i or on < MERGE_BELOW:
 				continue
 			var room: int = COMPANY_MEN - on
 			if room >= n and room > best_room:
