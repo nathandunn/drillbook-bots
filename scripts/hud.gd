@@ -11,6 +11,7 @@ signal campaign_requested
 signal next_round_requested
 signal campaign_abandoned
 signal field_chosen(layout: String)
+signal army_pick(t: int, i: int)
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
 const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Random"]
@@ -29,6 +30,9 @@ var size_labels: Array[Label] = []
 var size_sliders: Array = [null, null]
 var _strip := [null, null]         # the company strip per side
 var _bat_chips := [{}, {}]
+var _army_locked := [[], []]   # controls that would break the army mapping: locked in a campaign
+var front: Array = []          # the campaign's front, field 1 first
+var _army_boxes := [null, null]
 var _slot_chips := [{}, {}]
 var _co_title := [null, null]
 var _totals := [null, null]
@@ -340,7 +344,7 @@ func _build_teams_overlay() -> void:
 	box.add_child(_plan_label)
 	var head := HFlowContainer.new()
 	box.add_child(head)
-	_head_campaign_btn = _button("» Start a campaign (5 rounds)")
+	_head_campaign_btn = _button("» Start a campaign (to the end)")
 	_head_campaign_btn.custom_minimum_size = Vector2(0, 46)
 	_accent(_head_campaign_btn)
 	_head_campaign_btn.pressed.connect(func():
@@ -391,21 +395,13 @@ func _build_teams_overlay() -> void:
 	fhelp.add_theme_color_override("font_color", Color(0.7, 0.7, 0.65))
 	box.add_child(fhelp)
 	_field_help = fhelp
-	_section(box, "The front: ten fields in a line")
+	_section(box, "The campaign")
 	var fnote := Label.new()
-	fnote.text = "A campaign opens on field %d. Each round's winner pushes the fight one field into the loser's country - Red toward 10, Blue toward 1 - so five straight wins march the whole way." % Field.START_FIELD
+	fnote.text = "A war along a front of eleven fields drawn at random from the thirteen; it opens on the middle field. Each army is twelve companies of twenty, patterned on the companies set up here (A-D, then repeated), and four fight each battle - the freshest four by default; swap them between battles. No recruits: the dead are gone, the living fight on, and a company cut under five joins another. Each win pushes the fight one field into the loser's country. The war is won by winning on the enemy's last field - or when the enemy has nobody left."
 	fnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	fnote.add_theme_font_size_override("font_size", 13)
 	fnote.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
 	box.add_child(fnote)
-	for i in Field.LAYOUT_ORDER.size():
-		var n: String = Field.LAYOUT_ORDER[i]
-		var fl := Label.new()
-		fl.text = "%d. %s - %s" % [i + 1, n, Field.LAYOUT_HELP.get(n, "")]
-		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		fl.add_theme_font_size_override("font_size", 13)
-		fl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.8))
-		box.add_child(fl)
 	var foot := HFlowContainer.new()
 	box.add_child(foot)
 	var fight := _button("» Fight with these companies")
@@ -419,7 +415,7 @@ func _build_teams_overlay() -> void:
 			new_match_requested.emit())
 	foot.add_child(fight)
 	_fight_btn = fight
-	var camp := _button("» Start a campaign (5 rounds)")
+	var camp := _button("» Start a campaign (to the end)")
 	camp.custom_minimum_size = Vector2(0, 46)
 	_accent(camp)
 	camp.pressed.connect(func():
@@ -482,6 +478,7 @@ func _build_team_panel(t: int) -> Control:
 			_refresh_sliders(t))
 		brow.add_child(b)
 		_bat_chips[t][bn] = b
+		_army_locked[t].append(b)
 		_type_controls[t].append(b)
 	var tot := Label.new()
 	tot.add_theme_font_size_override("font_size", 13)
@@ -498,15 +495,18 @@ func _build_team_panel(t: int) -> Control:
 	var ops := HFlowContainer.new()
 	panel.add_child(ops)
 	var add := _button("+ Add company")
+	_army_locked[t].append(add)
 	add.pressed.connect(func(): manager.add_company(t); _refresh_sliders(t))
 	ops.add_child(add)
 	_type_controls[t].append(add)
 	var rem := _button("× Remove this company")
+	_army_locked[t].append(rem)
 	_style(rem, "stop")
 	rem.pressed.connect(func(): manager.remove_company(t); _refresh_sliders(t))
 	ops.add_child(rem)
 	_type_controls[t].append(rem)
 	var dup := _button("Apply this company to all")
+	_army_locked[t].append(dup)
 	dup.pressed.connect(func(): _apply_to_all(t))
 	ops.add_child(dup)
 	_type_controls[t].append(dup)
@@ -534,6 +534,7 @@ func _build_team_panel(t: int) -> Control:
 			_refresh_sliders(t))
 		srow.add_child(b)
 		_slot_chips[t][sn] = b
+		_army_locked[t].append(b)
 		_type_controls[t].append(b)
 
 	# size
@@ -561,6 +562,7 @@ func _build_team_panel(t: int) -> Control:
 		manager.team_sizes[t] = mini(int(v), room)
 		_refresh_sliders(t))
 	size_sliders[t] = size_slider
+	_army_locked[t].append(size_slider)
 	_type_controls[t].append(size_slider)
 	size_row.add_child(size_slider)
 
@@ -1141,10 +1143,17 @@ func batch_progress(i: int, n: int) -> void:
 		status_label.text = _batch_text
 
 
-func set_round(r: int, total: int, layout: String, sizes: Array, field_no: int = 0) -> void:
-	_round_text = "Round %d of %d - field %d of %d, %s · Red %d men, Blue %d men" % [r, total, field_no, Field.LAYOUT_ORDER.size(), layout, sizes[0], sizes[1]]
-	if field_no > 1 and field_no < Field.LAYOUT_ORDER.size():
-		_round_text += " · a Red win moves on to %s, a Blue win back to %s" % [Field.LAYOUT_ORDER[field_no], Field.LAYOUT_ORDER[field_no - 2]]
+func set_round(r: int, layout: String, men: Array, field_no: int = 0) -> void:
+	var n := front.size()
+	_round_text = "Battle %d - field %d of %d, %s · armies: Red %d men, Blue %d men" % [r, field_no, n, layout, men[0], men[1]]
+	if field_no >= n:
+		_round_text += " · a Red win here takes Blue's country"
+	elif field_no > 0:
+		_round_text += " · a Red win pushes on to %s" % front[field_no]
+	if field_no <= 1:
+		_round_text += ", a Blue win here takes Red's country"
+	elif field_no > 0:
+		_round_text += ", a Blue win back to %s" % front[field_no - 2]
 	round_label.text = _round_text
 	round_label.visible = true
 
@@ -1154,12 +1163,11 @@ func set_round(r: int, total: int, layout: String, sizes: Array, field_no: int =
 ## The field the companies are being set up for, at the top of Edit Company. In a campaign
 ## it names the round as well; a single battle just names the ground.
 func set_plan(field_no: int, layout: String, round_no: int = 0, total: int = 0) -> void:
-	var where := "field %d of %d, %s" % [field_no, Field.LAYOUT_ORDER.size(), layout]
 	var help: String = Field.LAYOUT_HELP.get(layout, "")
 	if round_no > 0:
-		_plan_label.text = "Planning round %d of %d on %s - %s" % [round_no, total, where, help]
+		_plan_label.text = "Planning battle %d, on field %d of %d: %s - %s" % [round_no, field_no, total, layout, help]
 	else:
-		_plan_label.text = "Planning a battle on %s - %s" % [where, help]
+		_plan_label.text = "Planning a battle on %s - %s" % [layout, help]
 
 
 func open_setup(why: String) -> void:
@@ -1192,6 +1200,12 @@ func _apply_locks() -> void:
 				c.disabled = ai
 			if c is HSlider:
 				c.editable = not ai
+		# in a campaign the companies are the army's: no adding, removing, resizing or reslotting
+		for c in _army_locked[t]:
+			if c is Button:
+				c.disabled = campaign_on or ai
+			if c is HSlider:
+				c.editable = not campaign_on and not ai
 
 
 func campaign_started() -> void:
@@ -1213,12 +1227,12 @@ func campaign_ended() -> void:
 	round_label.visible = false
 	_apply_locks()
 	_top_campaign_btn.text = "» Start a campaign"
-	_head_campaign_btn.text = "» Start a campaign (5 rounds)"
+	_head_campaign_btn.text = "» Start a campaign (to the end)"
 	_fight_btn0.text = "» Fight one battle"
 	_top_fight_btn.text = "» New battle"
 	_batch_btn.visible = true
 	_fight_btn.text = "» Fight with these companies"
-	_campaign_btn.text = "» Start a campaign (5 rounds)"
+	_campaign_btn.text = "» Start a campaign (to the end)"
 	for b in [_top_campaign_btn, _head_campaign_btn, _campaign_btn]:
 		_accent(b)
 
@@ -1230,68 +1244,86 @@ func show_round(sm: Dictionary) -> void:
 		c.queue_free()
 	var res: Dictionary = sm["result"]
 	var over: bool = sm["over"]
+	var cw: int = int(sm.get("campaign_winner", -1))
 	if over:
-		var cw: int = sm["campaign_winner"]
-		results_title.text = "Campaign over - %s" % (("%s wins the campaign" % MatchManager.TEAM_NAMES[cw]) if cw >= 0 else "drawn")
+		results_title.text = "The war is over - %s wins" % MatchManager.TEAM_NAMES[cw]
 	else:
-		results_title.text = "Round %d of %d on the %s - %s" % [sm["round"], sm["rounds"], sm["field"],
-			("%s wins" % res["winner_name"]) if res["winner"] >= 0 else "drawn"]
-	_section(results_box, "Campaign score")
-	var g := _stat_grid()
-	_stat_row(g, "Rounds won", [sm["wins"][0], sm["wins"][1]])
-	_stat_row(g, "Killed, all rounds", [sm["kills"][0], sm["kills"][1]])
-	_section(results_box, "This round")
+		results_title.text = "Battle %d on %d. %s - %s" % [sm["round"], sm["field_no"], sm["field"],
+			("%s wins" % res["winner_name"]) if res["winner"] >= 0 else "drawn, the front holds"]
+	# the front, animated: where the fight was, where it goes, what each army has left
+	var fm := FrontMap.new()
+	fm.fields = sm["front"]
+	fm.from_no = int(sm["field_no"])
+	fm.to_no = int(sm["next_field_no"])
+	fm.winner = int(res["winner"])
+	fm.men_before = sm["men_before"]
+	fm.men_after = sm["men_after"]
+	fm.men_full = [sm["men_full"], sm["men_full"]]
+	fm.over = over
+	fm.campaign_winner = cw
+	results_box.add_child(fm)
+	fm.play()
+	if over:
+		var why := Label.new()
+		why.text = String(sm.get("why", ""))
+		why.add_theme_font_size_override("font_size", 15)
+		why.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[cw].lightened(0.45))
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		results_box.add_child(why)
+	_section(results_box, "This battle")
 	var g2 := _stat_grid()
 	var c: Array = sm["counts"]
 	_stat_row(g2, "Stood their ground", [c[0]["stood"], c[1]["stood"]])
 	_stat_row(g2, "Ran (and live)", [c[0]["ran"], c[1]["ran"]])
-	_stat_row(g2, "Fell", [c[0]["fell"], c[1]["fell"]])
+	_stat_row(g2, "Fell - gone for good", [c[0]["fell"], c[1]["fell"]])
 	var st: Dictionary = res["stats"]
-	_stat_row(g2, "Hit rate", ["%d%%" % int(float(st["hits"][0]) / maxf(float(st["shots"][0]), 1.0) * 100.0), "%d%%" % int(float(st["hits"][1]) / maxf(float(st["shots"][1]), 1.0) * 100.0)])
 	_stat_row(g2, "Killed by ball / bayonet", ["%d / %d" % [st["kills"][0][0], st["kills"][0][1]], "%d / %d" % [st["kills"][1][0], st["kills"][1][1]]])
+	_stat_row(g2, "Battles won, killed in the war", ["%d, %d" % [sm["wins"][0], sm["kills"][0]], "%d, %d" % [sm["wins"][1], sm["kills"][1]]])
+	_stat_row(g2, "Men left in the army", [sm["men_after"][0], sm["men_after"][1]])
+	for note in sm.get("merges", []):
+		var ml := Label.new()
+		ml.text = String(note)
+		ml.add_theme_font_size_override("font_size", 12)
+		ml.add_theme_color_override("font_color", Color(0.8, 0.78, 0.65))
+		results_box.add_child(ml)
 	if not over:
-		_section(results_box, "Next round: field %d of %d, %s" % [int(sm.get("next_field_no", 0)), Field.LAYOUT_ORDER.size(), sm.get("next_field", "")])
+		_section(results_box, "Next: field %d of %d, %s" % [int(sm["next_field_no"]), (sm["front"] as Array).size(), sm["next_field"]])
 		var fl := Label.new()
-		fl.text = "%s  (It is on the map now - close this panel and look it over before choosing personalities.)" % Field.LAYOUT_HELP.get(sm.get("next_field", ""), "")
+		fl.text = "%s  (It is on the map now.)" % Field.LAYOUT_HELP.get(sm["next_field"], "")
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.add_theme_font_size_override("font_size", 13)
 		fl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.8))
 		results_box.add_child(fl)
-		var g3 := _stat_grid()
-		var ns: Array = sm["next_sizes"]
-		var ts: Array = sm["team_sizes"]
-		_stat_row(g3, "Veterans carried over", [ns[0], ns[1]])
-		if sm["last_next"]:
-			_stat_row(g3, "Recruits", ["none - the last round", "none - the last round"])
-		else:
-			_stat_row(g3, "Recruits", [maxi(int(ts[0]) - int(ns[0]), 0), maxi(int(ts[1]) - int(ns[1]), 0)])
-		var picks: Array = sm.get("ai_picks", ["", ""])
-		var tpicks: Array = sm.get("ai_type_picks", ["", ""])
-		var docs: Array = sm.get("ai_doctrines", ["", ""])
+		# the armies: tap a company to put it forward or stand it down (four fight)
 		for t in 2:
-			if picks[t] != "":
-				var what := "%s / %s" % [picks[t], tpicks[t]] if tpicks[t] != "" else String(picks[t])
-				if docs[t] != "" and docs[t] != picks[t]:
-					what = "%s: %s" % [docs[t], what]
-				_stat_row(g3, "%s (computer) will field" % MatchManager.TEAM_NAMES[t], [what if t == 0 else "", what if t == 1 else ""])
+			var head := "%s's army - the four lit fight next" % MatchManager.TEAM_NAMES[t]
+			if String(commanders[t]) == "computer":
+				head += " (the computer's choice)"
+			else:
+				head += "; tap to swap"
+			_section(results_box, head)
+			var ab := HFlowContainer.new()
+			ab.add_theme_constant_override("h_separation", 6)
+			ab.add_theme_constant_override("v_separation", 6)
+			results_box.add_child(ab)
+			_army_boxes[t] = ab
+			update_army(t, sm["armies"][t])
 		var nl := Label.new()
-		nl.text = "Types and personalities may be changed under Edit Battalion before the next round." if picks[0] == "" or picks[1] == "" else "Both sides are the computer's to command; watch how they answer each other."
+		nl.text = "Drills and types of the companies going in can be changed under Edit Battalion."
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		nl.add_theme_font_size_override("font_size", 13)
 		nl.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
 		results_box.add_child(nl)
-	_section(results_box, "The rounds so far")
+	_section(results_box, "The battles so far")
 	var g5 := GridContainer.new()
-	g5.columns = 5
+	g5.columns = 4
 	g5.add_theme_constant_override("h_separation", 14)
 	results_box.add_child(g5)
-	for h in ["#", "Field", "Red / Blue fielded", "Winner", "How"]:
+	for h in ["#", "Field", "Winner", "How"]:
 		_cell(g5, h, true)
 	for b in sm["history"]:
 		_cell(g5, str(b["round"]), false)
 		_cell(g5, b["field"], false)
-		var f: Array = b.get("fielded", ["", ""])
-		_cell(g5, "%s / %s" % [f[0], f[1]], false)
 		var w: int = int(b["winner"])
 		_cell(g5, b["winner_name"], false, MatchManager.TEAM_COLORS[w].lightened(0.5) if w >= 0 else Color(0.8, 0.8, 0.8))
 		_cell(g5, "%s, %d:%02d" % [b["reason"], int(b["duration"]) / 60, int(b["duration"]) % 60], false)
@@ -1306,7 +1338,7 @@ func show_round(sm: Dictionary) -> void:
 		sim.pressed.connect(func(): _close_overlays(); new_match_requested.emit())
 		row.add_child(sim)
 	else:
-		var nxt := _button("» Next round")
+		var nxt := _button("» Next battle")
 		_style(nxt, "go")
 		nxt.pressed.connect(func(): _close_overlays(); next_round_requested.emit())
 		row.add_child(nxt)
@@ -1321,6 +1353,28 @@ func show_round(sm: Dictionary) -> void:
 	pad.custom_minimum_size = Vector2(0, 30)
 	results_box.add_child(pad)
 	results_overlay.visible = true
+
+
+## The army picker: a card per company - men left, drill, type; lit if it fights next.
+func update_army(t: int, view: Array) -> void:
+	var ab: HFlowContainer = _army_boxes[t]
+	if ab == null or not is_instance_valid(ab):
+		return
+	for ch in ab.get_children():
+		ch.queue_free()
+	for i in view.size():
+		var a: Dictionary = view[i]
+		var b := Button.new()
+		b.toggle_mode = true
+		b.button_pressed = bool(a["fights"])
+		b.text = "%s · %d men\n%s / %s" % [a["name"], int(a["men"]), a["drill"], a["type"]]
+		b.custom_minimum_size = Vector2(104, 0)
+		b.add_theme_font_size_override("font_size", 12)
+		b.disabled = int(a["men"]) == 0 or String(commanders[t]) == "computer"
+		var idx := i
+		b.pressed.connect(func(): army_pick.emit(t, idx))
+		ab.add_child(b)
+	_cursor_for_tree(ab)
 
 
 func _section(parent: Control, text: String) -> void:
