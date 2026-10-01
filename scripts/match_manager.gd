@@ -690,7 +690,7 @@ func _bar_quad(lab: Node3D, col: Color, w: float, h: float, x: float, prio: int)
 	return q
 
 
-const MODE_GLYPH := {"advance": "»", "hold": "■", "at_will": "■", "charge": "⚔", "fallback": "«"}
+const MODE_GLYPH := {"advance": "»", "hold": "■", "at_will": "■", "charge": "»»", "fallback": "«"}
 
 
 func _process(_delta: float) -> void:
