@@ -116,6 +116,18 @@ func _settle() -> void:
 		rb.angular_velocity = Vector3.ZERO
 		rb.freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
 		rb.freeze = true
+	# a body that lies still is drawn as one mesh, not six (the bodies stay, frozen, to be
+	# stepped over)
+	var parts := MeshBaker.collect(self, [])
+	if not parts.is_empty():
+		var mi := MeshInstance3D.new()
+		mi.mesh = MeshBaker.build(parts)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+		for k in bodies:
+			for c in (bodies[k] as Node).get_children():
+				if c is MeshInstance3D and c != mi:
+					(c as MeshInstance3D).visible = false
 
 
 func shove(impulse: Vector3) -> void:

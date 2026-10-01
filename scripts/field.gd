@@ -159,6 +159,7 @@ const LAYOUT_HELP := {
 }
 
 var layout_name := "Walled Farm"
+var _terrain_mi: MeshInstance3D = null
 
 var pieces: Array[Dictionary] = []   # {rect: Rect2 (x,z), h: float, kind: String, tall: bool}
 var spots: Array[Dictionary] = []    # {pos: Vector3, piece: int, normal: Vector3}
@@ -346,6 +347,7 @@ func _ready() -> void:
 	for i in pieces.size():
 		if pieces[i]["kind"] != "water":
 			_make_spots(i, pieces[i]["rect"], pieces[i]["kind"])
+	_bake_field()
 	_build_buckets()
 	_build_nav()
 
@@ -493,6 +495,7 @@ func _build_terrain() -> void:
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
+	_terrain_mi = mi
 
 	var body := StaticBody3D.new()
 	body.collision_layer = LAYER_GROUND   # the ground is for ragdolls; the men ride height_at() and never touch it
@@ -1103,3 +1106,50 @@ func _pieces_on_segment(a: Vector2, b: Vector2) -> PackedInt32Array:
 			tmy += tdy
 			iy += sy
 	return out
+
+
+## Every wall, fence rail and post, rock, tree, river, bridge, rim panel and deployment mark is
+## its own mesh as built - several hundred on a built-up field, each a draw call on the web.
+## Merge them: one opaque mesh (colours as vertex colours) and one for the glass rim. The
+## colliders stay as they are.
+func _bake_field() -> void:
+	var parts := MeshBaker.collect(self, [_terrain_mi])
+	var opaque := []
+	var glass := []
+	for p in parts:
+		var c: Color = p[2]
+		if c.a < 0.99:
+			glass.append(p)
+		else:
+			opaque.append(p)
+	var doomed := []
+	_field_meshes(self, doomed)
+	if not opaque.is_empty():
+		var mi := MeshInstance3D.new()
+		mi.mesh = MeshBaker.build(opaque)
+		add_child(mi)
+	if not glass.is_empty():
+		var gm := MeshBaker.build(glass)
+		var gmat := StandardMaterial3D.new()
+		gmat.vertex_color_use_as_albedo = true
+		gmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		gmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		gmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		gm.surface_set_material(0, gmat)
+		var gi := MeshInstance3D.new()
+		gi.mesh = gm
+		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(gi)
+	for d in doomed:
+		(d as MeshInstance3D).mesh = null
+		if (d as Node).get_child_count() == 0:
+			(d as Node).queue_free()
+
+
+func _field_meshes(n: Node, out: Array) -> void:
+	for c in n.get_children():
+		if c == _terrain_mi:
+			continue
+		_field_meshes(c, out)
+		if c is MeshInstance3D and (c as MeshInstance3D).material_override is StandardMaterial3D:
+			out.append(c)

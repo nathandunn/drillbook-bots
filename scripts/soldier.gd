@@ -131,6 +131,10 @@ var _gait := 0.0
 var _flash_tween: Tween
 var ragdoll: Ragdoll = null
 var _bar_fg: MeshInstance3D
+var _bar_bg: MeshInstance3D
+var _core_mi: MeshInstance3D
+var _smoke_t := 0.0
+static var _white_mat: StandardMaterial3D = null
 var _bar_quad: QuadMesh
 var _smoke: CPUParticles3D
 
@@ -1054,6 +1058,17 @@ func _build_body() -> void:
 	_smoke.position = Vector3(0, 0.04, -1.0)
 	rifle.add_child(_smoke)
 
+	# one mesh for each moving part, under one shared vertex-coloured material: ~22 draws a man
+	# become 6 (the web renderer draws every mesh separately)
+	var mk := company % MatchManager.MARKS.size()
+	_core_mi = MeshBaker.bake_into(body_root, [arm_l, arm_r, leg_l, leg_r, rifle], "core/%d/%d" % [team, mk])
+	MeshBaker.bake_into(arm_l, [], "arm/%d/%d" % [team, mk])
+	MeshBaker.bake_into(arm_r, [], "arm/%d/%d" % [team, mk])
+	MeshBaker.bake_into(leg_l, [], "leg/%d" % team)
+	MeshBaker.bake_into(leg_r, [], "leg/%d" % team)
+	MeshBaker.bake_into(rifle, [_smoke], "rifle")
+	_smoke.visible = false
+
 	label = Label3D.new()
 	label.text = soldier_name if rounds == 0 else "%s *%d" % [soldier_name, rounds]   # *n: rounds survived
 	label.font_size = 24
@@ -1067,6 +1082,7 @@ func _build_body() -> void:
 	add_child(label)
 	# hp bar
 	var bar_bg := MeshInstance3D.new()
+	_bar_bg = bar_bg
 	var bgq := QuadMesh.new()
 	bgq.size = Vector2(0.9, 0.1)
 	bar_bg.mesh = bgq
@@ -1214,6 +1230,15 @@ func _animate(delta: float) -> void:
 	rifle.position.z = lerpf(rifle.position.z, rz, delta * 10.0)
 	arm_r.rotation.x = lerpf(arm_r.rotation.x, -1.2 if rx < 0.5 else -0.4, delta * 8.0)
 	arm_l.rotation.x = lerpf(arm_l.rotation.x, -1.3 if rx < 0.5 else -1.6, delta * 8.0)
+	# the health bar only once he is hurt; the smoke only while there is smoke
+	var hurt_now := hp < MAX_HP
+	if _bar_bg.visible != hurt_now:
+		_bar_bg.visible = hurt_now
+		_bar_fg.visible = hurt_now
+	if _smoke_t > 0.0:
+		_smoke_t -= delta
+		if _smoke_t <= 0.0:
+			_smoke.visible = false
 	_bar_quad.size.x = 0.88 * clampf(hp / MAX_HP, 0.0, 1.0)
 	_bar_fg.position.x = -(0.88 - _bar_quad.size.x) * 0.5
 	(_bar_fg.material_override as StandardMaterial3D).albedo_color = Color(0.3, 0.9, 0.3, 0.95).lerp(Color(0.95, 0.3, 0.2, 0.95), 1.0 - hp / MAX_HP)
@@ -1225,6 +1250,8 @@ func _animate(delta: float) -> void:
 func _muzzle_flash_arc(ball: Callable, end_x: float) -> void:
 	if manager.headless:
 		return
+	_smoke.visible = true
+	_smoke_t = 1.6
 	_smoke.restart()
 	_smoke.emitting = true
 	var tr := MeshInstance3D.new()
@@ -1249,6 +1276,8 @@ func _muzzle_flash_arc(ball: Callable, end_x: float) -> void:
 func _muzzle_flash(from: Vector3, to: Vector3) -> void:
 	if manager.headless:
 		return
+	_smoke.visible = true
+	_smoke_t = 1.6
 	_smoke.restart()
 	_smoke.emitting = true
 	# a brief tracer so the eye can follow the shot
@@ -1274,9 +1303,17 @@ func _flash() -> void:
 		return
 	if _flash_tween != null:
 		_flash_tween.kill()
-	_mat.albedo_color = Color(1, 1, 1)
-	_flash_tween = get_tree().create_tween()
-	_flash_tween.tween_property(_mat, "albedo_color", team_color, 0.25)
+	# the hit: the body flashes white for a moment
+	if _white_mat == null:
+		_white_mat = StandardMaterial3D.new()
+		_white_mat.albedo_color = Color(1, 1, 1)
+	if _core_mi != null:
+		_core_mi.material_override = _white_mat
+		_flash_tween = get_tree().create_tween()
+		_flash_tween.tween_interval(0.18)
+		_flash_tween.tween_callback(func():
+			if is_instance_valid(_core_mi):
+				_core_mi.material_override = null)
 
 
 func _spawn_ragdoll(attacker: Soldier) -> void:

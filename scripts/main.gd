@@ -13,6 +13,7 @@ var batch_left := 0
 var batch_results: Array[Dictionary] = []
 var _restart_timer := -1.0
 var _base_seed := -1
+var _sun: DirectionalLight3D = null
 
 # --- campaign: a front of eleven fields drawn at random; armies of twelve companies of ten,
 # four fighting at a time, no recruits; won by carrying the enemy's last field or by the enemy
@@ -161,6 +162,10 @@ func _ready() -> void:
 	hud.army_pick.connect(toggle_army_pick)
 	if args.has("debug"):
 		hud.enable_debug()
+	if not headless:
+		set_sim_speed(1.0)
+	if args.has("shadows") and _sun != null:
+		_sun.shadow_enabled = String(args["shadows"]) != "0"
 	hud.field_chosen.connect(func(n: String):
 		if campaign_active:
 			return
@@ -199,8 +204,14 @@ func _setup_ui_scale() -> void:
 ## Speed up game time without coarsening physics: raise the tick rate to match.
 func set_sim_speed(s: float) -> void:
 	Engine.time_scale = s
-	Engine.physics_ticks_per_second = int(round(60.0 * s))
-	Engine.max_physics_steps_per_frame = maxi(8, int(s * 4.0))
+	if OS.has_feature("web"):
+		# a phone cannot keep 60 steps a second for 80 men: 30, and never more than two
+		# catch-up steps a frame - a slow frame slows the battle rather than snowballing
+		Engine.physics_ticks_per_second = int(round(30.0 * s))
+		Engine.max_physics_steps_per_frame = maxi(2, int(s * 2.0))
+	else:
+		Engine.physics_ticks_per_second = int(round(60.0 * s))
+		Engine.max_physics_steps_per_frame = maxi(8, int(s * 4.0))
 
 
 func _build_lighting() -> void:
@@ -208,7 +219,8 @@ func _build_lighting() -> void:
 	sun.rotation_degrees = Vector3(-50, 40, 0)
 	sun.light_energy = 1.3
 	sun.light_color = Color(1.0, 0.96, 0.88)
-	sun.shadow_enabled = not headless
+	sun.shadow_enabled = not headless and not OS.has_feature("web")   # ?shadows=1 turns them on in a browser
+	_sun = sun
 	sun.directional_shadow_max_distance = 300.0
 	add_child(sun)
 	var env := WorldEnvironment.new()
