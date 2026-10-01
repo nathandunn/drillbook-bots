@@ -136,6 +136,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.setup(manager)
 	hud.set_plan(Field.LAYOUT_ORDER.find(field.layout_name) + 1, field.layout_name)
+	hud.mark_field(field.layout_name)
 	hud.new_match_requested.connect(func():
 		batch_left = 0
 		batch_results.clear()
@@ -147,6 +148,12 @@ func _ready() -> void:
 	hud.campaign_requested.connect(_start_campaign)
 	hud.next_round_requested.connect(_next_round)
 	hud.campaign_abandoned.connect(_abandon_campaign)
+	hud.field_chosen.connect(func(n: String):
+		if campaign_active:
+			return
+		_rebuild_field(n)
+		if cam != null:
+			cam.refit())
 	hud.speed_changed.connect(set_sim_speed)
 	hud.pause_toggled.connect(func(p: bool): get_tree().paused = p)
 	hud.fit_requested.connect(func(): cam.refit())
@@ -376,6 +383,7 @@ func _rebuild_field(layout: String) -> void:
 	manager.field = field
 	if hud != null:
 		hud.set_plan(Field.LAYOUT_ORDER.find(layout) + 1, layout)
+		hud.mark_field(layout)
 
 
 func _start_campaign() -> void:
@@ -512,7 +520,7 @@ func _ai_pick_company(t: int, opening: bool, e: Personality, used: Dictionary) -
 	var e_disc := e.get_trait("discipline")
 	var e_coh := e.get_trait("cohesion")
 	var layout: String = field.layout_name if field != null else "Walled Farm"
-	var pieces: int = (Field.LAYOUTS.get(layout, []) as Array).size()
+	var pieces: int = Field.scaled_pieces(layout).size() / 2   # battalion scale: about twice the old counts
 	var open_ground: bool = pieces <= 6
 	var thick_ground: bool = pieces >= 10
 	var scored := []

@@ -884,8 +884,23 @@ func _flee() -> void:
 
 # ---------------------------------------------------------------- movement
 
+var _wp := Vector3.ZERO
+var _wp_goal := Vector3(INF, 0, INF)
+var _wp_t := 0.0
+
+
 func _move(delta: float) -> void:
-	var to_goal := goal - global_position
+	# the way round: walk to a waypoint when the straight line to the goal meets a wall, a house
+	# or a river (a bridge is the only way over); asked again every 0.4 s or when the goal moves
+	var target := goal
+	if action != "melee" and global_position.distance_to(goal) > 1.2:
+		_wp_t -= delta
+		if _wp_t <= 0.0 or _wp_goal.distance_to(goal) > 1.5 or global_position.distance_to(_wp) < 0.8:
+			_wp_t = 0.4
+			_wp_goal = goal
+			_wp = field.next_waypoint(global_position, goal)
+		target = _wp
+	var to_goal := target - global_position
 	to_goal.y = 0.0
 	var dist := to_goal.length()
 	var speed := 0.0

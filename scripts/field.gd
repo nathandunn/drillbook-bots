@@ -41,6 +41,7 @@ const HILLS := {
 	"Village": [[2.0, 2.0, 22.0, 18.0, 4.2], [-18.0, -28.0, 14.0, 12.0, 3.4], [18.0, 28.0, 14.0, 12.0, 3.4]],
 	"Crossroads": [[-14.0, -14.0, 16.0, 14.0, 5.0], [14.0, 14.0, 16.0, 14.0, 5.0], [14.0, -14.0, 14.0, 12.0, -2.0], [-14.0, 14.0, 14.0, 12.0, -2.0]],
 	"Ridge": [[-14.0, 12.0, 22.0, 14.0, 8.0], [14.0, 12.0, 22.0, 14.0, 8.0], [0.0, -26.0, 32.0, 11.0, 4.6]],
+	"Suburb": [[-12.0, -10.0, 20.0, 14.0, 1.2], [14.0, 12.0, 18.0, 14.0, 1.0]],
 }
 
 ## The pieces of each layout: x, z, size_x, size_z, height, kind. Kinds: wall, fence, boulder,
@@ -123,6 +124,8 @@ const LAYOUTS := {
 		[-18.0, -26.0, 3.2, 2.8, 1.8, "boulder"], [16.0, -28.0, 3.6, 3.0, 1.9, "boulder"],
 		[22.0, 16.0, 1.0, 1.0, 5.0, "tree"], [-22.0, -10.0, 1.0, 1.0, 5.0, "tree"], [4.0, -36.0, 1.0, 1.0, 5.0, "tree"], [-4.0, 34.0, 1.0, 1.0, 5.0, "tree"],
 	],
+	# built in code at battalion scale (see scaled_pieces): City, Suburb, River Crossing
+	"City": [], "Suburb": [], "River Crossing": [],
 	"Sunken Road": [
 		[-14.0, -3.0, 24.0, 0.6, 1.0, "wall"], [16.0, -3.0, 16.0, 0.6, 1.0, "wall"],
 		[-16.0, 3.0, 16.0, 0.6, 1.0, "wall"], [14.0, 3.0, 24.0, 0.6, 1.0, "wall"],
@@ -136,6 +139,9 @@ const LAYOUTS := {
 const LAYOUT_ORDER: Array[String] = ["Hedgerows", "Churchyard", "Sunken Road", "Woodland", "Open Plain",
 	"Walled Farm", "Orchard", "Village", "Crossroads", "Ridge"]
 const START_FIELD := 5
+## Every field there is: the front, then the close-quarters fields (single battles and Sim x10).
+const ALL_FIELDS: Array[String] = ["Hedgerows", "Churchyard", "Sunken Road", "Woodland", "Open Plain",
+	"Walled Farm", "Orchard", "Village", "Crossroads", "Ridge", "City", "Suburb", "River Crossing"]
 const LAYOUT_HELP := {
 	"Open Plain": "A long low swell across the middle and two big rocks. Dead ground behind the swell; the crest is the fight.",
 	"Walled Farm": "Stone walls and fences on a rise, a roofless farmhouse in the middle. Cover for whoever gets to it first.",
@@ -147,6 +153,9 @@ const LAYOUT_HELP := {
 	"Orchard": "Trees in rows on two gentle rises with a hollow between, walls at the flanks. Cover everywhere, none of it good.",
 	"Crossroads": "Two walls crossing the middle, a ruin and a knoll on each diagonal, hollows between. Four quarters, each a fight of its own.",
 	"Ridge": "A five-metre ridge across Blue's half with a broken wall on the crest; rocks below it. The high line holds the fire.",
+	"City": "Blocks of roofless houses three metres high, narrow streets, rubble and barricades in every street, a church and a square in the middle. No range anywhere: the bayonet's ground.",
+	"Suburb": "Rows of roofless houses with fenced gardens, hedges and trees, lanes between. Short sight lines, cover at every garden fence.",
+	"River Crossing": "Two rivers across the field, each crossed only by one narrow bridge - one on each flank. Mills, walls, woods and rocks crowd both banks. Whoever holds a bridge holds the field.",
 }
 
 var layout_name := "Walled Farm"
@@ -201,6 +210,11 @@ func _ready() -> void:
 	trunk_mat.albedo_color = Color(0.36, 0.25, 0.14)
 	var leaf_mat := StandardMaterial3D.new()
 	leaf_mat.albedo_color = Color(0.2, 0.4, 0.16)
+	var water_mat := StandardMaterial3D.new()
+	water_mat.albedo_color = Color(0.22, 0.4, 0.62)
+	water_mat.roughness = 0.2
+	var deck_mat := StandardMaterial3D.new()
+	deck_mat.albedo_color = Color(0.5, 0.38, 0.24)
 
 	# ruins become their four walls (with a door in each flank) before anything is built
 	var pieces_src: Array = []
@@ -272,16 +286,41 @@ func _ready() -> void:
 				crown.material_override = leaf_mat
 				crown.position = Vector3(0, 3.2, 0)
 				body.add_child(crown)
+			"water":
+				# the river: impassable (an invisible bank-high collider), flat water on top
+				var wb := _static_box(Vector3(p[0], base + 0.7, p[1]), Vector3(p[2], 1.4, p[3]), water_mat, false)
+				var wm := MeshInstance3D.new()
+				wm.mesh = _box_mesh(Vector3(p[2], 0.06, p[3]))
+				wm.material_override = water_mat
+				wm.position = Vector3(0, -0.66, 0)
+				wb.add_child(wm)
+			"deck":
+				# a bridge deck: drawn and walked on, not a piece
+				var dm := MeshInstance3D.new()
+				dm.mesh = _box_mesh(Vector3(p[2], 0.12, p[3]))
+				dm.material_override = deck_mat
+				dm.position = Vector3(p[0], base + 0.06, p[1])
+				add_child(dm)
+				continue
 		var rect := Rect2(p[0] - p[2] * 0.5, p[1] - p[3] * 0.5, p[2], p[3])
-		var tall: bool = kind == "tree" or p[4] >= 1.4
+		var tall: bool = kind == "tree" or (kind != "water" and p[4] >= 1.4)
 		pieces.append({"rect": rect, "h": float(p[4]), "kind": kind, "tall": tall})
 	for i in pieces.size():
-		_make_spots(i, pieces[i]["rect"], pieces[i]["kind"])
+		if pieces[i]["kind"] != "water":
+			_make_spots(i, pieces[i]["rect"], pieces[i]["kind"])
+	_build_nav()
 
 
 ## The layout at battalion scale: every piece moved out to twice the distance (walls and fences
 ## drawn longer, ruins and rocks a little bigger), then the layout's own kinds of ground added.
 static func scaled_pieces(layout: String) -> Array:
+	match layout:
+		"City":
+			return _city_pieces()
+		"Suburb":
+			return _suburb_pieces()
+		"River Crossing":
+			return _river_pieces()
 	var out := []
 	for p in LAYOUTS.get(layout, LAYOUTS["Walled Farm"]):
 		var q: Array = p.duplicate()
@@ -583,6 +622,8 @@ func line_of_fire(from: Vector3, to: Vector3) -> float:
 	var b := Vector2(to.x, to.z)
 	var best := 1.0
 	for pc in pieces:
+		if pc["kind"] == "water":
+			continue   # a ball flies over a river
 		var r: Rect2 = pc["rect"]
 		if not _segment_hits_rect(a, b, r):
 			continue
@@ -678,3 +719,244 @@ func _box_mesh(size: Vector3) -> BoxMesh:
 	var m := BoxMesh.new()
 	m.size = size
 	return m
+
+
+# ---------------------------------------------------------------- the close-quarters fields
+
+## Adds a piece if it overlaps nothing in `out` (grown by `gap`) and stays out of `keep_clear`.
+static func _try_add(out: Array, q: Array, gap: float, keep_clear: Array = []) -> bool:
+	var rect := Rect2(float(q[0]) - float(q[2]) * 0.5, float(q[1]) - float(q[3]) * 0.5, float(q[2]), float(q[3]))
+	for k in keep_clear:
+		if (k as Rect2).intersects(rect):
+			return false
+	var grown := rect.grow(gap)
+	for o in out:
+		var ro := Rect2(float(o[0]) - float(o[2]) * 0.5, float(o[1]) - float(o[3]) * 0.5, float(o[2]), float(o[3]))
+		if grown.intersects(ro):
+			return false
+	out.append(q)
+	return true
+
+
+## City: blocks of roofless houses (3.2 m - nobody sees over them) on a street grid; a church and
+## a square in the middle; rubble and barricades staggered down every street so no street is a
+## shooting gallery. The ends of the field are left open for forming up.
+static func _city_pieces() -> Array:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("City")
+	var out := []
+	var xb := [[-54.0, -35.0], [-25.0, -5.0], [5.0, 25.0], [35.0, 54.0]]
+	var zb := [[-64.0, -47.0], [-39.0, -21.0], [-13.0, 13.0], [21.0, 39.0], [47.0, 64.0]]
+	for bi in xb.size():
+		for bj in zb.size():
+			var x0: float = xb[bi][0]
+			var x1: float = xb[bi][1]
+			var z0: float = zb[bj][0]
+			var z1: float = zb[bj][1]
+			var cx := (x0 + x1) * 0.5
+			var cz := (z0 + z1) * 0.5
+			if bj == 2 and bi == 1:
+				out.append([cx, cz, 14.0, 20.0, 3.4, "ruin"])   # the church
+				continue
+			if bj == 2 and bi == 2:
+				# the square: a fountain, trees, a low wall at each end
+				out.append([cx, cz, 3.0, 3.0, 1.0, "wall"])
+				for t in [[-6.0, -8.0], [6.0, -8.0], [-6.0, 8.0], [6.0, 8.0]]:
+					out.append([cx + t[0], cz + t[1], 1.0, 1.0, 5.0, "tree"])
+				out.append([cx, z0 + 0.5, 12.0, 0.6, 1.0, "wall"])
+				out.append([cx, z1 - 0.5, 12.0, 0.6, 1.0, "wall"])
+				continue
+			# two houses side by side with an alley between; now and then one is a heap of rubble
+			var w := (x1 - x0 - 2.0) * 0.5
+			for side in [-1.0, 1.0]:
+				var hx: float = cx + float(side) * (w * 0.5 + 1.0)
+				if r.randf() < 0.18:
+					out.append([hx, cz, w * 0.6, 0.6, 1.0, "wall"])
+					out.append([hx + r.randf_range(-2.0, 2.0), cz + r.randf_range(-4.0, 4.0), 3.2, 2.8, 1.9, "boulder"])
+				else:
+					out.append([hx, cz, w, z1 - z0, 3.2, "ruin"])
+	# the streets: rubble (tall) and barricades (low), staggered so a street bends the line of sight
+	for sx in [-30.0, 0.0, 30.0]:
+		for zz in [-56.0, -30.0, -4.0, 20.0, 44.0]:
+			var off := r.randf_range(-2.0, 2.0)
+			if r.randf() < 0.5:
+				out.append([sx + off, zz + r.randf_range(-4.0, 4.0), 3.0, 2.6, 1.9, "boulder"])
+			else:
+				out.append([sx + off * 0.5, zz + r.randf_range(-4.0, 4.0), 5.0, 0.6, 1.0, "wall"])
+	for sz in [-43.0, -17.0, 17.0, 43.0]:
+		for xx in [-44.0, -15.0, 15.0, 44.0]:
+			if r.randf() < 0.6:
+				out.append([xx + r.randf_range(-3.0, 3.0), sz + r.randf_range(-1.0, 1.0), 2.8, 2.4, 1.9, "boulder"])
+	return out
+
+
+## Suburb: rows of roofless houses (2.6 m) along lanes, each with a fenced back garden, side
+## hedges and trees.
+static func _suburb_pieces() -> Array:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("Suburb")
+	var out := []
+	for rz in [-56.0, -34.0, -12.0, 12.0, 34.0, 56.0]:
+		var back: float = 1.0 if rz < 0.0 else -1.0   # gardens toward the middle of the field
+		for hx in [-44.0, -22.0, 0.0, 22.0, 44.0]:
+			if r.randf() < 0.15:
+				continue
+			var x: float = hx + r.randf_range(-3.0, 3.0)
+			var z: float = rz + r.randf_range(-1.5, 1.5)
+			out.append([x, z, 8.0, 7.0, 2.6, "ruin"])
+			# the back garden: a fence across the bottom, a hedge down one side, a tree
+			out.append([x, z + back * 9.0, 14.0, 0.4, 1.1, "fence"])
+			if r.randf() < 0.6:
+				var hs: float = 1.0 if r.randf() < 0.5 else -1.0
+				out.append([x + hs * 7.5, z + back * 5.5, 0.4, 6.0, 1.1, "fence"])
+			if r.randf() < 0.7:
+				out.append([x + r.randf_range(-4.0, 4.0), z + back * 6.0, 1.0, 1.0, 5.0, "tree"])
+	# odd trees and walls on the lanes
+	for n in 14:
+		for attempt in 20:
+			var q := [r.randf_range(-50.0, 50.0), r.randf_range(-62.0, 62.0), 1.0, 1.0, 5.0, "tree"]
+			if r.randf() < 0.35:
+				q = [q[0], q[1], r.randf_range(5.0, 9.0), 0.6, 1.0, "wall"]
+			if _try_add(out, q, 2.0):
+				break
+	return out
+
+
+## River Crossing: two rivers across the field, eight metres wide, each with one bridge (on
+## opposite flanks); stone parapets on the bridges; a mill at each bridgehead; woods, walls,
+## rocks and ruins crowding both banks and the island between. The road to each bridge is kept
+## clear enough to march down.
+static func _river_pieces() -> Array:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("River Crossing")
+	var out := []
+	var rivers := [[-26.0, 22.0], [26.0, -22.0]]   # [z, bridge x]
+	var keep := []
+	for rv in rivers:
+		var rz: float = rv[0]
+		var bx: float = rv[1]
+		var gap := 6.0
+		var left_w: float = (bx - gap * 0.5) - (-HALF_X - 2.0)
+		var right_w: float = (HALF_X + 2.0) - (bx + gap * 0.5)
+		out.append([-HALF_X - 2.0 + left_w * 0.5, rz, left_w, 8.0, 1.0, "water"])
+		out.append([HALF_X + 2.0 - right_w * 0.5, rz, right_w, 8.0, 1.0, "water"])
+		out.append([bx, rz, gap + 0.8, 8.0, 0.1, "deck"])
+		out.append([bx - gap * 0.5 - 0.2, rz, 0.4, 7.6, 0.9, "wall"])   # parapets
+		out.append([bx + gap * 0.5 + 0.2, rz, 0.4, 7.6, 0.9, "wall"])
+		# a mill beside each bridgehead, one on each bank
+		out.append([bx + 11.0, rz - 12.0, 8.0, 7.0, 2.8, "ruin"])
+		out.append([bx - 11.0, rz + 12.0, 8.0, 7.0, 2.8, "ruin"])
+		keep.append(Rect2(bx - 7.0, rz - 18.0, 14.0, 36.0))   # the bridge road
+	# crowd everything else
+	var kinds := [["tree", 46], ["boulder", 16], ["wall", 14], ["fence", 8], ["ruin", 6]]
+	for kd in kinds:
+		for n in int(kd[1]):
+			for attempt in 40:
+				var x := r.randf_range(-52.0, 52.0)
+				var z := r.randf_range(-62.0, 62.0)
+				if absf(absf(z) - 26.0) < 6.5:
+					continue   # not in the river or on its very edge
+				var q: Array
+				match String(kd[0]):
+					"tree":
+						q = [x, z, 1.0, 1.0, 5.0, "tree"]
+					"boulder":
+						q = [x, z, r.randf_range(3.0, 4.0), r.randf_range(2.6, 3.2), r.randf_range(1.8, 2.1), "boulder"]
+					"wall":
+						var l := r.randf_range(7.0, 12.0)
+						q = [x, z, l, 0.6, 1.0, "wall"] if r.randf() < 0.6 else [x, z, 0.6, l, 1.0, "wall"]
+					"fence":
+						var l2 := r.randf_range(7.0, 12.0)
+						q = [x, z, l2, 0.4, 1.1, "fence"] if r.randf() < 0.6 else [x, z, 0.4, l2, 1.1, "fence"]
+					_:
+						q = [x, z, r.randf_range(6.0, 7.5), r.randf_range(4.5, 5.5), 2.6, "ruin"]
+				if _try_add(out, q, 2.2, keep):
+					break
+	return out
+
+
+# ---------------------------------------------------------------- finding a way round
+
+const NAV_CELL := 2.0
+var _nav: AStarGrid2D
+var _nav_w := 0
+var _nav_h := 0
+
+
+## A walking grid over the field: a cell is closed if any piece (grown a little) touches it.
+## Only asked when the straight way is blocked.
+func _build_nav() -> void:
+	_nav_w = int(HALF_X * 2.0 / NAV_CELL)
+	_nav_h = int(HALF_Z * 2.0 / NAV_CELL)
+	_nav = AStarGrid2D.new()
+	_nav.region = Rect2i(0, 0, _nav_w, _nav_h)
+	_nav.cell_size = Vector2(NAV_CELL, NAV_CELL)
+	_nav.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+	_nav.default_compute_heuristic = AStarGrid2D.HEURISTIC_EUCLIDEAN
+	_nav.default_estimate_heuristic = AStarGrid2D.HEURISTIC_EUCLIDEAN
+	_nav.update()
+	for pc in pieces:
+		var rr: Rect2 = (pc["rect"] as Rect2).grow(0.3)
+		var c0 := _nav_cell(rr.position)
+		var c1 := _nav_cell(rr.end)
+		for i in range(c0.x, c1.x + 1):
+			for j in range(c0.y, c1.y + 1):
+				var cr := Rect2(-HALF_X + i * NAV_CELL, -HALF_Z + j * NAV_CELL, NAV_CELL, NAV_CELL)
+				if cr.intersects(rr):
+					_nav.set_point_solid(Vector2i(i, j))
+
+
+func _nav_cell(p: Vector2) -> Vector2i:
+	return Vector2i(clampi(floori((p.x + HALF_X) / NAV_CELL), 0, _nav_w - 1), clampi(floori((p.y + HALF_Z) / NAV_CELL), 0, _nav_h - 1))
+
+
+func _nav_centre(c: Vector2i) -> Vector2:
+	return Vector2(-HALF_X + (c.x + 0.5) * NAV_CELL, -HALF_Z + (c.y + 0.5) * NAV_CELL)
+
+
+func _nav_free(c: Vector2i) -> Vector2i:
+	if not _nav.is_point_solid(c):
+		return c
+	for rad in range(1, 6):
+		for i in range(-rad, rad + 1):
+			for j in range(-rad, rad + 1):
+				if absi(i) != rad and absi(j) != rad:
+					continue
+				var q := Vector2i(c.x + i, c.y + j)
+				if q.x < 0 or q.y < 0 or q.x >= _nav_w or q.y >= _nav_h:
+					continue
+				if not _nav.is_point_solid(q):
+					return q
+	return c
+
+
+## Can a man walk straight from a to b without meeting a piece?
+func walk_clear(a: Vector2, b: Vector2) -> bool:
+	for pc in pieces:
+		if _segment_hits_rect(a, b, (pc["rect"] as Rect2).grow(0.35)):
+			return false
+	return true
+
+
+## Where to walk next on the way from `from` to `to`: `to` itself if the way is straight,
+## otherwise the furthest point along the grid path that can be walked to straight.
+func next_waypoint(from: Vector3, to: Vector3) -> Vector3:
+	var a := Vector2(from.x, from.z)
+	var b := Vector2(to.x, to.z)
+	if _nav == null or walk_clear(a, b):
+		return to
+	var ca := _nav_free(_nav_cell(a))
+	var cb := _nav_free(_nav_cell(b))
+	if ca == cb:
+		return to
+	var path := _nav.get_id_path(ca, cb)
+	if path.size() < 2:
+		return to
+	var best := _nav_centre(path[1])
+	for k in range(1, mini(path.size(), 18)):
+		var pk := _nav_centre(path[k])
+		if walk_clear(a, pk):
+			best = pk
+		else:
+			break
+	return Vector3(best.x, height_at(best.x, best.y), best.y)

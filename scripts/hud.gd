@@ -10,6 +10,7 @@ signal fit_requested
 signal campaign_requested
 signal next_round_requested
 signal campaign_abandoned
+signal field_chosen(layout: String)
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
 const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Random"]
@@ -58,6 +59,18 @@ var _setup_note: Label
 var _top_fight_btn: Button
 var _batch_btn: Button
 var _head_campaign_btn: Button
+var _field_chips := {}
+var _field_help: Label = null
+
+
+## Light the chip of the field on the map and say what it is.
+func mark_field(layout: String) -> void:
+	for n in _field_chips:
+		_field_chips[n].button_pressed = n == layout
+	if _field_help != null:
+		_field_help.text = "%s: %s" % [layout, Field.LAYOUT_HELP.get(layout, "")]
+
+
 ## Who picks each side's personality between campaign rounds: "you" or "computer"
 var commanders := ["you", "computer"]
 var _commander_chips := [{}, {}]
@@ -359,6 +372,25 @@ func _build_teams_overlay() -> void:
 	box.add_child(cols)
 	for t in 2:
 		cols.add_child(_build_team_panel(t))
+	_section(box, "The field, for a single battle or Sim x10")
+	var frow := HFlowContainer.new()
+	box.add_child(frow)
+	for fname in Field.ALL_FIELDS:
+		var fb := Button.new()
+		fb.text = fname
+		fb.toggle_mode = true
+		fb.custom_minimum_size = Vector2(0, 36)
+		fb.add_theme_font_size_override("font_size", 13)
+		fb.tooltip_text = Field.LAYOUT_HELP.get(fname, "")
+		fb.pressed.connect(func(): field_chosen.emit(fname))
+		frow.add_child(fb)
+		_field_chips[fname] = fb
+	var fhelp := Label.new()
+	fhelp.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	fhelp.add_theme_font_size_override("font_size", 12)
+	fhelp.add_theme_color_override("font_color", Color(0.7, 0.7, 0.65))
+	box.add_child(fhelp)
+	_field_help = fhelp
 	_section(box, "The front: ten fields in a line")
 	var fnote := Label.new()
 	fnote.text = "A campaign opens on field %d. Each round's winner pushes the fight one field into the loser's country - Red toward 10, Blue toward 1 - so five straight wins march the whole way." % Field.START_FIELD

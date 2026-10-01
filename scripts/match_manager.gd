@@ -1290,7 +1290,7 @@ func _cover_row_ahead(t: int, line_z: float, engage: float, enemy_centre: Vector
 	var best := NAN
 	var best_d := INF
 	for pc in field.pieces:
-		if pc["tall"]:
+		if pc["tall"] or pc["kind"] == "water":
 			continue
 		var r: Rect2 = pc["rect"]
 		if r.size.x < 4.0:
