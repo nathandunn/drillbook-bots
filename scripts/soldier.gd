@@ -692,6 +692,13 @@ func _can_fire_at(enemy: Soldier) -> bool:
 
 
 func _fire(enemy: Soldier) -> void:
+	# nobody fires into a melee where his own men are: a man not in it himself takes the
+	# nearest enemy who is standing clear, or keeps his round
+	if enemy.in_melee and not in_melee:
+		var alt: Soldier = manager.nearest_clear_enemy(self)
+		if alt == null or not _can_fire_at(alt):
+			return
+		enemy = alt
 	enemy.under_fire = true   # being aimed at and fired on is being under fire
 	loaded = false
 	ammo = maxi(ammo - 1, 0)

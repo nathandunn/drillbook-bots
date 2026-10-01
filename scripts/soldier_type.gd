@@ -19,6 +19,7 @@ const PRESETS := {
 	"Grenadier": {"run": 0.15, "melee": 0.50, "accuracy": 0.15, "stamina": 0.20},
 	"Runner":    {"run": 0.50, "melee": 0.15, "accuracy": 0.15, "stamina": 0.20},
 	"Ironside":  {"run": 0.18, "melee": 0.22, "accuracy": 0.15, "stamina": 0.45},
+	"Brawler":   {"run": 0.35, "melee": 0.50, "accuracy": 0.00, "stamina": 0.15},
 }
 
 const TYPE_HELP := {
@@ -27,6 +28,7 @@ const TYPE_HELP := {
 	"Grenadier": "Big man for the charge; a poor shot",
 	"Runner": "Fast on his feet, and that's the whole of it",
 	"Ironside": "Never tires; ordinary at everything else",
+	"Brawler": "All bayonet and legs: the best in a melee and quick to get there; can barely shoot",
 }
 
 const CURVE := 0.8

@@ -538,6 +538,20 @@ func nearest_enemy(s: Soldier) -> Soldier:
 	return best
 
 
+## The nearest enemy within rifle range who is not locked in a melee.
+func nearest_clear_enemy(s: Soldier) -> Soldier:
+	var best: Soldier = null
+	var best_d := Soldier.MAX_RANGE * Soldier.MAX_RANGE
+	for o in fighting(1 - s.team):
+		if o.in_melee:
+			continue
+		var d := o.global_position.distance_squared_to(s.global_position)
+		if d < best_d:
+			best_d = d
+			best = o
+	return best
+
+
 ## A friend standing within a shoulder of the line of fire, closer than the target.
 func friend_in_line(s: Soldier, enemy: Soldier) -> Soldier:
 	var a := s.global_position
@@ -1118,7 +1132,16 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 		"enemy_hidden":
 			return not c["seen"]
 		"enemy_reloading":
-			return shared_sense("enemy_loaded_under", [0.5], t, co, rng)
+			# the enemy this company faces (its ten nearest men), half or more of them empty
+			var n_e := 0
+			var l_e := 0
+			for e in enemies:
+				if e.is_routed:
+					continue
+				n_e += 1
+				if e.loaded:
+					l_e += 1
+			return n_e > 0 and float(l_e) / float(n_e) < 0.5
 		"spotted":
 			# a company is spotted when a third of the enemy men within 90 m are looking its way
 			if not bool(c["seen"]):

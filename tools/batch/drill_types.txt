@@ -10,4 +10,4 @@ Sniper|Marksman
 Linebreaker|Grenadier
 Line|Even
 Anvil|Marksman
-Hammer|Grenadier
+Hammer|Brawler

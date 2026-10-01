@@ -12,7 +12,7 @@ signal next_round_requested
 signal campaign_abandoned
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
-const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Random"]
+const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Random"]
 const BATCH_N := 10
 
 var manager: MatchManager
