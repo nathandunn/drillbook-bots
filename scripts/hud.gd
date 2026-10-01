@@ -983,7 +983,7 @@ func _process(delta: float) -> void:
 		var modes := []
 		for c in os.size():
 			if manager.fighting_company(t, c).is_empty():
-				modes.append("%s ✕" % manager.companies[t][c]["name"])
+				modes.append("%s lost" % manager.companies[t][c]["name"])
 			elif manager.is_reserve(t, c):
 				modes.append("%s reserve" % manager.companies[t][c]["name"])
 			else:
