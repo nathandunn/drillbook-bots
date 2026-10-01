@@ -1,0 +1,20 @@
+# A worked example of companies working together (2026-09-30): the hammer waits until a
+# neighbour has the enemy engaged, then goes in with the bayonet. Pair it with Anvil.
+drill "Hammer"
+about "Waits short of the fight until a neighbour has the enemy engaged, then goes in with the bayonet. Meets a charge with a charge and runs down a breaking enemy."
+type Grenadier
+dials aggression 0.85 discipline 0.60 cohesion 0.60 cover 0.40 patience 0.30 nerve 0.85
+
+sergeant:
+  when enemy breaking or enemy broken              -> charge
+  when enemy charging and enemy within 30          -> charge
+  when neighbour engaged and enemy within 50       -> charge; form open
+  when neighbour falling back and enemy within 40  -> charge
+  when enemy within 50                             -> hold; find cover; hold fire
+  when time over 120s                              -> charge
+  otherwise                                        -> advance slow; form open; hold fire
+
+man:
+  when enemy within 12                             -> charge
+  when charging                                    -> charge
+  otherwise                                        -> follow sergeant

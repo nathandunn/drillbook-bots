@@ -12,7 +12,9 @@ reserve. Battalion presets: Line, Light, Assault column, Mixed, Old guard, and *
 
 Per company, not per side: the exchange (`winning/losing the exchange`), `phase is`,
 `my losses over`, `volley called`, `mode is`, `charging`. Per side: `enemy broken/breaking`,
-`outnumbers`, `mates running`. A sergeant's `enemy …` words look at the ten enemy men nearest
+`outnumbers`, `mates running`. Neighbours (another company of the side within 45 m):
+`neighbour charging`, `neighbour falling back`, `neighbour engaged` (enemy within 60 m of it),
+`neighbour broken`. Anvil and Hammer are a worked pair that use them. A sergeant's `enemy …` words look at the ten enemy men nearest
 his company.
 
 ```

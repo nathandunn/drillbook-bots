@@ -1,0 +1,21 @@
+# A worked example of companies working together (2026-09-30): the anvil pins the enemy with
+# fire from cover so a neighbour can go in. Pair it with Hammer.
+drill "Anvil"
+about "Pins the enemy with fire from cover. When a neighbour charges it stands and covers him; when nobody is going in, it gives ground before a charge and comes back."
+type Marksman
+dials aggression 0.15 discipline 0.55 cohesion 0.35 cover 1.00 patience 0.60 nerve 0.70
+
+sergeant:
+  when neighbour charging                          -> hold; stand fast; find cover; fire at will
+  when enemy charging and enemy within 30          -> fall back 20; set phase giving
+  when phase is giving and enemy beyond 30 for 6s  -> advance; set phase screen
+  when losing the exchange                         -> find cover; fire at will
+  when no harm for 20s                             -> advance
+  otherwise                                        -> form skirmish; find cover; fire at will
+
+man:
+  when neighbour charging and loaded and enemy within 70 -> fire
+  when enemy charging and enemy within 20          -> fire; back 10
+  when in cover and loaded and enemy within 70     -> fire
+  when not in cover                                -> take cover within 12
+  otherwise                                        -> reload kneeling

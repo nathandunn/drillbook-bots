@@ -9,3 +9,5 @@ Ninjas|Runner
 Sniper|Marksman
 Linebreaker|Grenadier
 Line|Even
+Anvil|Marksman
+Hammer|Grenadier

@@ -477,6 +477,38 @@ func loss_fraction(team: int) -> float:
 	return 1.0 - float(alive_count(team)) / maxf(float(n), 1.0)
 
 
+## Neighbour words: does another company of this side, standing within 45 m of this one,
+## charge / fall back / have the enemy within 60 m / break (half or more of it routed or gone)?
+const NEIGHBOUR_RANGE := 45.0
+func neighbour_sense(id: String, t: int, c: int) -> bool:
+	var mine: Dictionary = orders[t][c] if c < (orders[t] as Array).size() else {}
+	var here: Vector3 = mine.get("centre", Vector3(band_x(t, c), 0, home_z(t)))
+	for c2 in (orders[t] as Array).size():
+		if c2 == c:
+			continue
+		var o: Dictionary = orders[t][c2]
+		if not o.has("centre"):
+			continue
+		var there: Vector3 = o["centre"]
+		if Vector2(there.x - here.x, there.z - here.z).length() > NEIGHBOUR_RANGE:
+			continue
+		var fighting_n := fighting_company(t, c2).size()
+		match id:
+			"neighbour_broken":
+				if fighting_n * 2 <= int(co_n.get(ck(t, c2), 0)):
+					return true
+			"neighbour_charging":
+				if fighting_n > 0 and String(o.get("mode", "")) == "charge":
+					return true
+			"neighbour_falling_back":
+				if fighting_n > 0 and String(o.get("mode", "")) == "fallback":
+					return true
+			"neighbour_engaged":
+				if fighting_n > 0 and float(o.get("nearest_d", INF)) <= 60.0:
+					return true
+	return false
+
+
 ## For a man's courage: like strength_ratio, but his own side's routed men count half.
 func morale_ratio(team: int) -> float:
 	var f := fighting(team).size()
@@ -810,6 +842,9 @@ func _run_sergeant(t: int, c: int) -> void:
 		mean_courage += m.courage
 	mean_courage /= men.size()
 	var losses := loss_fraction(t)
+	# what the neighbours read of this company: where it is and how close the enemy is
+	order["centre"] = centre
+	order["nearest_d"] = nearest_d
 
 	# --- the exchange: a sergeant can count. Taking two balls for every one he gives while
 	# the enemy sits behind walls is a firefight lost, and standing in it is not a plan.
@@ -1006,6 +1041,8 @@ func shared_sense(id: String, args: Array, t: int, c: int, r: RandomNumberGenera
 		"enemy_broken":
 			var alive_e := alive_count(1 - t)
 			return alive_e == 0 or float(fighting(1 - t).size()) / float(alive_e) < 0.5
+		"neighbour_charging", "neighbour_falling_back", "neighbour_engaged", "neighbour_broken":
+			return neighbour_sense(id, t, c)
 		"mates_running":
 			# two in five of my own side are routed: the line is going
 			var own_n := 0
