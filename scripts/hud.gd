@@ -12,6 +12,7 @@ signal next_round_requested
 signal campaign_abandoned
 signal field_chosen(layout: String)
 signal army_pick(t: int, i: int)
+signal fall_back_to(no: int)
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
 const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Random"]
@@ -33,6 +34,9 @@ var _bat_chips := [{}, {}]
 var _army_locked := [[], []]   # controls that would break the army mapping: locked in a campaign
 var front: Array = []          # the campaign's front, field 1 first
 var _army_boxes := [null, null]
+var _next_head: Label = null
+var _next_help: Label = null
+var _fb_chips := {}           # field no -> chip
 var _slot_chips := [{}, {}]
 var _co_title := [null, null]
 var _totals := [null, null]
@@ -400,7 +404,7 @@ func _build_teams_overlay() -> void:
 	_field_help = fhelp
 	_section(box, "The campaign")
 	var fnote := Label.new()
-	fnote.text = "A war along a front of eleven fields drawn at random from the thirteen; it opens on the middle field. Each army is twelve companies of ten, patterned on the companies set up here (A-D, then repeated), and four fight each battle - the freshest four by default; swap them between battles. No recruits: the dead are gone, the living fight on, and a company cut under three joins another. Each win pushes the fight one field into the loser's country. The war is won by winning on the enemy's last field - or when the enemy has nobody left."
+	fnote.text = "A war along a front of eleven fields drawn at random from the thirteen; it opens on the middle field. Each army is twelve companies of ten, patterned on the companies set up here (A-D, then repeated), and the freshest four fight by default - between battles, put in or stand down as many as you like (a computer army fields as many as you do). No recruits: the dead are gone, the living fight on, and a company cut under three joins another. Each win pushes the fight one field into the loser's country. The war is won by winning on the enemy's last field - or when the enemy has nobody left."
 	fnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	fnote.add_theme_font_size_override("font_size", 13)
 	fnote.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
@@ -840,7 +844,7 @@ func _rebuild_strip(t: int) -> void:
 			_refresh_sliders(t))
 		strip.add_child(b)
 	var tl: Label = _totals[t]
-	tl.text = "%d men in %d companies (up to %d men, %d companies a side)" % [manager.side_total(t), cos.size(), MatchManager.MAX_SIDE, MatchManager.MAX_COMPANIES]
+	tl.text = "%d men in %d companies (up to %d men, %d companies a side)" % [manager.side_total(t), cos.size(), MatchManager.MAX_SIDE, MatchManager.EDIT_COMPANIES]
 	(_co_title[t] as Label).text = "Company %s" % cos[manager.sel[t]]["name"]
 	var slot: String = cos[manager.sel[t]]["slot"]
 	for sn in _slot_chips[t]:
@@ -1352,19 +1356,51 @@ func show_round(sm: Dictionary) -> void:
 		results_box.add_child(ml)
 	if not over:
 		_section(results_box, "Next: field %d of %d, %s" % [int(sm["next_field_no"]), (sm["front"] as Array).size(), sm["next_field"]])
+		_next_head = results_box.get_child(results_box.get_child_count() - 1) as Label
 		var fl := Label.new()
 		fl.text = "%s  (It is on the map now.)" % Field.LAYOUT_HELP.get(sm["next_field"], "")
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.add_theme_font_size_override("font_size", 13)
 		fl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.8))
 		results_box.add_child(fl)
-		# the armies: tap a company to put it forward or stand it down (four fight)
+		_next_help = fl
+		_fb_chips = {}
+		var fb: Dictionary = sm.get("fall_back", {})
+		if not fb.is_empty():
+			var side: String = MatchManager.TEAM_NAMES[int(fb["side"])]
+			var fbl := Label.new()
+			fbl.text = "%s may fall back further and make a stand on ground of its choosing - every field given up is the enemy's, and losing on %s's last field loses the war." % [side, side]
+			fbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			fbl.add_theme_font_size_override("font_size", 13)
+			fbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.55))
+			results_box.add_child(fbl)
+			var fr := HFlowContainer.new()
+			fr.add_theme_constant_override("h_separation", 6)
+			fr.add_theme_constant_override("v_separation", 6)
+			results_box.add_child(fr)
+			var fronts: Array = sm["front"]
+			var order := range(int(fb["lo"]), int(fb["hi"]) + 1)
+			if int(fb["side"]) == 0:
+				order.reverse()   # Red falls back toward field 1: nearest first
+			for no in order:
+				var b := Button.new()
+				b.toggle_mode = true
+				b.button_pressed = no == int(sm["next_field_no"])
+				b.text = "%d. %s" % [no, fronts[no - 1]]
+				b.add_theme_font_size_override("font_size", 12)
+				b.focus_mode = Control.FOCUS_NONE
+				var n2: int = no
+				b.pressed.connect(func(): fall_back_to.emit(n2))
+				fr.add_child(b)
+				_fb_chips[no] = b
+			_cursor_for_tree(fr)
+		# the armies: tap a company to put it forward or stand it down (any number fight)
 		for t in 2:
-			var head := "%s's army - the four lit fight next" % MatchManager.TEAM_NAMES[t]
+			var head := "%s's army - the lit companies fight next" % MatchManager.TEAM_NAMES[t]
 			if String(commanders[t]) == "computer":
-				head += " (the computer's choice)"
+				head += " (the computer's choice: as many as the other side fields)"
 			else:
-				head += "; tap to swap"
+				head += "; tap to put a company in or stand it down - as many as you like"
 			_section(results_box, head)
 			var ab := HFlowContainer.new()
 			ab.add_theme_constant_override("h_separation", 6)
@@ -1509,8 +1545,8 @@ func build_cam_pad() -> void:
 	toggle.pressed.connect(func(): grid.visible = not grid.visible)
 	var cells := [
 		["rot_l", "« Turn", "Turn left"], ["pan_u", "^", "Pan away"], ["rot_r", "Turn »", "Turn right"], ["zoom_in", "+", "Zoom in"],
-		["pan_l", "<", "Pan left"], ["pan_d", "v", "Pan toward"], ["pan_r", ">", "Pan right"], ["zoom_out", "−", "Zoom out"],
-		["tilt_u", "Tilt ^", "Look down more"], ["fit", "Fit", "Fit the whole field"], ["tilt_d", "Tilt v", "Look along the ground"], ["", "", ""],
+		["pan_l", "<", "Pan left"], ["fit", "Fit", "Fit the whole field"], ["pan_r", ">", "Pan right"], ["zoom_out", "−", "Zoom out"],
+		["tilt_u", "Tilt ^", "Look down more"], ["pan_d", "v", "Pan toward"], ["tilt_d", "Tilt v", "Look along the ground"], ["", "", ""],
 	]
 	for c in cells:
 		if c[0] == "":
@@ -1562,3 +1598,15 @@ func _pad_tick(delta: float) -> void:
 				cam.pan_view(Vector2(0.0, 500.0) * rate)
 			"pan_d":
 				cam.pan_view(Vector2(0.0, -500.0) * rate)
+
+
+## After a fall-back: the round panel's "Next" names the new field.
+func show_next_field(no: int, total: int, layout: String) -> void:
+	if _next_head != null and is_instance_valid(_next_head):
+		_next_head.text = "Next: field %d of %d, %s" % [no, total, layout]
+	if _next_help != null and is_instance_valid(_next_help):
+		_next_help.text = "%s  (It is on the map now.)" % Field.LAYOUT_HELP.get(layout, "")
+	for k in _fb_chips:
+		var b: Button = _fb_chips[k]
+		if is_instance_valid(b):
+			b.set_pressed_no_signal(int(k) == no)

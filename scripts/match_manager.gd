@@ -10,7 +10,8 @@ signal match_started(match_index: int)
 signal match_ended(result: Dictionary)
 
 const MAX_SIZE := 20            # men in one company
-const MAX_COMPANIES := 6
+const MAX_COMPANIES := 12      # a whole campaign army can go in at once
+const EDIT_COMPANIES := 6      # what Edit Battalion builds for a single battle
 const MAX_SIDE := 80            # men a side, all companies together
 const CO_NAMES := ["A", "B", "C", "D", "E", "F"]
 const SLOTS := ["Left", "Centre-left", "Centre-right", "Right", "Reserve"]
@@ -222,7 +223,7 @@ func side_total(t: int) -> int:
 
 func add_company(t: int) -> void:
 	var cos: Array = companies[t]
-	if cos.size() >= MAX_COMPANIES:
+	if cos.size() >= EDIT_COMPANIES:
 		return
 	var src: Dictionary = cos[sel[t]]
 	var co := new_company(t, cos.size(), src["persona_name"], src["type_name"], "Reserve", mini(int(src["size"]), MAX_SIDE - side_total(t)))

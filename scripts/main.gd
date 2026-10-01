@@ -37,6 +37,8 @@ var _pending_campaign_result: Dictionary = {}
 var campaign_field := 6   # 1..11 along the front; the winner pushes it toward the loser
 var _last_fielded := ["", ""]    # the preset each side fought the last round with
 var _ai_picks := ["", ""]
+var _fielded_last := [4, 4]
+var _fall_back := {}           # after a loss: {"side", "lo", "hi"} - the fields the loser may fall back to    # companies each side sent into the last battle
 var _ai_type_picks := ["", ""]
 ## the type that suits each personality, best first
 const TYPE_FOR := {
@@ -88,7 +90,7 @@ func _ready() -> void:
 		var key: String = ["red", "blue"][t]
 		manager.set_battalion(t, String(args.get(key + "bat", manager.battalion_names[t])), per)
 		if args.has("companies"):
-			var want := clampi(int(args["companies"]), 1, MatchManager.MAX_COMPANIES)
+			var want := clampi(int(args["companies"]), 1, MatchManager.EDIT_COMPANIES)
 			var cos: Array = manager.companies[t]
 			while cos.size() > want:
 				cos.pop_back()
@@ -163,6 +165,7 @@ func _ready() -> void:
 	hud.next_round_requested.connect(_next_round)
 	hud.campaign_abandoned.connect(_abandon_campaign)
 	hud.army_pick.connect(toggle_army_pick)
+	hud.fall_back_to.connect(fall_back_to)
 	if args.has("debug"):
 		hud.enable_debug()
 	if not headless:
@@ -437,6 +440,8 @@ func _start_campaign() -> void:
 		front.append(String(pool[i]))
 	campaign_field = (FRONT_LEN + 1) / 2
 	_last_fielded = ["", ""]
+	_fielded_last = [4, 4]
+	_fall_back = {}
 	_ai_picks = ["", ""]
 	_ai_type_picks = ["", ""]
 	_doctrine_record = [{}, {}]
@@ -492,8 +497,8 @@ func _sync_from_manager(t: int) -> void:
 		a["type_obj"] = (co["type"] as SoldierType).copy()
 
 
-## The four with the most men left are put forward by default.
-func _default_picks(t: int) -> void:
+## The n (four unless said) with the most men left are put forward.
+func _default_picks(t: int, n: int = FIGHTING) -> void:
 	var ar: Array = armies[t]
 	var idx := []
 	for i in ar.size():
@@ -501,39 +506,62 @@ func _default_picks(t: int) -> void:
 			idx.append(i)
 	idx.sort_custom(func(a, b): return (ar[a]["men"] as Array).size() > (ar[b]["men"] as Array).size())
 	for i in ar.size():
-		ar[i]["fights"] = idx.find(i) >= 0 and idx.find(i) < FIGHTING
+		ar[i]["fights"] = idx.find(i) >= 0 and idx.find(i) < n
 
 
-## The HUD's army picker: put a company forward or stand it down (at most four fight).
+func _fielded(t: int) -> int:
+	var n := 0
+	for a in armies[t]:
+		if a["fights"] and (a["men"] as Array).size() > 0:
+			n += 1
+	return n
+
+
+## A computer army fields as many companies as a human one across the field does.
+func _match_computer(t: int) -> void:
+	var o := 1 - t
+	if hud == null or String(hud.commanders[o]) != "computer" or String(hud.commanders[t]) == "computer":
+		return
+	_sync_from_manager(o)
+	_default_picks(o, maxi(_fielded(t), 1))
+	_prepare_battle(o)
+	_ai_pick(o, false)
+	_sync_from_manager(o)
+	hud.update_army(o, army_view(o))
+
+
+## The HUD's army picker: put a company forward or stand it down (any number, at least one).
 func toggle_army_pick(t: int, i: int) -> void:
 	if not campaign_active:
 		return
 	_sync_from_manager(t)
 	var ar: Array = armies[t]
 	if ar[i]["fights"]:
+		if _fielded(t) <= 1:
+			if hud != null:
+				hud.update_army(t, army_view(t))   # the last company in cannot stand down
+			return
 		ar[i]["fights"] = false
 	else:
-		var n := 0
-		for a in ar:
-			if a["fights"]:
-				n += 1
-		if n >= FIGHTING or (ar[i]["men"] as Array).is_empty():
+		if (ar[i]["men"] as Array).is_empty():
 			return
 		ar[i]["fights"] = true
 	_prepare_battle(t)
 	if hud != null:
 		hud.update_army(t, army_view(t))
+	_match_computer(t)
 
 
-## The battle battalion from the army: the companies put forward (topped up with the freshest
-## if fewer than four are), each with its own men as the campaign roster.
+## The battle battalion from the army: the companies put forward (the freshest four if none
+## are), each with its own men as the campaign roster. Past four, they form a second line
+## behind the first, slot by slot.
 func _prepare_battle(t: int) -> void:
 	var ar: Array = armies[t]
 	var picked := []
 	for i in ar.size():
-		if ar[i]["fights"] and (ar[i]["men"] as Array).size() > 0 and picked.size() < FIGHTING:
+		if ar[i]["fights"] and (ar[i]["men"] as Array).size() > 0:
 			picked.append(i)
-	if picked.size() < FIGHTING:
+	if picked.is_empty():
 		var rest := []
 		for i in ar.size():
 			if picked.find(i) < 0 and (ar[i]["men"] as Array).size() > 0:
@@ -551,7 +579,7 @@ func _prepare_battle(t: int) -> void:
 	var roster := []
 	for c in picked.size():
 		var a: Dictionary = ar[picked[c]]
-		var co := manager.new_company(t, c, a["drill"], a["type"], slots[c], (a["men"] as Array).size())
+		var co := manager.new_company(t, c, a["drill"], a["type"], slots[c % slots.size()], (a["men"] as Array).size())
 		co["name"] = a["name"]
 		co["type"] = (a["type_obj"] as SoldierType).copy()
 		co["type_name"] = a["type"]
@@ -581,6 +609,7 @@ func _next_round() -> void:
 	for t in 2:
 		_sync_from_manager(t)
 		_prepare_battle(t)
+		_fielded_last[t] = _fielded(t)
 	hud.set_round(campaign_round, layout, [_army_men(0), _army_men(1)], campaign_field)
 	hud.set_plan(campaign_field, layout, campaign_round, FRONT_LEN)
 	_start_next()
@@ -783,11 +812,19 @@ func _on_round_ended(result: Dictionary) -> void:
 		var mid := (FRONT_LEN + 1) / 2
 		cw = 0 if campaign_field > mid else (1 if campaign_field < mid else (0 if men_after[0] >= men_after[1] else 1))
 		why = "after %d battles the war is called for whoever holds more of the front" % ROUND_CAP
+	_fall_back = {}
 	if not over:
 		if w == 0:
 			campaign_field += 1
 		elif w == 1:
 			campaign_field -= 1
+		# a beaten human side may give up more ground to choose where it stands next:
+		# any field from the one it was pushed to back to its own last field
+		if w >= 0 and hud.commanders[1 - w] != "computer":
+			var lo := 1 if w == 1 else campaign_field
+			var hi := campaign_field if w == 1 else FRONT_LEN
+			if hi > lo:
+				_fall_back = {"side": 1 - w, "lo": lo, "hi": hi}
 	campaign_rounds.append({"round": campaign_round, "field": "%d. %s" % [fought_on, layout], "winner": w, "winner_name": result["winner_name"],
 		"reason": result["reason"], "duration": result["duration"], "counts": counts,
 		"fielded": [result["presets"][0], result["presets"][1]]})
@@ -804,8 +841,17 @@ func _on_round_ended(result: Dictionary) -> void:
 	_ai_type_picks = ["", ""]
 	if not over:
 		# the next battle: the freshest four put forward; the computer picks its drills
+		# a human side keeps the number it fielded (four if it has not chosen); the
+		# freshest companies of that number go forward, and a computer side matches it
+		var want := [FIGHTING, FIGHTING]
 		for t in 2:
-			_default_picks(t)
+			if hud.commanders[t] != "computer":
+				want[t] = maxi(int(_fielded_last[t]), 1)
+		for t in 2:
+			if hud.commanders[t] == "computer" and hud.commanders[1 - t] != "computer":
+				want[t] = want[1 - t]
+		for t in 2:
+			_default_picks(t, want[t])
 			_prepare_battle(t)
 		for t in 2:
 			if hud.commanders[t] == "computer":
@@ -817,7 +863,7 @@ func _on_round_ended(result: Dictionary) -> void:
 		"kills": campaign_kills.duplicate(), "history": campaign_rounds.duplicate(true), "counts": counts,
 		"men_before": men_before, "men_after": men_after, "men_full": ARMY_COMPANIES * COMPANY_MEN,
 		"armies": [army_view(0), army_view(1)], "merges": merges, "over": over, "campaign_winner": cw, "why": why,
-		"result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate()}
+		"fall_back": _fall_back.duplicate(), "result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate()}
 	if not over:
 		# the next battlefield goes up now, so it can be surveyed before the companies are chosen
 		_rebuild_field(next_layout)
@@ -840,5 +886,38 @@ func _on_round_ended(result: Dictionary) -> void:
 				print("campaign: wins %s kills %s winner %d (%s)" % [str(campaign_wins), str(campaign_kills), cw, why])
 				get_tree().quit()
 			else:
+				if OS.get_cmdline_user_args().has("--testpicks"):
+					# exercise the picker: Red puts every company in, and falls back as far as it may
+					for i in (armies[0] as Array).size():
+						if not armies[0][i]["fights"] and (armies[0][i]["men"] as Array).size() > 0:
+							toggle_army_pick(0, i)
+					if not _fall_back.is_empty() and int(_fall_back["side"]) == 0:
+						fall_back_to(int(_fall_back["lo"]))
+						print("  Red falls back to field %d" % campaign_field)
+					print("  fielding %d v %d" % [_fielded(0), _fielded(1)])
 				hud.results_overlay.visible = false
 				_next_round())
+
+
+## The beaten side falls back further than it was pushed: the next battle is on field no,
+## and all the ground between is given up.
+func fall_back_to(no: int) -> void:
+	if not campaign_active or _fall_back.is_empty():
+		return
+	no = clampi(no, int(_fall_back["lo"]), int(_fall_back["hi"]))
+	if no == campaign_field:
+		return
+	campaign_field = no
+	var layout: String = front[campaign_field - 1]
+	_rebuild_field(layout)
+	for t in 2:
+		if hud.commanders[t] == "computer":
+			_sync_from_manager(t)
+			_ai_pick(t, false)   # the ground has changed: the computer thinks again
+			_sync_from_manager(t)
+			hud.update_army(t, army_view(t))
+	hud.set_plan(campaign_field, layout, campaign_round + 1, FRONT_LEN)
+	hud.set_round(campaign_round + 1, layout, [_army_men(0), _army_men(1)], campaign_field)
+	hud.show_next_field(campaign_field, FRONT_LEN, layout)
+	if cam != null:
+		cam.refit()
