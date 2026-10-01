@@ -159,6 +159,8 @@ func _ready() -> void:
 	hud.next_round_requested.connect(_next_round)
 	hud.campaign_abandoned.connect(_abandon_campaign)
 	hud.army_pick.connect(toggle_army_pick)
+	if args.has("debug"):
+		hud.enable_debug()
 	hud.field_chosen.connect(func(n: String):
 		if campaign_active:
 			return

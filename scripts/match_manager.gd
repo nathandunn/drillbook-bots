@@ -111,6 +111,7 @@ var _fight_frame := -1
 var _grid := {}
 var _grid_frame := -1
 var _alive_cache: Array[Soldier] = []
+var _alive_n := [0, 0]
 var _cache_frame := -1
 var _hist_frame := -1
 
@@ -420,9 +421,11 @@ func alive_soldiers() -> Array[Soldier]:
 		return _alive_cache
 	_cache_frame = f
 	_alive_cache = []
+	_alive_n = [0, 0]
 	for s in soldiers:
 		if s.alive and not s.gone:
 			_alive_cache.append(s)
+			_alive_n[s.team] += 1
 	return _alive_cache
 
 
@@ -464,12 +467,10 @@ func company_losses(t: int, c: int) -> float:
 	return 1.0 - float(a) / float(n)
 
 
+## Counted once a frame with the living (every man asks it for his courage, every frame).
 func alive_count(team: int) -> int:
-	var n := 0
-	for s in alive_soldiers():
-		if s.team == team:
-			n += 1
-	return n
+	alive_soldiers()
+	return _alive_n[team]
 
 
 func loss_fraction(team: int) -> float:

@@ -904,7 +904,48 @@ func set_status(text: String) -> void:
 	status_label.text = text
 
 
+## ?debug=1 (or --debug): frame rate, draw calls and the rest, top right, twice a second.
+var _dbg_label: Label = null
+var _dbg_t := 0.0
+
+
+func enable_debug() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	add_child(layer)
+	_dbg_label = Label.new()
+	_dbg_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_dbg_label.position = Vector2(-330, 54)
+	_dbg_label.custom_minimum_size = Vector2(320, 0)
+	_dbg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_dbg_label.add_theme_font_size_override("font_size", 13)
+	_dbg_label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.6))
+	_dbg_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_dbg_label.add_theme_constant_override("outline_size", 4)
+	_dbg_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_dbg_label)
+
+
+func _update_debug(delta: float) -> void:
+	_dbg_t -= delta
+	if _dbg_t > 0.0:
+		return
+	_dbg_t = 0.5
+	var men := manager.alive_soldiers().size() if manager != null else 0
+	_dbg_label.text = "%d fps · %d draw calls · %d objects drawn\n%.0fk triangles · %d nodes · %d men\nscript+process %.1f ms · physics %.1f ms · ×%.0f speed" % [
+		Engine.get_frames_per_second(),
+		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+		Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000.0,
+		Performance.get_monitor(Performance.OBJECT_NODE_COUNT), men,
+		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+		Engine.time_scale]
+
+
 func _process(delta: float) -> void:
+	if _dbg_label != null:
+		_update_debug(delta)
 	_tick -= delta
 	if _tick > 0.0 or manager == null:
 		return

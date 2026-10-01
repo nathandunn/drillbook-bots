@@ -165,8 +165,44 @@ var spots: Array[Dictionary] = []    # {pos: Vector3, piece: int, normal: Vector
 var hills: Array = []
 
 
-## The ground height at a point: the sum of the layout's domes.
+## The ground height at a point: read from a 1 m table of the domes (built once per field;
+## asked over a million times a battle), exact outside it.
+const HT_STEP := 1.0
+const HT_X0 := -64.0
+const HT_Z0 := -108.0
+var _ht := PackedFloat32Array()
+var _ht_w := 0
+var _ht_h := 0
+
+
 func height_at(x: float, z: float) -> float:
+	if hills.is_empty():
+		return 0.0
+	if _ht_w > 0:
+		var fx := (x - HT_X0) / HT_STEP
+		var fz := (z - HT_Z0) / HT_STEP
+		var ix := floori(fx)
+		var iz := floori(fz)
+		if ix >= 0 and iz >= 0 and ix < _ht_w - 1 and iz < _ht_h - 1:
+			var tx := fx - ix
+			var tz := fz - iz
+			var i0 := iz * _ht_w + ix
+			var h0: float = lerpf(_ht[i0], _ht[i0 + 1], tx)
+			var h1: float = lerpf(_ht[i0 + _ht_w], _ht[i0 + _ht_w + 1], tx)
+			return lerpf(h0, h1, tz)
+	return _height_exact(x, z)
+
+
+func _build_height_table() -> void:
+	_ht_w = int(-HT_X0 * 2.0 / HT_STEP) + 1
+	_ht_h = int(-HT_Z0 * 2.0 / HT_STEP) + 1
+	_ht.resize(_ht_w * _ht_h)
+	for j in _ht_h:
+		for i in _ht_w:
+			_ht[j * _ht_w + i] = _height_exact(HT_X0 + i * HT_STEP, HT_Z0 + j * HT_STEP)
+
+
+func _height_exact(x: float, z: float) -> float:
 	var h := 0.0
 	for hl in hills:
 		var dx: float = (x - hl[0]) / hl[2]
@@ -196,6 +232,8 @@ func _ready() -> void:
 	hills = []
 	for h in HILLS.get(layout_name, []):
 		hills.append([h[0] * SCALE, h[1] * SCALE, h[2] * SCALE, h[3] * SCALE, h[4] * 1.25])
+	if not hills.is_empty():
+		_build_height_table()
 	_build_terrain()
 
 	var wall_mat := StandardMaterial3D.new()
@@ -308,6 +346,7 @@ func _ready() -> void:
 	for i in pieces.size():
 		if pieces[i]["kind"] != "water":
 			_make_spots(i, pieces[i]["rect"], pieces[i]["kind"])
+	_build_buckets()
 	_build_nav()
 
 
@@ -592,8 +631,8 @@ func clamp_point(p: Vector3, margin: float = 0.8) -> Vector3:
 
 ## Is the point inside (or hard against) a piece? Used to keep men out of walls.
 func blocked(p: Vector3, pad: float = 0.5) -> bool:
-	for pc in pieces:
-		var r: Rect2 = pc["rect"].grow(pad)
+	for i in _pieces_at(Vector2(p.x, p.z)):
+		var r: Rect2 = pieces[i]["rect"].grow(pad)
 		if r.has_point(Vector2(p.x, p.z)):
 			return true
 	return false
@@ -601,8 +640,8 @@ func blocked(p: Vector3, pad: float = 0.5) -> bool:
 
 ## Push a point out of any piece it sits in.
 func free_point(p: Vector3, pad: float = 0.6) -> Vector3:
-	for pc in pieces:
-		var r: Rect2 = pc["rect"].grow(pad)
+	for i in _pieces_in(Rect2(p.x - 12.0, p.z - 12.0, 24.0, 24.0)):
+		var r: Rect2 = pieces[i]["rect"].grow(pad)
 		if r.has_point(Vector2(p.x, p.z)):
 			var c := r.get_center()
 			var d := Vector2(p.x, p.z) - c
@@ -621,7 +660,8 @@ func line_of_fire(from: Vector3, to: Vector3) -> float:
 	var a := Vector2(from.x, from.z)
 	var b := Vector2(to.x, to.z)
 	var best := 1.0
-	for pc in pieces:
+	for pi in _pieces_on_segment(a, b):
+		var pc: Dictionary = pieces[pi]
 		if pc["kind"] == "water":
 			continue   # a ball flies over a river
 		var r: Rect2 = pc["rect"]
@@ -932,8 +972,8 @@ func _nav_free(c: Vector2i) -> Vector2i:
 
 ## Can a man walk straight from a to b without meeting a piece?
 func walk_clear(a: Vector2, b: Vector2) -> bool:
-	for pc in pieces:
-		if _segment_hits_rect(a, b, (pc["rect"] as Rect2).grow(0.35)):
+	for i in _pieces_on_segment(a, b):
+		if _segment_hits_rect(a, b, (pieces[i]["rect"] as Rect2).grow(0.35)):
 			return false
 	return true
 
@@ -960,3 +1000,106 @@ func next_waypoint(from: Vector3, to: Vector3) -> Vector3:
 		else:
 			break
 	return Vector3(best.x, height_at(best.x, best.y), best.y)
+
+
+# ---------------------------------------------------------------- pieces by place
+
+## Every piece listed in the 8 m cells its rect (grown a metre) touches, so a line of fire, a
+## walk or a point only looks at the pieces near it - a City has some three hundred.
+const BUCKET := 8.0
+const BK_X0 := -64.0
+const BK_Z0 := -108.0
+var _bk_w := 0
+var _bk_h := 0
+var _buckets: Array = []
+var _stamp := PackedInt32Array()
+var _stamp_n := 0
+
+
+func _build_buckets() -> void:
+	_bk_w = int(-BK_X0 * 2.0 / BUCKET)
+	_bk_h = int(-BK_Z0 * 2.0 / BUCKET)
+	_buckets = []
+	for k in _bk_w * _bk_h:
+		_buckets.append(PackedInt32Array())
+	for i in pieces.size():
+		var r: Rect2 = (pieces[i]["rect"] as Rect2).grow(1.0)
+		var i0 := clampi(floori((r.position.x - BK_X0) / BUCKET), 0, _bk_w - 1)
+		var i1 := clampi(floori((r.end.x - BK_X0) / BUCKET), 0, _bk_w - 1)
+		var j0 := clampi(floori((r.position.y - BK_Z0) / BUCKET), 0, _bk_h - 1)
+		var j1 := clampi(floori((r.end.y - BK_Z0) / BUCKET), 0, _bk_h - 1)
+		for j in range(j0, j1 + 1):
+			for ii in range(i0, i1 + 1):
+				var cell: PackedInt32Array = _buckets[j * _bk_w + ii]
+				cell.append(i)
+				_buckets[j * _bk_w + ii] = cell   # packed arrays are values: write it back
+	_stamp.resize(pieces.size())
+	_stamp.fill(0)
+	_stamp_n = 0
+
+
+func _pieces_at(p: Vector2) -> PackedInt32Array:
+	if _bk_w == 0:
+		return PackedInt32Array(range(pieces.size()))
+	var i := clampi(floori((p.x - BK_X0) / BUCKET), 0, _bk_w - 1)
+	var j := clampi(floori((p.y - BK_Z0) / BUCKET), 0, _bk_h - 1)
+	return _buckets[j * _bk_w + i]
+
+
+## Pieces listed in any cell a rect touches, each once, in piece order.
+func _pieces_in(r: Rect2) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	if _bk_w == 0:
+		return PackedInt32Array(range(pieces.size()))
+	_stamp_n += 1
+	var i0 := clampi(floori((r.position.x - BK_X0) / BUCKET), 0, _bk_w - 1)
+	var i1 := clampi(floori((r.end.x - BK_X0) / BUCKET), 0, _bk_w - 1)
+	var j0 := clampi(floori((r.position.y - BK_Z0) / BUCKET), 0, _bk_h - 1)
+	var j1 := clampi(floori((r.end.y - BK_Z0) / BUCKET), 0, _bk_h - 1)
+	for j in range(j0, j1 + 1):
+		for i in range(i0, i1 + 1):
+			for pi in _buckets[j * _bk_w + i]:
+				if _stamp[pi] != _stamp_n:
+					_stamp[pi] = _stamp_n
+					out.append(pi)
+	out.sort()
+	return out
+
+
+## Pieces listed in the cells a segment passes through (a grid walk), each once.
+func _pieces_on_segment(a: Vector2, b: Vector2) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	if _bk_w == 0:
+		return PackedInt32Array(range(pieces.size()))
+	_stamp_n += 1
+	var x0 := (a.x - BK_X0) / BUCKET
+	var y0 := (a.y - BK_Z0) / BUCKET
+	var x1 := (b.x - BK_X0) / BUCKET
+	var y1 := (b.y - BK_Z0) / BUCKET
+	var ix := floori(x0)
+	var iy := floori(y0)
+	var ex := floori(x1)
+	var ey := floori(y1)
+	var dx := x1 - x0
+	var dy := y1 - y0
+	var sx := 1 if dx > 0.0 else -1
+	var sy := 1 if dy > 0.0 else -1
+	var tdx := absf(1.0 / dx) if dx != 0.0 else INF
+	var tdy := absf(1.0 / dy) if dy != 0.0 else INF
+	var tmx := ((float(ix + 1) - x0) if dx > 0.0 else (x0 - float(ix))) * tdx if dx != 0.0 else INF
+	var tmy := ((float(iy + 1) - y0) if dy > 0.0 else (y0 - float(iy))) * tdy if dy != 0.0 else INF
+	for guard in 200:
+		if ix >= 0 and iy >= 0 and ix < _bk_w and iy < _bk_h:
+			for pi in _buckets[iy * _bk_w + ix]:
+				if _stamp[pi] != _stamp_n:
+					_stamp[pi] = _stamp_n
+					out.append(pi)
+		if ix == ex and iy == ey:
+			break
+		if tmx < tmy:
+			tmx += tdx
+			ix += sx
+		else:
+			tmy += tdy
+			iy += sy
+	return out
