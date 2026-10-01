@@ -20,6 +20,7 @@ var fit_all := true
 var _cam: Camera3D
 var _dragging := false
 var _panning := false
+var input_blocked := false     # a panel is open over the field: the view stays put
 var _touches := {}
 var _pinch_d := 0.0
 var _focus := Vector3(0, 0, 0)
@@ -127,6 +128,12 @@ func _apply() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if input_blocked:
+		_dragging = false
+		_panning = false
+		_touches.clear()
+		_pinch_d = -1.0
+		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT or event.button_index == MOUSE_BUTTON_MIDDLE \
 				or (event.button_index == MOUSE_BUTTON_LEFT and event.pressed and event.shift_pressed):

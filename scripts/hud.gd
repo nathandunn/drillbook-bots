@@ -557,10 +557,10 @@ func _build_team_panel(t: int) -> Control:
 		b.add_theme_font_size_override("font_size", 13)
 		b.pressed.connect(func():
 			manager.companies[t][manager.sel[t]]["slot"] = sn
+			manager.companies[t][manager.sel[t]]["slot_set"] = true   # a campaign remembers it
 			_refresh_sliders(t))
 		srow.add_child(b)
 		_slot_chips[t][sn] = b
-		_army_locked[t].append(b)
 		_type_controls[t].append(b)
 
 	# size
@@ -985,7 +985,7 @@ func _process(delta: float) -> void:
 		var fighting := manager.fighting(t).size()
 		var alive := manager.alive_count(t)
 		var modes := []
-		for c in os.size():
+		for c in mini(os.size(), (manager.companies[t] as Array).size()):   # between battles the companies may already be the next lot
 			if manager.fighting_company(t, c).is_empty():
 				modes.append("%s lost" % manager.companies[t][c]["name"])
 			elif manager.is_reserve(t, c):
@@ -1268,7 +1268,7 @@ func _apply_locks() -> void:
 				c.disabled = ai
 			if c is HSlider:
 				c.editable = not ai
-		# in a campaign the companies are the army's: no adding, removing, resizing or reslotting
+		# in a campaign the companies are the army's: no adding, removing or resizing (where each stands is still yours)
 		for c in _army_locked[t]:
 			if c is Button:
 				c.disabled = campaign_on or ai
@@ -1468,6 +1468,8 @@ func update_army(t: int, view: Array) -> void:
 		b.toggle_mode = true
 		b.button_pressed = bool(a["fights"])
 		b.text = "%s · %d men\n%s / %s" % [a["name"], int(a["men"]), a["drill"], a["type"]]
+		if String(a.get("slot", "")) != "":
+			b.text += "\n%s" % a["slot"]
 		b.custom_minimum_size = Vector2(104, 0)
 		b.add_theme_font_size_override("font_size", 12)
 		b.disabled = int(a["men"]) == 0 or String(commanders[t]) == "computer"
@@ -1573,6 +1575,15 @@ func build_cam_pad() -> void:
 
 
 func _pad_tick(delta: float) -> void:
+	# a panel open over the field (Edit Battalion, a result): no view controls, no camera moves
+	var open := (teams_overlay != null and teams_overlay.visible) or (results_overlay != null and results_overlay.visible)
+	if _pad_box != null:
+		var holder := _pad_box.get_parent() as Control
+		if holder.visible == open:
+			holder.visible = not open
+			_pad_hold.clear()
+	if cam != null:
+		cam.input_blocked = open
 	if cam == null or _pad_hold.is_empty():
 		return
 	var rate := delta / maxf(Engine.time_scale, 0.001)   # the pad runs on real time, not battle time

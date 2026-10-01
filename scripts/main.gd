@@ -481,7 +481,7 @@ func _army_men(t: int) -> int:
 func army_view(t: int) -> Array:
 	var out := []
 	for a in armies[t]:
-		out.append({"name": a["name"], "drill": a["drill"], "type": a["type"], "men": (a["men"] as Array).size(), "fights": a["fights"]})
+		out.append({"name": a["name"], "drill": a["drill"], "type": a["type"], "men": (a["men"] as Array).size(), "fights": a["fights"], "slot": a.get("slot", "")})
 	return out
 
 
@@ -495,6 +495,8 @@ func _sync_from_manager(t: int) -> void:
 		a["drill"] = String(co["persona_name"])
 		a["type"] = String(co["type_name"])
 		a["type_obj"] = (co["type"] as SoldierType).copy()
+		if co.get("slot_set", false):
+			a["slot"] = String(co["slot"])
 
 
 ## The n (four unless said) with the most men left are put forward.
@@ -579,7 +581,10 @@ func _prepare_battle(t: int) -> void:
 	var roster := []
 	for c in picked.size():
 		var a: Dictionary = ar[picked[c]]
-		var co := manager.new_company(t, c, a["drill"], a["type"], slots[c % slots.size()], (a["men"] as Array).size())
+		var chosen: String = String(a.get("slot", ""))
+		var co := manager.new_company(t, c, a["drill"], a["type"], chosen if chosen != "" else slots[c % slots.size()], (a["men"] as Array).size())
+		if chosen != "":
+			co["slot_set"] = true
 		co["name"] = a["name"]
 		co["type"] = (a["type_obj"] as SoldierType).copy()
 		co["type_name"] = a["type"]
@@ -848,11 +853,13 @@ func _on_round_ended(result: Dictionary) -> void:
 			if hud.commanders[t] != "computer":
 				want[t] = maxi(int(_fielded_last[t]), 1)
 		for t in 2:
-			if hud.commanders[t] == "computer" and hud.commanders[1 - t] != "computer":
-				want[t] = want[1 - t]
+			if hud.commanders[t] != "computer" or hud.commanders[1 - t] == "computer":
+				_default_picks(t, want[t])
+				_prepare_battle(t)
 		for t in 2:
-			_default_picks(t, want[t])
-			_prepare_battle(t)
+			if hud.commanders[t] == "computer" and hud.commanders[1 - t] != "computer":
+				_default_picks(t, maxi(_fielded(1 - t), 1))   # as many as the human side can field
+				_prepare_battle(t)
 		for t in 2:
 			if hud.commanders[t] == "computer":
 				_ai_pick(t, false)
@@ -888,6 +895,7 @@ func _on_round_ended(result: Dictionary) -> void:
 			else:
 				if OS.get_cmdline_user_args().has("--testpicks"):
 					# exercise the picker: Red puts every company in, and falls back as far as it may
+					armies[0][0]["slot"] = "Reserve"
 					for i in (armies[0] as Array).size():
 						if not armies[0][i]["fights"] and (armies[0][i]["men"] as Array).size() > 0:
 							toggle_army_pick(0, i)
