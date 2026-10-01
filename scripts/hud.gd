@@ -1483,7 +1483,7 @@ func _cell(g: GridContainer, text: String, bold: bool, color: Color = Color(0.92
 
 # ---------------------------------------------------------------- the camera pad
 
-## Hold a button to keep turning, panning or zooming; ⌂ fits the whole field again.
+## Hold a button to keep turning, panning or zooming; Fit fits the whole field again.
 var _pad_hold := {}          # button id -> held
 var _pad_box: Control = null
 
@@ -1496,7 +1496,7 @@ func build_cam_pad() -> void:
 	holder.position = Vector2(-12, -12)
 	holder.alignment = BoxContainer.ALIGNMENT_END
 	_root.add_child(holder)
-	var toggle := _button("✥ View")
+	var toggle := _button("View")
 	toggle.custom_minimum_size = Vector2(0, 40)
 	toggle.size_flags_horizontal = Control.SIZE_SHRINK_END
 	var grid := GridContainer.new()
@@ -1508,9 +1508,9 @@ func build_cam_pad() -> void:
 	_pad_box = grid
 	toggle.pressed.connect(func(): grid.visible = not grid.visible)
 	var cells := [
-		["rot_l", "⟲", "Turn left"], ["pan_u", "▲", "Pan away"], ["rot_r", "⟳", "Turn right"], ["zoom_in", "+", "Zoom in"],
-		["pan_l", "◀", "Pan left"], ["pan_d", "▼", "Pan toward"], ["pan_r", "▶", "Pan right"], ["zoom_out", "−", "Zoom out"],
-		["tilt_u", "⤒", "Look down more"], ["fit", "⌂", "Fit the whole field"], ["tilt_d", "⤓", "Look along the ground"], ["", "", ""],
+		["rot_l", "« Turn", "Turn left"], ["pan_u", "^", "Pan away"], ["rot_r", "Turn »", "Turn right"], ["zoom_in", "+", "Zoom in"],
+		["pan_l", "<", "Pan left"], ["pan_d", "v", "Pan toward"], ["pan_r", ">", "Pan right"], ["zoom_out", "−", "Zoom out"],
+		["tilt_u", "Tilt ^", "Look down more"], ["fit", "Fit", "Fit the whole field"], ["tilt_d", "Tilt v", "Look along the ground"], ["", "", ""],
 	]
 	for c in cells:
 		if c[0] == "":
@@ -1520,7 +1520,7 @@ func build_cam_pad() -> void:
 		b.text = c[1]
 		b.tooltip_text = c[2]
 		b.custom_minimum_size = Vector2(48, 48)
-		b.add_theme_font_size_override("font_size", 22)
+		b.add_theme_font_size_override("font_size", 22 if String(c[1]).length() == 1 else 14)
 		b.focus_mode = Control.FOCUS_NONE
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0.1, 0.11, 0.13, 0.6)
