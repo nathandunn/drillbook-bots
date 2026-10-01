@@ -1,0 +1,8 @@
+{
+ "Screen and Hammer": "Fabian Screen/Marksman/Left,Linebreaker/Grenadier/Centre-left,Linebreaker/Grenadier/Centre-right,Fabian Screen/Marksman/Right",
+ "Fire and Storm": "Thin Red Line/Marksman/Left,Shock/Grenadier/Centre-left,Shock/Grenadier/Centre-right,Thin Red Line/Marksman/Right",
+ "Screen and Line": "Fabian Screen/Marksman/Left,Line/Even/Centre-left,Line/Even/Centre-right,Fabian Screen/Marksman/Right",
+ "Screen with Reserve": "Fabian Screen/Marksman/Left,Fabian Screen/Marksman/Centre-left,Fabian Screen/Marksman/Right,Linebreaker/Grenadier/Reserve",
+ "Snipers and Hammer": "Sniper/Marksman/Left,Linebreaker/Grenadier/Centre-left,Linebreaker/Grenadier/Centre-right,Sniper/Marksman/Right",
+ "Your drills": "Sniper/Marksman/Left,Line/Even/Centre-left,Linebreaker/Grenadier/Centre-right,Ninjas/Runner/Right"
+}
