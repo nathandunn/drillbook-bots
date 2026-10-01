@@ -64,6 +64,9 @@ var _top_fight_btn: Button
 var _batch_btn: Button
 var _head_campaign_btn: Button
 var _field_chips := {}
+var campaign_men := 10        # men a company in the next campaign (10 or 20)
+var _men_chips := {}
+var cam: CameraRig = null
 var _field_help: Label = null
 
 
@@ -402,6 +405,25 @@ func _build_teams_overlay() -> void:
 	fnote.add_theme_font_size_override("font_size", 13)
 	fnote.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
 	box.add_child(fnote)
+	var srow := HFlowContainer.new()
+	box.add_child(srow)
+	var sl := Label.new()
+	sl.text = "Companies in the campaign: "
+	sl.add_theme_font_size_override("font_size", 14)
+	srow.add_child(sl)
+	for men in [10, 20]:
+		var b := Button.new()
+		b.text = "%d men (%d a side)" % [men, men * 4]
+		b.toggle_mode = true
+		b.button_pressed = campaign_men == men
+		b.custom_minimum_size = Vector2(0, 36)
+		b.add_theme_font_size_override("font_size", 13)
+		b.pressed.connect(func():
+			campaign_men = men
+			for k in _men_chips:
+				_men_chips[k].button_pressed = k == men)
+		srow.add_child(b)
+		_men_chips[men] = b
 	var foot := HFlowContainer.new()
 	box.add_child(foot)
 	var fight := _button("» Fight with these companies")
@@ -944,6 +966,7 @@ func _update_debug(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_pad_tick(delta)
 	if _dbg_label != null:
 		_update_debug(delta)
 	_tick -= delta
@@ -1456,3 +1479,86 @@ func _cell(g: GridContainer, text: String, bold: bool, color: Color = Color(0.92
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	g.add_child(l)
+
+
+# ---------------------------------------------------------------- the camera pad
+
+## Hold a button to keep turning, panning or zooming; ⌂ fits the whole field again.
+var _pad_hold := {}          # button id -> held
+var _pad_box: Control = null
+
+
+func build_cam_pad() -> void:
+	var holder := VBoxContainer.new()
+	holder.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	holder.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	holder.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	holder.position = Vector2(-12, -12)
+	holder.alignment = BoxContainer.ALIGNMENT_END
+	_root.add_child(holder)
+	var toggle := _button("✥ View")
+	toggle.custom_minimum_size = Vector2(0, 40)
+	toggle.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	holder.add_child(grid)
+	holder.add_child(toggle)
+	_pad_box = grid
+	toggle.pressed.connect(func(): grid.visible = not grid.visible)
+	var cells := [
+		["rot_l", "⟲", "Turn left"], ["pan_u", "▲", "Pan away"], ["rot_r", "⟳", "Turn right"], ["zoom_in", "+", "Zoom in"],
+		["pan_l", "◀", "Pan left"], ["pan_d", "▼", "Pan toward"], ["pan_r", "▶", "Pan right"], ["zoom_out", "−", "Zoom out"],
+		["tilt_u", "⤒", "Look down more"], ["fit", "⌂", "Fit the whole field"], ["tilt_d", "⤓", "Look along the ground"], ["", "", ""],
+	]
+	for c in cells:
+		if c[0] == "":
+			grid.add_child(Control.new())
+			continue
+		var b := Button.new()
+		b.text = c[1]
+		b.tooltip_text = c[2]
+		b.custom_minimum_size = Vector2(48, 48)
+		b.add_theme_font_size_override("font_size", 22)
+		b.focus_mode = Control.FOCUS_NONE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.1, 0.11, 0.13, 0.6)
+		sb.set_corner_radius_all(8)
+		b.add_theme_stylebox_override("normal", sb)
+		var id: String = c[0]
+		if id == "fit":
+			b.pressed.connect(func(): fit_requested.emit())
+		else:
+			b.button_down.connect(func(): _pad_hold[id] = true)
+			b.button_up.connect(func(): _pad_hold.erase(id))
+		grid.add_child(b)
+	_cursor_for_tree(holder)
+
+
+func _pad_tick(delta: float) -> void:
+	if cam == null or _pad_hold.is_empty():
+		return
+	var rate := delta / maxf(Engine.time_scale, 0.001)   # the pad runs on real time, not battle time
+	for id in _pad_hold:
+		match id:
+			"rot_l":
+				cam.rotate_view(1.4 * rate)
+			"rot_r":
+				cam.rotate_view(-1.4 * rate)
+			"tilt_u":
+				cam.rotate_view(0.0, 0.8 * rate)
+			"tilt_d":
+				cam.rotate_view(0.0, -0.8 * rate)
+			"zoom_in":
+				cam.zoom_view(1.0 - 0.9 * rate)
+			"zoom_out":
+				cam.zoom_view(1.0 + 0.9 * rate)
+			"pan_l":
+				cam.pan_view(Vector2(-500.0, 0.0) * rate)
+			"pan_r":
+				cam.pan_view(Vector2(500.0, 0.0) * rate)
+			"pan_u":
+				cam.pan_view(Vector2(0.0, 500.0) * rate)
+			"pan_d":
+				cam.pan_view(Vector2(0.0, -500.0) * rate)

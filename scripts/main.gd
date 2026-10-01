@@ -20,9 +20,9 @@ var _sun: DirectionalLight3D = null
 # having nobody left
 const FRONT_LEN := 11
 const ARMY_COMPANIES := 12
-const COMPANY_MEN := 10
+var COMPANY_MEN := 10   # men a company in the campaign: 10 (40 a side) or 20 (80 a side), set at its start
 const FIGHTING := 4
-const MERGE_BELOW := 3   # a company with fewer men than this joins another
+var MERGE_BELOW := 3   # a company with fewer men than this joins another (3 at 10 a company, 5 at 20)
 const ROUND_CAP := 30
 const ARMY_NAMES := ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 var front: Array[String] = []
@@ -142,10 +142,13 @@ func _ready() -> void:
 		manager.time_limit = 420.0   # nothing runs forever on a screen either
 	_setup_ui_scale()
 	cam = CameraRig.new()
+	cam.name = "CameraRig"
 	add_child(cam)
 	hud = Hud.new()
 	add_child(hud)
 	hud.setup(manager)
+	hud.cam = cam
+	hud.build_cam_pad()
 	hud.set_plan(0, field.layout_name)
 	hud.mark_field(field.layout_name)
 	hud.new_match_requested.connect(func():
@@ -183,6 +186,8 @@ func _ready() -> void:
 		set_sim_speed(20.0)
 	if args.has("campaign"):
 		# --ui --campaign: a whole campaign, headless, rounds chained automatically
+		if args.has("men"):
+			hud.campaign_men = int(args["men"])
 		_start_campaign()
 		return
 	if args.has("batch"):
@@ -422,6 +427,8 @@ func _start_campaign() -> void:
 	campaign_rounds.clear()
 	campaign_rosters = [[], []]
 	manager.rosters = [[], []]
+	COMPANY_MEN = int(hud.campaign_men)
+	MERGE_BELOW = 3 if COMPANY_MEN <= 10 else 5
 	# the front: eleven of the thirteen fields, in a random order, the fight opening in the middle
 	var pool: Array = Field.ALL_FIELDS.duplicate()
 	pool.shuffle()

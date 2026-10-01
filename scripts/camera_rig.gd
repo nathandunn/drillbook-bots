@@ -1,6 +1,7 @@
 class_name CameraRig
 extends Node3D
-## Orbit camera. Drag (mouse or one finger) to turn and tilt, wheel or pinch to zoom.
+## Orbit camera. Drag (left mouse or one finger) to turn and tilt; right- or middle-drag, or
+## shift-drag, or two fingers to pan; wheel or pinch to zoom. The HUD's pad does the same.
 ## Until the viewer zooms by hand the rig keeps the *whole field* in frame at whatever angle
 ## they choose - the distance is solved each frame from the field's corners - so the first
 ## thing anyone does is pick their vantage, not hunt for the edges. "Fit" puts that back.
@@ -18,6 +19,7 @@ var dist := 120.0
 var fit_all := true
 var _cam: Camera3D
 var _dragging := false
+var _panning := false
 var _touches := {}
 var _pinch_d := 0.0
 var _focus := Vector3(0, 0, 0)
@@ -43,6 +45,32 @@ func _process(_delta: float) -> void:
 
 func refit() -> void:
 	fit_all = true
+	_focus = Vector3.ZERO
+
+
+## Turn about the focus (radians); tilt up or down.
+func rotate_view(d_yaw: float, d_pitch: float = 0.0) -> void:
+	yaw += d_yaw
+	pitch += d_pitch
+
+
+## Zoom: below 1 closer, above 1 further. Taking the zoom by hand ends whole-field fitting.
+func zoom_view(factor: float) -> void:
+	if fit_all:
+		fit_all = false
+	dist *= factor
+
+
+## Pan across the ground, in screen terms: +x right, +y away from the viewer. Metres scale
+## with the distance, so a pan feels the same close in or far out.
+func pan_view(screen: Vector2) -> void:
+	fit_all = false
+	var right := Vector3(cos(yaw), 0, -sin(yaw))
+	var away := Vector3(-sin(yaw), 0, -cos(yaw))
+	var k := dist * 0.0016
+	_focus += (right * screen.x + away * screen.y) * k
+	_focus.x = clampf(_focus.x, -Field.HALF_X - 10.0, Field.HALF_X + 10.0)
+	_focus.z = clampf(_focus.z, -Field.HALF_Z - 10.0, Field.HALF_Z + 10.0)
 
 
 func _basis() -> Basis:
@@ -100,8 +128,15 @@ func _apply() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT:
+		if event.button_index == MOUSE_BUTTON_RIGHT or event.button_index == MOUSE_BUTTON_MIDDLE \
+				or (event.button_index == MOUSE_BUTTON_LEFT and event.pressed and event.shift_pressed):
+			_panning = event.pressed
+			_dragging = false
+			Input.set_default_cursor_shape(Input.CURSOR_DRAG if _panning else Input.CURSOR_MOVE)
+		elif event.button_index == MOUSE_BUTTON_LEFT:
 			_dragging = event.pressed
+			if not event.pressed:
+				_panning = false
 			# the field is grabbed and turned: a grab hand while dragging, the move cross otherwise
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG if _dragging else Input.CURSOR_MOVE)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
@@ -110,6 +145,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			dist *= 1.1
 			fit_all = false
+	elif event is InputEventMouseMotion and _panning:
+		pan_view(Vector2(-event.relative.x, event.relative.y))
 	elif event is InputEventMouseMotion and _dragging:
 		yaw -= event.relative.x * 0.006
 		pitch += event.relative.y * 0.006
@@ -133,3 +170,5 @@ func _unhandled_input(event: InputEvent) -> void:
 				dist *= _pinch_d / maxf(d, 1.0)
 				fit_all = false
 			_pinch_d = d
+			# two fingers moving together pan (each drag event moves one finger: half the motion)
+			pan_view(Vector2(-event.relative.x, event.relative.y) * 0.5)
