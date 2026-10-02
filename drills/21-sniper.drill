@@ -20,7 +20,10 @@ man:
   when enemy within 20                                 -> back 15
   # seen, in cover, loaded: hold ground and shoot
   when in cover and loaded and enemy within 90         -> fire
+  when on high ground and loaded and enemy within 140  -> fire
   when not in cover and enemy within 60                -> take cover within 15
+  # no wall to hand: a rise will do - from up there the ball carries further
+  when not in cover and not on high ground and enemy within 140 -> take the high ground within 25
   when not loaded                                      -> reload kneeling
   # not yet in range: creep forward under cover
   when enemy beyond 60                                 -> sneak 14

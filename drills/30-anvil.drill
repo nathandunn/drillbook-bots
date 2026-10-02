@@ -17,5 +17,7 @@ man:
   when neighbour charging and loaded and enemy within 70 -> fire
   when enemy charging and enemy within 20          -> fire; back 10
   when in cover and loaded and enemy within 70     -> fire
+  when on high ground and loaded and enemy within 100 -> fire
   when not in cover                                -> take cover within 12
+  when not in cover and not on high ground         -> take the high ground within 20
   otherwise                                        -> reload kneeling

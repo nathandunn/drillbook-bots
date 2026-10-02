@@ -1153,3 +1153,47 @@ func _field_meshes(n: Node, out: Array) -> void:
 		_field_meshes(c, out)
 		if c is MeshInstance3D and (c as MeshInstance3D).material_override is StandardMaterial3D:
 			out.append(c)
+
+
+## The best rise within reach of p for a man who wants to shoot at the enemy at e: the highest
+## ground that is no closer to the enemy than 40 m less than now, can see him, and stands a
+## metre or more above where the man is. Men of one company spread along the crest by slot.
+## Vector3.INF when there is no such rise (flat ground: stay put).
+func high_spot(p: Vector3, e: Vector3, reach: float, slot: int) -> Vector3:
+	if hills.is_empty():
+		return Vector3.INF
+	var here := height_at(p.x, p.z)
+	var ed := Vector2(p.x - e.x, p.z - e.z).length()
+	var best := Vector3.INF
+	var best_s := -INF
+	var step := 3.0
+	var n := int(reach / step)
+	for i in range(-n, n + 1):
+		for j in range(-n, n + 1):
+			var q := Vector3(p.x + i * step, 0, p.z + j * step)
+			var dd := Vector2(i * step, j * step).length()
+			if dd > reach or not in_bounds(q, 2.0):
+				continue
+			q.y = height_at(q.x, q.z)
+			if q.y < here + 1.0:
+				continue
+			var qe := Vector2(q.x - e.x, q.z - e.z).length()
+			if qe < ed - 40.0 or qe < 35.0:
+				continue
+			if line_of_fire(q + Vector3(0, 1.6, 0), e + Vector3(0, 1.0, 0)) <= 0.0:
+				continue
+			var sc := q.y * 2.0 - dd * 0.12
+			if sc > best_s:
+				best_s = sc
+				best = q
+	if best == Vector3.INF:
+		return best
+	# spread along the crest, across the line of fire, by slot
+	var across := Vector3(-(e.z - best.z), 0, e.x - best.x).normalized()
+	var off := float((slot % 9) - 4) * 2.0
+	var spread := best + across * off
+	if in_bounds(spread, 2.0) and height_at(spread.x, spread.z) > here + 0.5:
+		best = spread
+	best = free_point(clamp_point(best))
+	best.y = height_at(best.x, best.z)
+	return best

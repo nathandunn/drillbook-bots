@@ -101,6 +101,8 @@ var _thrust_anim := 0.0
 var _volley_seen := -1
 var _cover_spot: Dictionary = {}
 var _cover_hold := 0.0
+var _high_spot := Vector3.INF   # the rise he is making for
+var _high_hold := 0.0
 var _jitter := Vector3.ZERO
 
 # stats (kills is the career total in a campaign; kills_before is where this round started)
@@ -210,6 +212,7 @@ func _tick_timers(delta: float) -> void:
 	kiting = maxf(kiting - delta, 0.0)
 	_halt = maxf(_halt - delta, 0.0)
 	_cover_hold = maxf(_cover_hold - delta, 0.0)
+	_high_hold = maxf(_high_hold - delta, 0.0)
 	fear = maxf(fear - delta * 0.04, 0.0)
 	breath = maxf(breath - delta, 0.0)
 	if running and velocity.length() > 0.5:
@@ -321,7 +324,7 @@ func _decide() -> void:
 		return
 
 	# firing
-	if loaded and enemy != null and enemy_d <= MAX_RANGE and enemy_d >= STEEL_RANGE and _can_fire_at(enemy):
+	if loaded and enemy != null and enemy_d <= fire_range_to(enemy) and enemy_d >= STEEL_RANGE and _can_fire_at(enemy):
 		var my_range := 75.0 - 50.0 * p("patience")
 		var volley_now: bool = order["volley_id"] != _volley_seen and order["volley_age"] < 0.7
 		var disciplined: bool = p("discipline") > 0.45 and order["mode"] != "at_will" and not order["alone"]
@@ -490,7 +493,7 @@ func _drill_act(id: String, args: Array) -> bool:
 		charging = false
 	match id:
 		"fire":
-			if not loaded or e == null or ed > MAX_RANGE or ed < STEEL_RANGE or not _can_fire_at(e):
+			if not loaded or e == null or ed > fire_range_to(e) or ed < STEEL_RANGE or not _can_fire_at(e):
 				return false
 			face_point = e.global_position
 			if velocity.length() > 0.5 and ed > POINT_BLANK:
@@ -623,6 +626,22 @@ func _drill_act(id: String, args: Array) -> bool:
 				kneeling = false
 			action = "cover"
 			want_run = false
+			face_point = e.global_position
+			return true
+		"high_ground":
+			# make for the highest rise within reach that still looks at the enemy - kneel there
+			if e == null:
+				return false
+			var reach: float = float(args[0]) if not args.is_empty() else 25.0
+			if _high_spot == Vector3.INF or _high_hold <= 0.0:
+				_high_spot = field.high_spot(global_position, e.global_position, reach, slot)
+				_high_hold = 8.0
+			if _high_spot == Vector3.INF:
+				return false
+			goal = _high_spot
+			action = "form"
+			kneeling = global_position.distance_to(goal) < 1.0
+			want_run = global_position.distance_to(goal) > 10.0 and not tired() and ed > 50.0
 			face_point = e.global_position
 			return true
 		"hold", "hold_kneel":
@@ -1337,3 +1356,12 @@ func _spawn_ragdoll(attacker: Soldier) -> void:
 	else:
 		shove += Vector3(rng.randf_range(-2, 2), 0, rng.randf_range(-2, 2))
 	ragdoll.shove(shove)
+
+
+## How far he will fire at this man. The ball falls as it flies (Ballistics); from above, it has
+## further to fall before it meets the ground, so its dangerous stretch reaches further out - about
+## a sixth more range for every metre he stands above his mark, to half again on a big ridge.
+## Firing uphill costs nothing here: the crest already hides the men behind it.
+func fire_range_to(e: Soldier) -> float:
+	var dh := global_position.y - e.global_position.y
+	return MAX_RANGE * clampf(1.0 + 0.16 * dh, 1.0, 1.5)
