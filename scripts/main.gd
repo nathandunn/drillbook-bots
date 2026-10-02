@@ -519,17 +519,23 @@ func _fielded(t: int) -> int:
 	return n
 
 
-## A computer army fields as many companies as a human one across the field does.
-func _match_computer(t: int) -> void:
-	var o := 1 - t
-	if hud == null or String(hud.commanders[o]) != "computer" or String(hud.commanders[t]) == "computer":
-		return
-	_sync_from_manager(o)
-	_default_picks(o, maxi(_fielded(t), 1))
-	_prepare_battle(o)
-	_ai_pick(o, false)
-	_sync_from_manager(o)
-	hud.update_army(o, army_view(o))
+## How many companies a computer army sends in - its own guess, made without seeing yours:
+## about what the enemy brought last time, give or take one; nearly everything when it is
+## fighting on its own last fields; a little more when it is the weaker army.
+func _computer_count(t: int) -> int:
+	var avail := 0
+	for a in armies[t]:
+		if (a["men"] as Array).size() > 0:
+			avail += 1
+	if avail <= 1:
+		return avail
+	var n: int = int(_fielded_last[1 - t]) + randi_range(-1, 1)
+	var behind := campaign_field <= 2 if t == 0 else campaign_field >= FRONT_LEN - 1
+	if behind:
+		n = maxi(n, avail - randi_range(0, 1))   # a last stand: nearly everyone
+	if _army_men(t) < _army_men(1 - t) * 0.7:
+		n += 1
+	return clampi(n, mini(2, avail), avail)
 
 
 ## The HUD's army picker: put a company forward or stand it down (any number, at least one).
@@ -551,7 +557,6 @@ func toggle_army_pick(t: int, i: int) -> void:
 	_prepare_battle(t)
 	if hud != null:
 		hud.update_army(t, army_view(t))
-	_match_computer(t)
 
 
 ## The battle battalion from the army: the companies put forward (the freshest four if none
@@ -858,7 +863,7 @@ func _on_round_ended(result: Dictionary) -> void:
 				_prepare_battle(t)
 		for t in 2:
 			if hud.commanders[t] == "computer" and hud.commanders[1 - t] != "computer":
-				_default_picks(t, maxi(_fielded(1 - t), 1))   # as many as the human side can field
+				_default_picks(t, _computer_count(t))   # its own guess, made blind
 				_prepare_battle(t)
 		for t in 2:
 			if hud.commanders[t] == "computer":

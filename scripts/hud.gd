@@ -35,6 +35,7 @@ var _army_locked := [[], []]   # controls that would break the army mapping: loc
 var front: Array = []          # the campaign's front, field 1 first
 var _army_boxes := [null, null]
 var _next_head: Label = null
+var _army_secret := false     # the computer's picks are hidden on the round panel
 var _next_help: Label = null
 var _fb_chips := {}           # field no -> chip
 var _slot_chips := [{}, {}]
@@ -404,7 +405,7 @@ func _build_teams_overlay() -> void:
 	_field_help = fhelp
 	_section(box, "The campaign")
 	var fnote := Label.new()
-	fnote.text = "A war along a front of eleven fields drawn at random from the thirteen; it opens on the middle field. Each army is twelve companies of ten, patterned on the companies set up here (A-D, then repeated), and the freshest four fight by default - between battles, put in or stand down as many as you like (a computer army fields as many as you do). No recruits: the dead are gone, the living fight on, and a company cut under three joins another. Each win pushes the fight one field into the loser's country. The war is won by winning on the enemy's last field - or when the enemy has nobody left."
+	fnote.text = "A war along a front of eleven fields drawn at random from the thirteen; it opens on the middle field. Each army is twelve companies of ten, patterned on the companies set up here (A-D, then repeated), and the freshest four fight by default - between battles, put in or stand down as many as you like (a computer army guesses its own number, unseen; you see it when the battle opens). No recruits: the dead are gone, the living fight on, and a company cut under three joins another. Each win pushes the fight one field into the loser's country. The war is won by winning on the enemy's last field - or when the enemy has nobody left."
 	fnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	fnote.add_theme_font_size_override("font_size", 13)
 	fnote.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
@@ -1395,10 +1396,11 @@ func show_round(sm: Dictionary) -> void:
 				_fb_chips[no] = b
 			_cursor_for_tree(fr)
 		# the armies: tap a company to put it forward or stand it down (any number fight)
+		_army_secret = true
 		for t in 2:
 			var head := "%s's army - the lit companies fight next" % MatchManager.TEAM_NAMES[t]
 			if String(commanders[t]) == "computer":
-				head += " (the computer's choice: as many as the other side fields)"
+				head += " - how many and which it sends in is kept secret until the battle"
 			else:
 				head += "; tap to put a company in or stand it down - as many as you like"
 			_section(results_box, head)
@@ -1466,7 +1468,8 @@ func update_army(t: int, view: Array) -> void:
 		var a: Dictionary = view[i]
 		var b := Button.new()
 		b.toggle_mode = true
-		b.button_pressed = bool(a["fights"])
+		var secret := String(commanders[t]) == "computer" and _army_secret
+		b.button_pressed = bool(a["fights"]) and not secret
 		b.text = "%s · %d men\n%s / %s" % [a["name"], int(a["men"]), a["drill"], a["type"]]
 		if String(a.get("slot", "")) != "":
 			b.text += "\n%s" % a["slot"]
