@@ -65,6 +65,11 @@ func _ready() -> void:
 	manager.world = self
 	manager.field = field
 	manager.match_ended.connect(_on_match_ended)
+	if DisplayServer.get_name() != "headless":
+		var bfx := BattleFx.new()
+		bfx.field = field
+		add_child(bfx)
+		manager.fx = bfx
 	add_child(manager)
 
 	var args := _parse_args(OS.get_cmdline_user_args())
@@ -424,6 +429,9 @@ func _rebuild_field(layout: String) -> void:
 	field.layout_name = layout
 	add_child(field)
 	manager.field = field
+	if manager.fx != null:
+		manager.fx.field = field
+		manager.fx.clear()
 	if hud != null:
 		hud.mark_field(layout)
 
@@ -1042,7 +1050,10 @@ func _ui_walk() -> void:
 	print("battle: %d v %d men in %d v %d companies" % [manager.side_total(0), manager.side_total(1), (manager.companies[0] as Array).size(), (manager.companies[1] as Array).size()])
 	await get_tree().create_timer(1.0).timeout
 	await _shot("battle")
-	manager.time_limit = 30.0
+	manager.time_limit = 75.0
+	await get_tree().create_timer(55.0).timeout
+	cam.zoom_view(0.45)
+	await _shot("battle2")
 	await manager.match_ended
 	await get_tree().create_timer(2.5).timeout
 	print("result panel rows %d" % hud.results_box.get_child_count())

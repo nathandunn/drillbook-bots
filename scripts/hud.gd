@@ -27,6 +27,8 @@ var results_box: VBoxContainer
 var results_title: Label
 var speed_buttons: Array[Button] = []
 var pause_btn: Button
+var _sound_btn: Button
+var _blood_btn: Button
 var size_labels: Array[Label] = []
 var size_sliders: Array = [null, null]
 var _strip := [null, null]         # the company strip per side
@@ -147,6 +149,14 @@ func setup(m: MatchManager) -> void:
 	var fit := _button("Fit view")
 	fit.pressed.connect(func(): fit_requested.emit())
 	row.add_child(fit)
+	_sound_btn = _button("Sound on")
+	_sound_btn.tooltip_text = "Turn the sound of the battle on or off (M)"
+	_sound_btn.pressed.connect(func(): toggle_sound())
+	row.add_child(_sound_btn)
+	_blood_btn = _button("Blood on")
+	_blood_btn.tooltip_text = "Show or hide the blood (B)"
+	_blood_btn.pressed.connect(func(): toggle_blood())
+	row.add_child(_blood_btn)
 
 	status_label = Label.new()
 	status_label.add_theme_font_size_override("font_size", 15)
@@ -984,7 +994,33 @@ func _close_overlays() -> void:
 		_pick_overlay.visible = false
 
 
+func toggle_sound() -> void:
+	var fx: BattleFx = manager.fx if manager != null else null
+	if fx == null:
+		return
+	fx.muted = not fx.muted
+	_sound_btn.text = "Sound off" if fx.muted else "Sound on"
+
+
+func toggle_blood() -> void:
+	var fx: BattleFx = manager.fx if manager != null else null
+	if fx == null:
+		return
+	fx.gore = not fx.gore
+	fx.visible = fx.gore
+	_blood_btn.text = "Blood on" if fx.gore else "Blood off"
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and not _typing():
+		if event.physical_keycode == KEY_M:
+			toggle_sound()
+			get_viewport().set_input_as_handled()
+			return
+		if event.physical_keycode == KEY_B:
+			toggle_blood()
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode == KEY_H or event.physical_keycode == KEY_HOME):
 		var shut := not _any_overlay()
 		if shut and not _typing():

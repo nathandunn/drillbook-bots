@@ -58,6 +58,7 @@ const VOLLEY_COOLDOWN := 2.5
 static var TEAM_SIZE := 20
 
 var world: Node3D
+var fx: BattleFx = null      # sound and blood; null in a headless run
 var field: Field
 var headless := false
 var team_personalities: Array[Personality] = [Personality.preset("Regulars"), Personality.preset("Skirmishers")]
@@ -269,6 +270,8 @@ func home_z(team: int) -> float:
 
 func start_match(seed_value: int = -1) -> void:
 	clear()
+	if fx != null:
+		fx.clear()
 	match_index += 1
 	if seed_value >= 0:
 		rng.seed = seed_value
@@ -945,6 +948,8 @@ func _run_sergeant(t: int, c: int) -> void:
 				_charge_since[k] = elapsed
 				_press_since[k] = -1.0
 				stats["charges"][t] += 1
+				if fx != null:
+					fx.charge(centre)
 			elif losing_fire and mix["aggression"] <= 0.2 and mix["cover"] < 0.5:
 				mode = "fallback"
 				order["rally_z"] = clampf(centre.z - toward * 25.0, -Field.HALF_Z + 4.0, Field.HALF_Z - 4.0)
@@ -1293,6 +1298,8 @@ func _plan_mode(t: int, c: int, current: String, centre: Vector3, toward: float,
 		_charge_since[k] = elapsed
 		_press_since[k] = -1.0
 		stats["charges"][t] += 1
+		if fx != null:
+			fx.charge(centre)
 	elif want == "fallback" and current != "fallback":
 		orders[t][c]["rally_z"] = clampf(centre.z - toward * float(_plan.get("fall_dist", 22.0)), -Field.HALF_Z + 4.0, Field.HALF_Z - 4.0)
 		_fallback_since[k] = elapsed
@@ -1333,6 +1340,11 @@ func _call_volley(t: int, c: int) -> void:
 	orders[t][c]["volley_id"] = _volley_ids[k]
 	orders[t][c]["volley_age"] = 0.0
 	stats["volleys"][t] += 1
+	if fx != null:
+		# the sergeant's word, then the crash of it
+		var at: Vector3 = orders[t][c].get("centre", Vector3(band_x(t, c), 0, home_z(t)))
+		fx.sergeant(at)
+		get_tree().create_timer(0.35).timeout.connect(func(): if fx != null: fx.volley(at))
 
 
 # ---------------------------------------------------------------- events

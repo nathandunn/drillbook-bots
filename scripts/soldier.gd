@@ -101,6 +101,7 @@ var _thrust_anim := 0.0
 var _volley_seen := -1
 var _cover_spot: Dictionary = {}
 var _cover_hold := 0.0
+var _bleed_t := 0.0
 var _high_spot := Vector3.INF   # the rise he is making for
 var _high_hold := 0.0
 var _jitter := Vector3.ZERO
@@ -188,6 +189,12 @@ func _physics_process(delta: float) -> void:
 	if not alive or gone:
 		return
 	_tick_timers(delta)
+	if wounded and manager.fx != null:
+		# a wounded man bleeds as he goes
+		_bleed_t -= delta
+		if _bleed_t <= 0.0:
+			_bleed_t = rng.randf_range(0.5, 1.4)
+			manager.fx.drip(global_position)
 	decide_timer -= delta
 	if decide_timer <= 0.0:
 		decide_timer = DECISION_INTERVAL + rng.randf_range(0.0, 0.05)
@@ -236,6 +243,8 @@ func _tick_timers(delta: float) -> void:
 
 
 func _rout() -> void:
+	if manager.fx != null:
+		manager.fx.rout(global_position)
 	is_routed = true
 	charging = false
 	kneeling = false
@@ -724,6 +733,8 @@ func _fire(enemy: Soldier) -> void:
 			return
 		enemy = alt
 	enemy.under_fire = true   # being aimed at and fired on is being under fire
+	if manager.fx != null:
+		manager.fx.shot(global_position)
 	loaded = false
 	ammo = maxi(ammo - 1, 0)
 	reload_left = reload_time
@@ -855,6 +866,8 @@ func _try_thrust(enemy: Soldier) -> void:
 	if tired():
 		p_hit *= 0.75
 	var landed := rng.randf() < clampf(p_hit, 0.08, 0.95)
+	if not landed and manager.fx != null and rng.randf() < 0.5:
+		manager.fx.clash(global_position)   # parried: steel on steel
 	if landed:
 		thrust_hits += 1
 		var dmg := BAYONET_DMG * melee_mult * rng.randf_range(0.8, 1.3)
@@ -869,6 +882,9 @@ func take_damage(amount: float, source: String, attacker: Soldier) -> void:
 	hp -= amount
 	under_fire = true
 	damaged.emit(self, amount, source, attacker)
+	if manager.fx != null:
+		var from_dir := (global_position - attacker.global_position) if attacker != null else Vector3.FORWARD
+		manager.fx.hit(global_position + Vector3(0, 1.2, 0), from_dir, hp <= 0.0)
 	_flash()
 	if hp <= 0.0:
 		_die(source, attacker)
@@ -896,6 +912,11 @@ func _die(source: String, attacker: Soldier) -> void:
 			attacker.bayonet_kills += 1
 	died.emit(self, source, attacker)
 	_spawn_ragdoll(attacker)
+	if manager.fx != null:
+		# when he has come to rest, the pool under him
+		get_tree().create_timer(1.3).timeout.connect(func():
+			if manager.fx != null and is_instance_valid(self):
+				manager.fx.pool(ragdoll.torso_position() if ragdoll != null and is_instance_valid(ragdoll) else global_position))
 
 
 func _flee() -> void:
