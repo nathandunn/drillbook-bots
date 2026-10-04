@@ -131,7 +131,7 @@ func setup(m: MatchManager) -> void:
 	fight.pressed.connect(func(): show_pick())
 	row.add_child(fight)
 	_top_fight_btn = fight
-	for s in [1.0, 2.0, 4.0]:
+	for s in [1.0, 2.0, 4.0, 8.0]:
 		var b := _button("%d×" % int(s))
 		b.toggle_mode = true
 		b.pressed.connect(func(): _set_speed(s); speed_changed.emit(s))
@@ -1006,7 +1006,7 @@ func on_match_started() -> void:
 
 func _set_speed(s: float) -> void:
 	for i in speed_buttons.size():
-		speed_buttons[i].button_pressed = is_equal_approx([1.0, 2.0, 4.0][i], s)
+		speed_buttons[i].button_pressed = is_equal_approx([1.0, 2.0, 4.0, 8.0][i], s)
 
 
 func set_status(text: String) -> void:
