@@ -13,8 +13,12 @@ const FIELD_CORNERS := [
 	Vector3(Field.HALF_X, 6.0, -Field.HALF_Z), Vector3(-Field.HALF_X, 6.0, Field.HALF_Z),
 ]
 
-var yaw := 0.35
-var pitch := 0.95
+## The opening view looks across the field from its west edge, so Red (north, -z) is on the
+## left of the screen and Blue on the right - as on the campaign front map.
+const HOME_YAW := -PI * 0.5 + 0.3
+const HOME_PITCH := 0.95
+var yaw := HOME_YAW
+var pitch := HOME_PITCH
 var dist := 120.0
 var fit_all := true
 var _cam: Camera3D
@@ -47,6 +51,8 @@ func _process(_delta: float) -> void:
 func refit() -> void:
 	fit_all = true
 	_focus = Vector3.ZERO
+	yaw = HOME_YAW       # Red on the left, every battle and on Fit
+	pitch = HOME_PITCH
 
 
 ## Turn about the focus (radians); tilt up or down.

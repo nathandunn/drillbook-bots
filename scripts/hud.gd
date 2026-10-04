@@ -908,6 +908,12 @@ func _close_overlays() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and (event.physical_keycode == KEY_H or event.physical_keycode == KEY_HOME):
+		var shut := not ((teams_overlay != null and teams_overlay.visible) or (results_overlay != null and results_overlay.visible))
+		if shut and not _typing():
+			fit_requested.emit()
+			get_viewport().set_input_as_handled()
+			return
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	var open := (teams_overlay != null and teams_overlay.visible) or (results_overlay != null and results_overlay.visible)
@@ -1527,6 +1533,21 @@ func _cell(g: GridContainer, text: String, bold: bool, color: Color = Color(0.92
 ## Hold a button to keep turning, panning or zooming; Fit fits the whole field again.
 var _pad_hold := {}          # button id -> held
 var _pad_box: Control = null
+const PAD_KEYS := {
+	"rot_l": [KEY_Q], "rot_r": [KEY_E], "tilt_u": [KEY_R], "tilt_d": [KEY_F],
+	"pan_u": [KEY_W, KEY_UP], "pan_d": [KEY_S, KEY_DOWN], "pan_l": [KEY_A, KEY_LEFT], "pan_r": [KEY_D, KEY_RIGHT],
+	"zoom_in": [KEY_EQUAL, KEY_PLUS, KEY_KP_ADD], "zoom_out": [KEY_MINUS, KEY_KP_SUBTRACT],
+}
+const PAD_KEY_LABEL := {
+	"rot_l": "Q", "rot_r": "E", "tilt_u": "R", "tilt_d": "F", "pan_u": "W", "pan_d": "S",
+	"pan_l": "A", "pan_r": "D", "zoom_in": "+", "zoom_out": "-", "fit": "H",
+}
+
+
+## A text box has the keys: the view keys stand aside.
+func _typing() -> bool:
+	var f := get_viewport().gui_get_focus_owner()
+	return f is LineEdit or f is TextEdit
 
 
 func build_cam_pad() -> void:
@@ -1549,9 +1570,9 @@ func build_cam_pad() -> void:
 	_pad_box = grid
 	toggle.pressed.connect(func(): grid.visible = not grid.visible)
 	var cells := [
-		["rot_l", "« Turn", "Turn left"], ["pan_u", "^", "Pan away"], ["rot_r", "Turn »", "Turn right"], ["zoom_in", "+", "Zoom in"],
-		["pan_l", "<", "Pan left"], ["fit", "Fit", "Fit the whole field"], ["pan_r", ">", "Pan right"], ["zoom_out", "−", "Zoom out"],
-		["tilt_u", "Tilt ^", "Look down more"], ["pan_d", "v", "Pan toward"], ["tilt_d", "Tilt v", "Look along the ground"], ["", "", ""],
+		["rot_l", "« Turn", "Turn left (Q)"], ["pan_u", "^", "Pan away (W or Up)"], ["rot_r", "Turn »", "Turn right (E)"], ["zoom_in", "+", "Zoom in (+ or =)"],
+		["pan_l", "<", "Pan left (A or Left)"], ["fit", "Fit", "Fit the whole field, Red on the left (H)"], ["pan_r", ">", "Pan right (D or Right)"], ["zoom_out", "−", "Zoom out (-)"],
+		["tilt_u", "Tilt ^", "Look down more (R)"], ["pan_d", "v", "Pan toward (S or Down)"], ["tilt_d", "Tilt v", "Look along the ground (F)"], ["", "", ""],
 	]
 	for c in cells:
 		if c[0] == "":
@@ -1560,7 +1581,7 @@ func build_cam_pad() -> void:
 		var b := Button.new()
 		b.text = c[1]
 		b.tooltip_text = c[2]
-		b.custom_minimum_size = Vector2(48, 48)
+		b.custom_minimum_size = Vector2(56, 52)
 		b.add_theme_font_size_override("font_size", 22 if String(c[1]).length() == 1 else 14)
 		b.focus_mode = Control.FOCUS_NONE
 		var sb := StyleBoxFlat.new()
@@ -1568,6 +1589,16 @@ func build_cam_pad() -> void:
 		sb.set_corner_radius_all(8)
 		b.add_theme_stylebox_override("normal", sb)
 		var id: String = c[0]
+		var kl := Label.new()   # the key, small, in the corner
+		kl.text = PAD_KEY_LABEL[id]
+		kl.add_theme_font_size_override("font_size", 10)
+		kl.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
+		kl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		kl.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		kl.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		kl.position = Vector2(-4, -2)
+		kl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(kl)
 		if id == "fit":
 			b.pressed.connect(func(): fit_requested.emit())
 		else:
@@ -1587,10 +1618,18 @@ func _pad_tick(delta: float) -> void:
 			_pad_hold.clear()
 	if cam != null:
 		cam.input_blocked = open
-	if cam == null or _pad_hold.is_empty():
+	if cam == null or open:
+		return
+	var held := _pad_hold.duplicate()
+	if not _typing():
+		for id in PAD_KEYS:
+			for k in PAD_KEYS[id]:
+				if Input.is_physical_key_pressed(k):
+					held[id] = true
+	if held.is_empty():
 		return
 	var rate := delta / maxf(Engine.time_scale, 0.001)   # the pad runs on real time, not battle time
-	for id in _pad_hold:
+	for id in held:
 		match id:
 			"rot_l":
 				cam.rotate_view(1.4 * rate)
