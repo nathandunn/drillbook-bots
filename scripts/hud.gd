@@ -260,7 +260,58 @@ func _style(b: Button, kind: String) -> void:
 	b.add_theme_color_override("font_pressed_color", fg)
 
 
+## Every control says what it does when the pointer rests on it.
+const TIPS := {
+	"» Start a campaign": "A war along a front of eleven fields: win a battle and the fight moves into the enemy's country; take their last field, or leave them nobody, to win",
+	"Armies": "Set up both armies: who commands each side, and every company's drill and type",
+	"» Choose companies": "Pick the field and which companies go into the next battle",
+	"Pause": "Stop the battle (the view still moves)",
+	"Resume": "Carry on with the battle",
+	"Fit view": "Show the whole field, Red on the left (H)",
+	"« Close": "Close this panel (Esc)",
+	"» Single battle": "One battle with the companies you choose - fresh men every time",
+	"You": "You command this side: you set its drills and choose which companies go in",
+	"Computer": "The computer commands this side: in a campaign it chooses its own drills and companies, in secret",
+	"Read the drill": "Show the drill's written rules: what the sergeant and each man do, and when",
+	"Fine-tune the type": "Set the four skills of this company's men by hand (they share one budget)",
+	"Copy company": "Give every company in this army this company's drill and type",
+	"« Back to the armies": "Back to the Armies screen",
+	"Freshest four": "Send in the four companies with the most men left",
+	"Everyone": "Send in every company that still has men",
+	"» Fight": "Start the battle with the companies chosen",
+	"× Abandon campaign": "End the war now; the armies go back to full strength",
+	"» Another battle": "Fight again with the same companies",
+	"» Sim ×": "Run the same battle that many times again, fast, and see the numbers",
+	"» New campaign": "Start a new war with the armies as they are set up",
+	"» Choose companies for battle": "On to the next battle: choose the companies",
+	"View": "Show or hide the view controls",
+}
+
+
+func _tip_for(b: BaseButton) -> void:
+	if b.tooltip_text != "" or not (b is Button):
+		return
+	var tx: String = (b as Button).text
+	if tx.ends_with("×") and tx.length() <= 3:
+		b.tooltip_text = "Battle speed: %s real time" % tx
+		return
+	var best := ""
+	for k in TIPS:
+		if tx.begins_with(k) and k.length() > best.length():
+			best = k
+	if best != "":
+		b.tooltip_text = TIPS[best]
+
+
+## The hover text of a company card: its drill and type in words.
+func _card_tip(a: Dictionary) -> String:
+	var d: Drill = Drill.named(String(a["drill"]))
+	return "Company %s - %s: %s\nType %s: %s" % [a["name"], a["drill"], d.about if d != null else "", a["type"], SoldierType.TYPE_HELP.get(String(a["type"]), "a build of your own")]
+
+
 func _cursor_for(n: Node) -> void:
+	if n is BaseButton:
+		_tip_for(n as BaseButton)
 	if n is BaseButton or n is Slider:
 		(n as Control).mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		if n is Slider:
@@ -386,6 +437,7 @@ func _build_teams_overlay() -> void:
 	for men in [10, 20]:
 		var b := Button.new()
 		b.text = "%d" % men
+		b.tooltip_text = "Companies of %d men - %d a side with four companies in (set before a campaign starts)" % [men, men * 4]
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(56, 36)
 		b.add_theme_font_size_override("font_size", 14)
@@ -554,6 +606,7 @@ func _fill_roster(t: int) -> void:
 		var a: Dictionary = ar[i]
 		var b := _company_card(a, campaign_on)
 		b.button_pressed = i == _sel[t]
+		b.tooltip_text = _card_tip(a) + "\nClick to change this company's drill and type."
 		var idx := i
 		b.pressed.connect(func(): _sel[t] = idx; _fill_roster(t); _fill_editor(t))
 		roster.add_child(b)
@@ -599,6 +652,8 @@ func _fill_editor(t: int) -> void:
 	ed.add_child(drow)
 	for n in Drill.names():
 		var b := _chip(n, n == String(a["drill"]))
+		var dn: Drill = Drill.named(n)
+		b.tooltip_text = (dn.about if dn != null else n) + "  (its own type: %s)" % (dn.type_name if dn != null else "")
 		b.disabled = locked
 		b.pressed.connect(func(): game.set_company(t, i, n, ""); _fill_roster(t); _fill_editor(t))
 		drow.add_child(b)
@@ -617,6 +672,7 @@ func _fill_editor(t: int) -> void:
 	ed.add_child(trow)
 	for n in TYPE_LIST:
 		var b := _chip(n, n == String(a["type"]))
+		b.tooltip_text = String(SoldierType.TYPE_HELP.get(n, n))
 		b.disabled = locked
 		b.pressed.connect(func(): game.set_company(t, i, "", n); _fill_roster(t); _fill_editor(t))
 		trow.add_child(b)
@@ -647,6 +703,7 @@ func _fill_editor(t: int) -> void:
 			s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			s.custom_minimum_size = Vector2(0, 30)
 			s.editable = not locked
+			s.tooltip_text = String(SoldierType.PROP_HELP[p])
 			row.add_child(s)
 			var v := Label.new()
 			v.custom_minimum_size = Vector2(44, 0)
@@ -868,6 +925,8 @@ func show_pick() -> void:
 			var b := _company_card(a, camp)
 			b.button_pressed = bool(a["fights"]) and not secret
 			b.disabled = secret or (a["men"] as Array).is_empty()
+			b.tooltip_text = "Company %s: what it is and how many go in is the computer's secret until the battle." % a["name"] if secret \
+				else _card_tip(a) + ("\nIt has no men left." if (a["men"] as Array).is_empty() else "\nClick to send it in or stand it down.")
 			if secret:
 				b.text = "%s · %d\ndrill unknown\n" % [a["name"], (a["men"] as Array).size()]   # its drills are its own business
 			var idx := i
@@ -1484,12 +1543,18 @@ func build_cam_pad() -> void:
 		var id: String = c[0]
 		var kl := Label.new()   # the key, small, in the corner
 		kl.text = PAD_KEY_LABEL[id]
-		kl.add_theme_font_size_override("font_size", 10)
-		kl.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
-		kl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-		kl.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		kl.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		kl.position = Vector2(-4, -2)
+		kl.add_theme_font_size_override("font_size", 11)
+		kl.add_theme_color_override("font_color", Color(1, 0.92, 0.6, 0.85))
+		kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		kl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		kl.anchor_left = 0.0
+		kl.anchor_top = 0.0
+		kl.anchor_right = 1.0
+		kl.anchor_bottom = 1.0
+		kl.offset_left = 0.0
+		kl.offset_top = 0.0
+		kl.offset_right = -5.0
+		kl.offset_bottom = -2.0
 		kl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(kl)
 		if id == "fit":

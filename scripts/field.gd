@@ -989,7 +989,20 @@ func next_waypoint(from: Vector3, to: Vector3) -> Vector3:
 	if _nav == null or walk_clear(a, b):
 		return to
 	var ca := _nav_free(_nav_cell(a))
-	var cb := _nav_free(_nav_cell(b))
+	var cb := _nav_cell(b)
+	if _nav.is_point_solid(cb):
+		# the goal is in the river (or a house): look for dry ground beyond it, the way he is
+		# going, before settling for the nearest - which may be the bank he is standing on
+		var d := (b - a).normalized()
+		var found := false
+		for k in range(1, 15):
+			var q := _nav_cell(b + d * float(k))
+			if not _nav.is_point_solid(q):
+				cb = q
+				found = true
+				break
+		if not found:
+			cb = _nav_free(cb)
 	if ca == cb:
 		return to
 	var path := _nav.get_id_path(ca, cb)
@@ -1197,3 +1210,30 @@ func high_spot(p: Vector3, e: Vector3, reach: float, slot: int) -> Vector3:
 	best = free_point(clamp_point(best))
 	best.y = height_at(best.x, best.z)
 	return best
+
+
+## Is there river between a and b (a bridge deck is not a piece, so the way over it is clear)?
+func water_between(a: Vector3, b: Vector3) -> bool:
+	var a2 := Vector2(a.x, a.z)
+	var b2 := Vector2(b.x, b.z)
+	for i in _pieces_on_segment(a2, b2):
+		if pieces[i]["kind"] == "water" and _segment_hits_rect(a2, b2, pieces[i]["rect"]):
+			return true
+	return false
+
+
+## How far a man must walk from a to b: straight, unless a river is in the way, when it is the
+## length of the way round by the bridge.
+func walk_distance(a: Vector3, b: Vector3) -> float:
+	var straight := Vector2(a.x - b.x, a.z - b.z).length()
+	if _nav == null or not water_between(a, b):
+		return straight
+	var ca := _nav_free(_nav_cell(Vector2(a.x, a.z)))
+	var cb := _nav_free(_nav_cell(Vector2(b.x, b.z)))
+	var path := _nav.get_point_path(ca, cb)
+	if path.size() < 2:
+		return INF
+	var d := 0.0
+	for k in range(1, path.size()):
+		d += path[k - 1].distance_to(path[k])
+	return maxf(d, straight)

@@ -1040,6 +1040,8 @@ func _ui_walk() -> void:
 	await get_tree().create_timer(0.5).timeout
 	hud.new_match_requested.emit()
 	print("battle: %d v %d men in %d v %d companies" % [manager.side_total(0), manager.side_total(1), (manager.companies[0] as Array).size(), (manager.companies[1] as Array).size()])
+	await get_tree().create_timer(1.0).timeout
+	await _shot("battle")
 	manager.time_limit = 30.0
 	await manager.match_ended
 	await get_tree().create_timer(2.5).timeout

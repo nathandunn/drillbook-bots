@@ -840,6 +840,14 @@ func _run_sergeant(t: int, c: int) -> void:
 					break
 	if not seen:
 		nearest_d = INF   # out of sight is out of range: the line goes and finds them
+	# how far they are on foot: across a river it is the way round by the bridge - the rifle
+	# reaches over the water, the bayonet does not
+	var reach_d := nearest_d
+	if not near_e.is_empty() and nearest_d < INF:
+		reach_d = field.walk_distance(centre, (near_e[0] as Soldier).global_position)
+		for e in near_e:
+			if not field.water_between(centre, e.global_position):
+				reach_d = minf(reach_d, e.global_position.distance_to(centre))
 	for m in men:
 		if m.loaded:
 			loaded_frac += 1.0
@@ -861,6 +869,7 @@ func _run_sergeant(t: int, c: int) -> void:
 	# what the neighbours read of this company: where it is and how close the enemy is
 	order["centre"] = centre
 	order["nearest_d"] = nearest_d
+	order["reach_d"] = reach_d
 
 	# --- the exchange: a sergeant can count. Taking two balls for every one he gives while
 	# the enemy sits behind walls is a firefight lost, and standing in it is not a plan.
@@ -906,7 +915,7 @@ func _run_sergeant(t: int, c: int) -> void:
 		mode = _plan_mode(t, c, mode, centre, toward, enemies)
 	elif mode == "charge":
 		# the charge runs until the enemy is broken off or the blood cools
-		if enemies.is_empty() or nearest_d > 40.0 or (elapsed - _charge_since[k] > 25.0 and nearest_d > 6.0):
+		if enemies.is_empty() or reach_d > 40.0 or (elapsed - _charge_since[k] > 25.0 and reach_d > 6.0):
 			mode = "advance"
 	elif mode == "fallback":
 		var rallied := absf(centre.z - order["rally_z"]) < 6.0
@@ -929,7 +938,7 @@ func _run_sergeant(t: int, c: int) -> void:
 				# the bayonet decides what the rifle cannot: a sergeant with any blood in him
 				# closes, and a shy one either finds a wall of his own or gets out of range
 				charge_range += 20.0
-			if not enemies.is_empty() and nearest_d < charge_range and mix["aggression"] > (0.2 if losing_fire else 0.35) \
+			if not enemies.is_empty() and reach_d < charge_range and mix["aggression"] > (0.2 if losing_fire else 0.35) \
 				and (just_volleyed or loaded_frac < 0.35 or mix["aggression"] > 0.85 or losing_fire) \
 				and ratio > (0.4 if losing_fire else 0.5 + (1.0 - mix["aggression"]) * 0.6):
 				mode = "charge"
@@ -998,7 +1007,12 @@ func _run_sergeant(t: int, c: int) -> void:
 		"fallback":
 			order["line_z"] = order["rally_z"]
 		"charge":
-			order["line_z"] = centre.z
+			# going in with the bayonet: the men run at whoever is near; while the enemy is still
+			# out of reach the line itself keeps coming on, ten metres ahead of where it is
+			if enemies.is_empty() or reach_d > 40.0:
+				order["line_z"] = clampf(centre.z + toward * 10.0, -Field.HALF_Z + 3.0, Field.HALF_Z - 3.0)
+			else:
+				order["line_z"] = centre.z
 
 	# --- the volley: enough men loaded and in range, and it's been a moment since the last
 	if mode != "charge" and mode != "fallback" and not enemies.is_empty() and not _plan.get("hold_fire", false):
@@ -1116,8 +1130,9 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 			if nd >= 50.0:
 				return false
 			for e in enemies:
-				if e.charging or String(orders[1 - t][e.company].get("mode", "")) == "charge":
-					return true
+				if (e.charging or String(orders[1 - t][e.company].get("mode", "")) == "charge") \
+						and not field.water_between(e.global_position, c["centre"]):
+					return true   # a charge with a river in front of it is no charge at all
 			return false
 		"enemy_in_cover":
 			var k := 0

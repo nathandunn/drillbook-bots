@@ -404,7 +404,8 @@ func _drill_sense(id: String, args: Array) -> bool:
 		"enemy_beyond":
 			return e == null or ed > float(args[0])
 		"enemy_charging":
-			return e != null and (e.charging or (String(manager.orders[1 - team][e.company].get("mode", "")) == "charge" and ed < 40.0))
+			return e != null and (e.charging or (String(manager.orders[1 - team][e.company].get("mode", "")) == "charge" and ed < 40.0)) \
+				and not field.water_between(global_position, e.global_position)   # not across a river
 		"enemy_in_cover":
 			return e != null and (e.kneeling or e.action == "cover")
 		"enemy_uphill":
