@@ -102,6 +102,8 @@ var _volley_seen := -1
 var _cover_spot: Dictionary = {}
 var _cover_hold := 0.0
 var _bleed_t := 0.0
+var _still_t := 0.0             # how long he has stood still: a musket is aimed standing
+var _aim_need := 1.6            # how long this shot takes to aim
 var _high_spot := Vector3.INF   # the rise he is making for
 var _high_hold := 0.0
 var _jitter := Vector3.ZERO
@@ -210,11 +212,14 @@ func _tick_timers(delta: float) -> void:
 			r = 0.7
 		if running:
 			r = 0.0   # nobody reloads a muzzle-loader at the run
+		elif velocity.length() > 0.5:
+			r *= 0.3  # ... and walking, he fumbles it: a man stops to load
 		elif kneeling:
 			r *= 0.9
 		reload_left -= delta * r
 		if reload_left <= 0.0:
 			loaded = true
+	_still_t = _still_t + delta if velocity.length() < 0.5 else 0.0
 	thrust_timer = maxf(thrust_timer - delta, 0.0)
 	kiting = maxf(kiting - delta, 0.0)
 	_halt = maxf(_halt - delta, 0.0)
@@ -349,8 +354,8 @@ func _decide() -> void:
 			fire_now = true
 		elif disciplined and order["volley_age"] > 14.0 and enemy_d <= my_range and rng.randf() < 0.15:
 			fire_now = true   # the volley is not coming; an old hand takes his shot
-		if fire_now and velocity.length() > 0.5 and enemy_d > POINT_BLANK:
-			_halt = 0.8   # stop, then shoot: the next decision finds him standing
+		if fire_now and enemy_d > POINT_BLANK and not (_aimed() or (volley_now and velocity.length() < 0.5)):
+			_halt = maxf(_halt, _aim_need - _still_t + 0.1)   # stop, bring it up, aim - then shoot
 			action = "aim"
 			face_point = enemy.global_position
 			return
@@ -506,9 +511,10 @@ func _drill_act(id: String, args: Array) -> bool:
 			if not loaded or e == null or ed > fire_range_to(e) or ed < STEEL_RANGE or not _can_fire_at(e):
 				return false
 			face_point = e.global_position
-			if velocity.length() > 0.5 and ed > POINT_BLANK:
-				_halt = 0.8
+			if ed > POINT_BLANK and not _aimed():
+				_halt = maxf(_halt, _aim_need - _still_t + 0.1)
 				action = "aim"
+				goal = global_position
 				return true
 			_volley_seen = int(order.get("volley_id", -1))
 			_fire(e)
@@ -738,7 +744,8 @@ func _fire(enemy: Soldier) -> void:
 	loaded = false
 	ammo = maxi(ammo - 1, 0)
 	reload_left = reload_time
-	_halt = 1.2
+	_halt = 2.0                              # he stands to bite the next cartridge
+	_aim_need = rng.randf_range(1.2, 2.2)   # and the next shot will be aimed again
 	shots += 1
 	_fire_anim = 0.35
 	face_point = enemy.global_position
@@ -1387,3 +1394,8 @@ func _spawn_ragdoll(attacker: Soldier) -> void:
 func fire_range_to(e: Soldier) -> float:
 	var dh := global_position.y - e.global_position.y
 	return MAX_RANGE * clampf(1.0 + 0.16 * dh, 1.0, 1.5)
+
+
+## Has he stood still long enough to have aimed?
+func _aimed() -> bool:
+	return _still_t >= _aim_need

@@ -7,7 +7,8 @@ dials aggression 0.55 discipline 0.25 cohesion 0.10 cover 1.00 patience 0.90 ner
 
 sergeant:
   when enemy breaking or enemy broken                  -> charge
-  when spotted and enemy beyond 40                     -> fall back 20; find cover
+  # seen at middle distance: melt away (seen from very far, keep creeping - nobody aims at 90 m)
+  when spotted and enemy beyond 40 and enemy within 90 -> fall back 20; find cover
   when losing the exchange                             -> fall back 25; find cover; form skirmish
   when winning the exchange                            -> advance slow; find cover; form skirmish; hold fire
   otherwise                                            -> advance slow; find cover; form skirmish; hold fire
@@ -21,7 +22,7 @@ man:
   # they turned and saw me: shoot first, but never stand in the open at a distance to do it
   when spotted and loaded and enemy within 25 and ( in cover or enemy within 15 ) -> fire
   # seen from afar: melt away
-  when spotted and enemy beyond 25                     -> back 15
+  when spotted and enemy beyond 25 and enemy within 60 -> back 15
   when spotted and in cover                            -> hold kneeling
   when spotted                                         -> take cover within 10
   # ready the weapon while nobody is looking

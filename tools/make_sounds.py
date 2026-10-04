@@ -228,22 +228,9 @@ def thud(seed):
 
 
 if __name__ == "__main__":
+    # only the guns go in the game; the voices above are kept for reference, not used
     for i in range(4):
         save(f"shot_{i}", shot(dist=0.0, seed=10 + i))
     for i in range(2):
         save(f"volley_{i}", volley(20 + i))
-    for i in range(3):
-        save(f"hurrah_{i}", hurrah(30 + i))
-    for i in range(5):
-        save(f"cry_{i}", cry(40 + i))
-    for i in range(3):
-        save(f"groan_{i}", groan(50 + i))
-    for i in range(3):
-        save(f"scream_{i}", scream(60 + i))
-    for i in range(2):
-        save(f"bark_{i}", bark(70 + i))
-    for i in range(3):
-        save(f"clash_{i}", clash(80 + i))
-    for i in range(2):
-        save(f"thud_{i}", thud(90 + i))
     print("ok")

@@ -103,6 +103,7 @@ var _spot_claims := {}   # "x,z" -> soldier
 var _last_volley_t := {}   # ck -> time
 var _volley_ids := {}
 var _charge_since := {}
+var _idle := {}              # ck -> [since, shots, men]: a company doing nothing, and since when
 var _exch := {}            # ck -> [hits given, hits taken] lately (decays)
 var _last_harm_t := 0.0    # when anyone last hit anyone
 var _press_since := {}
@@ -251,6 +252,8 @@ func band_x(t: int, c: int) -> float:
 	var k := ck(t, c)
 	if committed.has(k):
 		return committed[k]
+	if (companies[t][c] as Dictionary).has("band"):
+		return float(companies[t][c]["band"]) * (1.0 if t == 0 else -1.0)
 	var slot: String = companies[t][c]["slot"]
 	var i := SLOTS.find(slot)
 	return SLOT_X[maxi(i, 0)] * (1.0 if t == 0 else -1.0)
@@ -395,6 +398,7 @@ func clear() -> void:
 	_spot_claims.clear()
 	_last_volley_t = {}
 	_charge_since = {}
+	_idle = {}
 	_fallback_since = {}
 	_exch = {}
 	_last_harm_t = 0.0
@@ -720,7 +724,7 @@ func _process(_delta: float) -> void:
 			lab.position = Vector3(cen.x, top + 4.0, cen.z)
 			var mode: String = orders[t][c].get("mode", "")
 			var glyph: String = "·" if is_reserve(t, c) else MODE_GLYPH.get(mode, "")
-			lab.text = "%s %s" % [companies[t][c]["name"], glyph]
+			lab.text = "%s %s %s" % [companies[t][c]["name"], String(companies[t][c]["type_name"]), glyph]
 			if co_bars.has(k):
 				var q: QuadMesh = co_bars[k][0]
 				var frac: float = clampf(float(men.size()) / maxf(float(co_bars[k][1]), 1.0), 0.0, 1.0)
@@ -964,6 +968,19 @@ func _run_sergeant(t: int, c: int) -> void:
 				mode = "hold"
 			else:
 				mode = "advance"
+	# --- the captain's eye: a whole company standing about - not firing, not hit, nobody near -
+	# for forty seconds is sent forward, whatever its drill had it doing
+	var fired := 0
+	for m in men:
+		fired += m.shots
+	var idl: Array = _idle.get(k, [elapsed, fired, men.size()])
+	if fired != int(idl[1]) or men.size() != int(idl[2]) or nearest_d < 45.0 or mode == "charge" or is_reserve(t, c):
+		idl = [elapsed, fired, men.size()]
+	_idle[k] = idl
+	order["sent_up"] = false
+	if elapsed - float(idl[0]) > 40.0 and (mode == "fallback" or mode == "hold"):
+		mode = "advance"
+		order["sent_up"] = true
 	order["mode"] = mode
 	order["press"] = pressing and mode == "advance"
 	order["seek_cover"] = losing_fire or _plan.get("seek_cover", false)

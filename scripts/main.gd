@@ -604,6 +604,13 @@ func _prepare_battle(t: int) -> void:
 	for c in picked.size():
 		var a: Dictionary = ar[picked[c]]
 		var co := manager.new_company(t, c, a["drill"], a["type"], slots[c % slots.size()], (a["men"] as Array).size())
+		if picked.size() > 4:
+			# more than four: they share the whole front, up to eight abreast, a ninth and more
+			# behind - nobody stands where he can only see his own men's backs
+			var across := mini(picked.size(), 8)
+			var i_line := c % across
+			co["band"] = 45.0 - (float(i_line) + 0.5) * (90.0 / float(across))
+			co["slot"] = "Line %d" % i_line
 		co["name"] = a["name"]
 		co["type"] = (a["type_obj"] as SoldierType).copy()
 		co["type_name"] = a["type"]

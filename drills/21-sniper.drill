@@ -24,6 +24,8 @@ man:
   when not in cover and enemy within 60                -> take cover within 15
   # no wall to hand: a rise will do - from up there the ball carries further
   when not in cover and not on high ground and enemy within 140 -> take the high ground within 25
+  # open ground, nothing to hide behind: kneel and shoot anyway
+  when loaded and enemy within 80                      -> fire
   when not loaded                                      -> reload kneeling
   # not yet in range: creep forward under cover
   when enemy beyond 60                                 -> sneak 14

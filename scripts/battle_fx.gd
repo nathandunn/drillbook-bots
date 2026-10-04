@@ -1,7 +1,6 @@
 class_name BattleFx
 extends Node3D
-## What a battle sounds and looks like up close: the shots, the volleys, the cheer of a charge,
-## the cries of the hit - and the blood: a spray where the ball goes in, a drip behind a
+## What a battle sounds and looks like up close: the shots and the volleys - and the blood: a spray where the ball goes in, a drip behind a
 ## wounded man, a pool under the dead. Not built at all in a headless run.
 ##
 ## Cheap on purpose (a phone runs this): every splash of blood on the ground is one instance of
@@ -11,7 +10,7 @@ extends Node3D
 
 const SOUND_DIR := "res://sounds/"
 const SETS := {
-	"shot": 4, "volley": 2, "hurrah": 3, "cry": 5, "groan": 3, "scream": 3, "bark": 2, "clash": 3, "thud": 2,
+	"shot": 4, "volley": 2,   # only the guns: the made-up voices were not good enough
 }
 const VOICES := 14            # sounds at once
 const SPLATS := 700           # blood on the ground, oldest overwritten first
@@ -173,27 +172,26 @@ func volley(pos: Vector3) -> void:
 	_play("volley", pos + Vector3(0, 1.5, 0), 2.0, 0.05, 0.5)
 
 
-func charge(pos: Vector3) -> void:
-	_play("hurrah", pos + Vector3(0, 1.6, 0), 3.0, 0.06)
+## Voices and steel: silent for now (the hooks stay, for recorded sounds one day).
+func charge(_pos: Vector3) -> void:
+	pass
 
 
-func sergeant(pos: Vector3) -> void:
-	_play("bark", pos + Vector3(0, 1.7, 0), 0.0, 0.06)
+func sergeant(_pos: Vector3) -> void:
+	pass
 
 
-func clash(pos: Vector3) -> void:
-	_play("clash", pos + Vector3(0, 1.2, 0), -6.0, 0.15, 0.5)
+func clash(_pos: Vector3) -> void:
+	pass
 
 
-func rout(pos: Vector3) -> void:
-	if randf() < 0.35:
-		_play("scream", pos + Vector3(0, 1.6, 0), -3.0, 0.1)
+func rout(_pos: Vector3) -> void:
+	pass
 
 
 # ---------------------------------------------------------------- blood
 
-## A man hit at `at`, the blow coming along `dir`: blood sprays out of the far side and he cries
-## out - or, if it killed him, he groans as he goes.
+## A man hit at `at`, the blow coming along `dir`: blood sprays out of the far side.
 func hit(at: Vector3, dir: Vector3, killed: bool) -> void:
 	if gore:
 		var d := dir
@@ -208,11 +206,7 @@ func hit(at: Vector3, dir: Vector3, killed: bool) -> void:
 		# the first splash where he stands
 		var g := field.height_at(at.x, at.z) if field != null else 0.0
 		_splat(Vector3(at.x, g, at.z) + d * 0.6, randf_range(0.45, 0.75), 0.0)
-	if killed:
-		if randf() < 0.45:
-			_play("groan", at, -4.0, 0.12)
-	elif randf() < 0.75:
-		_play("cry", at, -2.0, 0.12)
+	pass
 
 
 ## A wounded man bleeds as he goes: a drop on the ground behind him.
