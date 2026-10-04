@@ -148,18 +148,20 @@ func _ready() -> void:
 	add_child(cam)
 	hud = Hud.new()
 	add_child(hud)
+	hud.game = self
+	_init_armies()
 	hud.setup(manager)
 	hud.cam = cam
 	hud.build_cam_pad()
-	hud.set_plan(0, field.layout_name)
 	hud.mark_field(field.layout_name)
+	# a single battle: the companies chosen on Choose Companies, fresh men every time
 	hud.new_match_requested.connect(func():
 		batch_left = 0
 		batch_results.clear()
 		if campaign_active:
-			_abandon_campaign()
-		else:
-			_start_next())
+			return
+		_prepare_single()
+		_start_next())
 	hud.batch_requested.connect(_run_batch)
 	hud.campaign_requested.connect(_start_campaign)
 	hud.next_round_requested.connect(_next_round)
@@ -190,15 +192,22 @@ func _ready() -> void:
 	if args.has("campaign"):
 		# --ui --campaign: a whole campaign, headless, rounds chained automatically
 		if args.has("men"):
-			hud.campaign_men = int(args["men"])
+			set_company_men(int(args["men"]))
 		_start_campaign()
+		hud.results_overlay.visible = false
+		_close_pick()
+		_next_round()
+		return
+	if args.has("uitest"):
+		# --ui --uitest: walk the Armies and Choose Companies screens the way a player would
+		_ui_walk()
 		return
 	if args.has("batch"):
 		# --ui --batch=N: the Sim button's path, HUD and all, for a headless check of the panel
 		_run_batch(maxi(int(args["batch"]), 1))
 		return
 	# nothing starts by itself: the setup panel asks what we are running
-	hud.open_setup("What are we running? A campaign, or a single battle with these companies.")
+	hud.open_setup("Set up both armies, then start a campaign or fight a single battle.")
 
 
 func _setup_ui_scale() -> void:
@@ -278,6 +287,7 @@ func _run_batch(n: int) -> void:
 		_abandon_campaign()
 	batch_left = n
 	batch_results.clear()
+	_prepare_single()
 	set_sim_speed(8.0)
 	if hud != null:
 		hud._set_speed(4.0)
@@ -415,8 +425,6 @@ func _rebuild_field(layout: String) -> void:
 	add_child(field)
 	manager.field = field
 	if hud != null:
-		if not campaign_active:
-			hud.set_plan(0, layout)
 		hud.mark_field(layout)
 
 
@@ -430,8 +438,6 @@ func _start_campaign() -> void:
 	campaign_rounds.clear()
 	campaign_rosters = [[], []]
 	manager.rosters = [[], []]
-	COMPANY_MEN = int(hud.campaign_men)
-	MERGE_BELOW = 3 if COMPANY_MEN <= 10 else 5
 	# the front: eleven of the thirteen fields, in a random order, the fight opening in the middle
 	var pool: Array = Field.ALL_FIELDS.duplicate()
 	pool.shuffle()
@@ -446,28 +452,26 @@ func _start_campaign() -> void:
 	_ai_type_picks = ["", ""]
 	_doctrine_record = [{}, {}]
 	_last_doctrine = ["", ""]
-	# the armies: twelve companies of ten (forty a side in each battle), patterned on the companies set up under Edit
-	# Battalion (A-D as set up, then repeated); the first four fight first
+	# the armies as set up on the Armies screen, every man fresh; whoever was chosen last goes
+	# in first unless changed (the first four if nobody was)
+	_refresh_men_all()
 	for t in 2:
-		manager.store_company(t)
-		var src: Array = manager.companies[t]
-		armies[t] = []
-		for i in ARMY_COMPANIES:
-			var s: Dictionary = src[i % src.size()]
-			var men := []
-			for k in COMPANY_MEN:
-				men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], ARMY_NAMES[i], k + 1], "seed": randi(), "kills": 0, "rounds": 0})
-			armies[t].append({"name": ARMY_NAMES[i], "drill": String(s["persona_name"]), "type": String(s["type_name"]),
-				"type_obj": (s["type"] as SoldierType).copy(), "men": men, "fights": i < FIGHTING})
+		if _fielded(t) == 0:
+			_default_picks(t)
 	hud.front = front
 	hud.campaign_started()
 	for t in 2:
-		_prepare_battle(t)
-		# a computer commander opens with a pick of its own
+		# a computer commander chooses its own companies (blind) and opens with a pick of its own
 		if hud.commanders[t] == "computer":
+			_default_picks(t, FIGHTING)
+			_prepare_battle(t)
 			_ai_pick(t, true)
 			_sync_from_manager(t)
-	_next_round()
+	_rebuild_field(front[campaign_field - 1])
+	hud.set_round(1, front[campaign_field - 1], [_army_men(0), _army_men(1)], campaign_field)
+	if cam != null:
+		cam.refit()
+	hud.show_pick()
 
 
 func _army_men(t: int) -> int:
@@ -485,7 +489,7 @@ func army_view(t: int) -> Array:
 	return out
 
 
-## Edits made under Edit Battalion (drill, type) go back to the army companies they belong to.
+## Edits made on the Armies screen (drill, type) go back to the army companies they belong to.
 func _sync_from_manager(t: int) -> void:
 	manager.store_company(t)
 	for co in manager.companies[t]:
@@ -540,23 +544,28 @@ func _computer_count(t: int) -> int:
 
 ## The HUD's army picker: put a company forward or stand it down (any number, at least one).
 func toggle_army_pick(t: int, i: int) -> void:
-	if not campaign_active:
-		return
-	_sync_from_manager(t)
 	var ar: Array = armies[t]
 	if ar[i]["fights"]:
-		if _fielded(t) <= 1:
-			if hud != null:
-				hud.update_army(t, army_view(t))   # the last company in cannot stand down
-			return
-		ar[i]["fights"] = false
-	else:
-		if (ar[i]["men"] as Array).is_empty():
-			return
+		if _fielded(t) > 1:   # the last company in cannot stand down
+			ar[i]["fights"] = false
+	elif not (ar[i]["men"] as Array).is_empty():
 		ar[i]["fights"] = true
-	_prepare_battle(t)
 	if hud != null:
-		hud.update_army(t, army_view(t))
+		hud.refresh_pick()
+
+
+## Choose Companies' quick picks: everyone who can stand, or the freshest four.
+func pick_all(t: int) -> void:
+	for a in armies[t]:
+		a["fights"] = (a["men"] as Array).size() > 0
+	if hud != null:
+		hud.refresh_pick()
+
+
+func pick_freshest(t: int) -> void:
+	_default_picks(t, FIGHTING)
+	if hud != null:
+		hud.refresh_pick()
 
 
 ## The battle battalion from the army: the companies put forward (the freshest four if none
@@ -586,10 +595,7 @@ func _prepare_battle(t: int) -> void:
 	var roster := []
 	for c in picked.size():
 		var a: Dictionary = ar[picked[c]]
-		var chosen: String = String(a.get("slot", ""))
-		var co := manager.new_company(t, c, a["drill"], a["type"], chosen if chosen != "" else slots[c % slots.size()], (a["men"] as Array).size())
-		if chosen != "":
-			co["slot_set"] = true
+		var co := manager.new_company(t, c, a["drill"], a["type"], slots[c % slots.size()], (a["men"] as Array).size())
 		co["name"] = a["name"]
 		co["type"] = (a["type_obj"] as SoldierType).copy()
 		co["type_name"] = a["type"]
@@ -603,8 +609,6 @@ func _prepare_battle(t: int) -> void:
 	manager.battalion_names[t] = "Army"
 	manager.rosters[t] = roster
 	manager.select_company(t, 0)
-	if hud != null and hud.size_sliders[t] != null:
-		hud._refresh_sliders(t)
 
 
 ## Field the next battle: the companies put forward, with the men they have left.
@@ -617,11 +621,9 @@ func _next_round() -> void:
 	if field == null or field.layout_name != layout:
 		_rebuild_field(layout)
 	for t in 2:
-		_sync_from_manager(t)
 		_prepare_battle(t)
 		_fielded_last[t] = _fielded(t)
 	hud.set_round(campaign_round, layout, [_army_men(0), _army_men(1)], campaign_field)
-	hud.set_plan(campaign_field, layout, campaign_round, FRONT_LEN)
 	_start_next()
 
 
@@ -671,9 +673,7 @@ func _ai_pick(t: int, opening: bool) -> String:
 		used[d] = int(used.get(d, 0)) + 1
 		names.append(d)
 		manager.store_company(t)
-	manager.select_company(t, hud.selected_company(t) if hud != null else 0)
-	if hud != null:
-		hud._refresh_sliders(t)
+	manager.select_company(t, 0)
 	_ai_picks[t] = manager.battalion_label(t)
 	_ai_type_picks[t] = manager._types_label(t)
 	_last_doctrine[t] = ", ".join(names)
@@ -755,8 +755,9 @@ func _abandon_campaign() -> void:
 	campaign_round = 0
 	manager.rosters = [[], []]
 	hud.campaign_ended()
+	_refresh_men_all()
 	_rebuild_field("Walled Farm")
-	hud.open_setup("Campaign abandoned. What next?")
+	hud.open_setup("Campaign abandoned. The armies are whole again - what next?")
 
 
 ## After a battle: the dead are gone for good, the living go back to their companies, battered
@@ -771,7 +772,6 @@ func _on_round_ended(result: Dictionary) -> void:
 	var men_before := [_army_men(0), _army_men(1)]
 	var back := [{}, {}]   # army company -> the men who came back
 	for t in 2:
-		_sync_from_manager(t)
 		for co in manager.companies[t]:
 			back[t][int(co["army_i"])] = []
 	for m in result["soldiers"]:
@@ -879,13 +879,13 @@ func _on_round_ended(result: Dictionary) -> void:
 	if not over:
 		# the next battlefield goes up now, so it can be surveyed before the companies are chosen
 		_rebuild_field(next_layout)
-		hud.set_plan(campaign_field, next_layout, campaign_round + 1, FRONT_LEN)
 		hud.set_round(campaign_round + 1, next_layout, men_after, campaign_field)
 		if cam != null:
 			cam.refit()
 	else:
 		campaign_active = false
 		hud.campaign_ended()
+		_refresh_men_all()   # the war is over: the armies stand at full strength for whatever is next
 	get_tree().create_timer(2.0).timeout.connect(func(): hud.show_round(summary))
 	if DisplayServer.get_name() == "headless":
 		print("round %d on %d. %s: %s v %s -> %s (%s) fell %d/%d ran %d/%d; armies %d/%d men; front %d -> %d%s%s" % [campaign_round, fought_on, layout,
@@ -900,7 +900,6 @@ func _on_round_ended(result: Dictionary) -> void:
 			else:
 				if OS.get_cmdline_user_args().has("--testpicks"):
 					# exercise the picker: Red puts every company in, and falls back as far as it may
-					armies[0][0]["slot"] = "Reserve"
 					for i in (armies[0] as Array).size():
 						if not armies[0][i]["fights"] and (armies[0][i]["men"] as Array).size() > 0:
 							toggle_army_pick(0, i)
@@ -928,9 +927,150 @@ func fall_back_to(no: int) -> void:
 			_sync_from_manager(t)
 			_ai_pick(t, false)   # the ground has changed: the computer thinks again
 			_sync_from_manager(t)
-			hud.update_army(t, army_view(t))
-	hud.set_plan(campaign_field, layout, campaign_round + 1, FRONT_LEN)
 	hud.set_round(campaign_round + 1, layout, [_army_men(0), _army_men(1)], campaign_field)
-	hud.show_next_field(campaign_field, FRONT_LEN, layout)
+	hud.refresh_pick()
 	if cam != null:
 		cam.refit()
+
+
+# ---------------------------------------------------------------- the armies (Armies screen)
+
+## Both armies from the battalions set up at start (A-D, repeated to twelve), every man fresh.
+func _init_armies() -> void:
+	for t in 2:
+		manager.store_company(t)
+		var src: Array = manager.companies[t]
+		armies[t] = []
+		for i in ARMY_COMPANIES:
+			var s: Dictionary = src[i % src.size()]
+			armies[t].append({"name": ARMY_NAMES[i], "drill": String(s["persona_name"]), "type": String(s["type_name"]),
+				"type_obj": (s["type"] as SoldierType).copy(), "men": _fresh_men(t, i), "fights": i < FIGHTING})
+
+
+func _fresh_men(t: int, i: int) -> Array:
+	var men := []
+	for k in COMPANY_MEN:
+		men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], ARMY_NAMES[i], k + 1], "seed": randi(), "kills": 0, "rounds": 0})
+	return men
+
+
+## Every company back to full strength with new men (a new war, or a single battle after one).
+func _refresh_men_all() -> void:
+	for t in 2:
+		for i in (armies[t] as Array).size():
+			armies[t][i]["men"] = _fresh_men(t, i)
+
+
+## Men in a company, for every company of both armies: 10 (40 a side in four) or 20.
+func set_company_men(n: int) -> void:
+	if campaign_active:
+		return
+	COMPANY_MEN = n
+	MERGE_BELOW = 3 if COMPANY_MEN <= 10 else 5
+	_refresh_men_all()
+
+
+## Quick fill: an army patterned on a battalion preset (its four companies, repeated).
+func fill_army(t: int, bname: String) -> void:
+	var spec: Array = MatchManager.BATTALIONS.get(bname, [])
+	if spec.is_empty():
+		return
+	for i in (armies[t] as Array).size():
+		var e: Array = spec[i % spec.size()]
+		set_company(t, i, String(e[0]), String(e[1]))
+
+
+## One company's drill and type (type by preset name; "" leaves it as it is).
+func set_company(t: int, i: int, drill_name: String, type_name: String) -> void:
+	var a: Dictionary = armies[t][i]
+	if drill_name != "":
+		a["drill"] = drill_name
+	if type_name != "":
+		a["type_obj"] = SoldierType.preset(type_name)
+		a["type"] = type_name if type_name != "Random" else (a["type_obj"] as SoldierType).label()
+
+
+func copy_to_all(t: int, i: int) -> void:
+	var src: Dictionary = armies[t][i]
+	for a in armies[t]:
+		if a == src:
+			continue
+		a["drill"] = src["drill"]
+		a["type"] = src["type"]
+		a["type_obj"] = (src["type_obj"] as SoldierType).copy()
+
+
+## A single battle (or a Sim): the chosen companies of each side, at full strength.
+func _prepare_single() -> void:
+	for t in 2:
+		for i in (armies[t] as Array).size():
+			if (armies[t][i]["men"] as Array).size() < COMPANY_MEN:
+				armies[t][i]["men"] = _fresh_men(t, i)
+		_prepare_battle(t)
+
+
+func _close_pick() -> void:
+	if hud != null:
+		hud.close_pick()
+
+
+
+func _ui_walk() -> void:
+	hud.open_setup("test")
+	hud.refresh_setup()
+	fill_army(0, "Your drills")
+	hud._sel[0] = 2
+	hud._fill_editor(0)
+	set_company(0, 2, "Hammer", "Brawler")
+	hud._finetune[0] = true
+	hud._fill_editor(0)
+	hud._on_type_slider2(0, "accuracy", 0.6)
+	copy_to_all(1, 0)
+	set_company_men(20)
+	hud.refresh_setup()
+	await _shot("setup")
+	print("setup: red C = %s / %s, blue all %s, men %d" % [armies[0][2]["drill"], armies[0][2]["type"], armies[1][5]["drill"], (armies[0][0]["men"] as Array).size()])
+	hud.show_pick()
+	pick_all(0)
+	toggle_army_pick(1, 0)
+	toggle_army_pick(1, 6)
+	hud.field_chosen.emit("Ridge")
+	await _shot("pick")
+	print("pick: %d v %d on %s, overlay %s" % [_fielded(0), _fielded(1), field.layout_name, hud._pick_overlay.visible])
+	await get_tree().create_timer(0.5).timeout
+	hud.new_match_requested.emit()
+	print("battle: %d v %d men in %d v %d companies" % [manager.side_total(0), manager.side_total(1), (manager.companies[0] as Array).size(), (manager.companies[1] as Array).size()])
+	manager.time_limit = 30.0
+	await manager.match_ended
+	await get_tree().create_timer(2.5).timeout
+	print("result panel rows %d" % hud.results_box.get_child_count())
+	hud.show_pick()
+	hud.campaign_requested.emit()
+	print("campaign pick open %s, title %s" % [hud._pick_overlay.visible, hud._pick_title.text])
+	hud.next_round_requested.emit()
+	print("campaign battle 1: %d v %d companies" % [(manager.companies[0] as Array).size(), (manager.companies[1] as Array).size()])
+	await manager.match_ended
+	await get_tree().create_timer(2.5).timeout
+	print("round panel: %s" % hud.results_title.text)
+	hud.show_pick()
+	await _shot("pick2")
+	print("pick 2: %s" % hud._pick_title.text)
+	hud.open_setup("")
+	print("setup in campaign: %s" % hud._setup_camp_btn.text)
+	hud.campaign_abandoned.emit()
+	print("abandoned; men %d" % (armies[0][0]["men"] as Array).size())
+	get_tree().quit()
+
+
+
+## --shots=dir: save what the screen shows (under a real or virtual display).
+func _shot(tag: String) -> void:
+	var dir := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--shots="):
+			dir = a.substr(8)
+	if dir == "" or DisplayServer.get_name() == "headless":
+		return
+	for k in 4:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [dir, tag])
