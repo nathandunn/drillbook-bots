@@ -17,6 +17,7 @@ const SPLATS := 700           # blood on the ground, oldest overwritten first
 const DROPS := 240            # drops in the air
 
 var muted := false
+var muted_sim := false        # quiet while a battle is simulated
 var gore := true
 
 var _streams := {}            # set -> [AudioStream]
@@ -145,7 +146,7 @@ func _process(delta: float) -> void:
 # ---------------------------------------------------------------- sound
 
 func _play(set_name: String, pos: Vector3, vol_db: float = 0.0, pitch_spread: float = 0.08, cost: float = 1.0) -> void:
-	if muted or _budget < cost:
+	if muted or muted_sim or _budget < cost:
 		return
 	var arr: Array = _streams.get(set_name, [])
 	if arr.is_empty():

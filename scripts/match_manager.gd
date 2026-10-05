@@ -371,7 +371,7 @@ func start_match(seed_value: int = -1) -> void:
 				# strength bar under the letter: starts full, shrinks as the company loses men
 				var fill := _bar_quad(lab, Color(0.1, 0.1, 0.1, 0.75), BAR_W + 0.002, BAR_H + 0.002, 0.0, 0)
 				fill = _bar_quad(lab, TEAM_COLORS[t].lightened(0.35), BAR_W, BAR_H, 0.0, 1)
-				co_bars[k] = [fill, n]
+				co_bars[k] = [fill, maxi(int(co.get("full", n)), n)]   # against full strength, not today's
 	running = true
 	match_started.emit(match_index)
 
@@ -1532,3 +1532,15 @@ func end_match(reason: String) -> void:
 		"presets": [battalion_label(0), battalion_label(1)], "types": [_types_label(0), _types_label(1)],
 		"tally": _tally_summary()}
 	match_ended.emit(result)
+
+
+## More than four companies share the whole front, up to eight abreast, a ninth and more behind -
+## nobody stands where he can only see his own men's backs. Four or fewer keep their slots.
+static func spread_front(cos: Array) -> void:
+	if cos.size() <= 4:
+		return
+	var across := mini(cos.size(), 8)
+	for c in cos.size():
+		var i_line := c % across
+		cos[c]["band"] = 45.0 - (float(i_line) + 0.5) * (90.0 / float(across))
+		cos[c]["slot"] = "Line %d" % i_line

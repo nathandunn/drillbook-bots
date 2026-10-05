@@ -24,6 +24,7 @@ var fit_all := true
 var _cam: Camera3D
 var _dragging := false
 var _panning := false
+var field: Field = null
 var input_blocked := false     # a panel is open over the field: the view stays put
 var _touches := {}
 var _pinch_d := 0.0
@@ -36,7 +37,7 @@ func _ready() -> void:
 	_cam = Camera3D.new()
 	_cam.fov = 62.0
 	_cam.keep_aspect = Camera3D.KEEP_WIDTH   # a portrait phone still frames the field
-	_cam.far = 600.0
+	_cam.far = 4000.0   # out to the horizon
 	_cam.near = 0.3
 	add_child(_cam)
 	_apply()
@@ -126,11 +127,24 @@ func _fit_distance() -> float:
 
 
 func _apply() -> void:
-	pitch = clampf(pitch, 0.2, 1.5)
+	pitch = clampf(pitch, 0.2, 1.5)   # always above, never under: no view from beneath the world
 	dist = clampf(dist, 8.0, 500.0)
+	# the focus sits on the ground under it, so a hill is looked at, not looked through
+	if field != null:
+		_focus.y = lerpf(_focus.y, _ground(_focus.x, _focus.z), 0.15)
 	var p := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)) * dist
-	_cam.position = _focus + p
+	var at := _focus + p
+	# and the camera never goes into a hillside or below the ground
+	if field != null:
+		at.y = maxf(at.y, _ground(at.x, at.z) + 2.5)
+	_cam.position = at
 	_cam.look_at(_focus, Vector3.UP)
+
+
+func _ground(x: float, z: float) -> float:
+	if absf(x) > Field.HALF_X or absf(z) > Field.HALF_Z:
+		return 0.0
+	return field.height_at(x, z)
 
 
 func _unhandled_input(event: InputEvent) -> void:

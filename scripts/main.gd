@@ -38,7 +38,8 @@ var campaign_field := 6   # 1..11 along the front; the winner pushes it toward t
 var _last_fielded := ["", ""]    # the preset each side fought the last round with
 var _ai_picks := ["", ""]
 var _fielded_last := [4, 4]
-var _fall_back := {}           # after a loss: {"side", "lo", "hi"} - the fields the loser may fall back to    # companies each side sent into the last battle
+var _fall_back := {}
+var war_units := {}            # "t:army company" -> what that company has done in the whole war           # after a loss: {"side", "lo", "hi"} - the fields the loser may fall back to    # companies each side sent into the last battle
 var _ai_type_picks := ["", ""]
 ## the type that suits each personality, best first
 const TYPE_FOR := {
@@ -129,6 +130,7 @@ func _ready() -> void:
 				if co.get("drill") == null:
 					push_warning("no drill called %s" % f[0])
 				cos2.append(co)
+			MatchManager.spread_front(cos2)
 			manager.companies[t] = cos2
 			manager.battalion_names[t] = "Mix"
 		manager.select_company(t, 0)
@@ -150,6 +152,7 @@ func _ready() -> void:
 	_setup_ui_scale()
 	cam = CameraRig.new()
 	cam.name = "CameraRig"
+	cam.field = field
 	add_child(cam)
 	hud = Hud.new()
 	add_child(hud)
@@ -170,6 +173,7 @@ func _ready() -> void:
 	hud.batch_requested.connect(_run_batch)
 	hud.campaign_requested.connect(_start_campaign)
 	hud.next_round_requested.connect(_next_round)
+	hud.simulate_requested.connect(_simulate)
 	hud.campaign_abandoned.connect(_abandon_campaign)
 	hud.army_pick.connect(toggle_army_pick)
 	hud.fall_back_to.connect(fall_back_to)
@@ -247,16 +251,39 @@ func _build_lighting() -> void:
 	add_child(sun)
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
-	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.62, 0.72, 0.85)
+	# a sky down to the horizon, and the country running out to meet it: the field is a patch
+	# of a wider land, the haze swallowing it in the distance as the real world does
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.36, 0.55, 0.82)
+	sky_mat.sky_horizon_color = Color(0.74, 0.8, 0.86)
+	sky_mat.ground_horizon_color = Color(0.74, 0.8, 0.86)
+	sky_mat.ground_bottom_color = Color(0.3, 0.4, 0.25)
+	sky_mat.sun_angle_max = 20.0
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	e.background_mode = Environment.BG_SKY
+	e.sky = sky
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.7, 0.75, 0.8)
 	e.ambient_light_energy = 0.75
 	e.fog_enabled = true
-	e.fog_light_color = Color(0.75, 0.8, 0.85)
-	e.fog_density = 0.0004
+	e.fog_light_color = Color(0.74, 0.8, 0.86)
+	e.fog_density = 0.0016
+	e.fog_sky_affect = 0.0
 	env.environment = e
 	add_child(env)
+	if not headless:
+		var land := MeshInstance3D.new()
+		var pm := PlaneMesh.new()
+		pm.size = Vector2(9000, 9000)
+		land.mesh = pm
+		var lm := StandardMaterial3D.new()
+		lm.albedo_color = Color(0.31, 0.44, 0.23)
+		lm.roughness = 1.0
+		land.material_override = lm
+		land.position = Vector3(0, -0.06, 0)
+		land.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(land)
 
 
 func _parse_args(list: PackedStringArray) -> Dictionary:
@@ -307,7 +334,41 @@ func _process(delta: float) -> void:
 			_start_next()
 
 
+## Fight the next battle unseen, as fast as the machine allows, and go straight to the result.
+var _simulating := false
+var _speed_before := 1.0
+
+
+func _simulate() -> void:
+	batch_left = 0
+	_simulating = true
+	_speed_before = Engine.time_scale
+	get_viewport().disable_3d = true   # nothing drawn: every frame goes to the fight
+	if manager.fx != null:
+		manager.fx.muted_sim = true
+	hud.show_sim_cover(true)
+	set_sim_speed(24.0)
+	Engine.max_physics_steps_per_frame = 96
+	if campaign_active:
+		_next_round()
+	else:
+		_prepare_single()
+		_start_next()
+
+
+func _end_simulation() -> void:
+	if not _simulating:
+		return
+	_simulating = false
+	get_viewport().disable_3d = false
+	if manager.fx != null:
+		manager.fx.muted_sim = false
+	hud.show_sim_cover(false)
+	set_sim_speed(_speed_before)
+
+
 func _on_match_ended(result: Dictionary) -> void:
+	_end_simulation()
 	if batch_left > 0:
 		batch_left -= 1
 		batch_results.append(result)
@@ -429,6 +490,8 @@ func _rebuild_field(layout: String) -> void:
 	field.layout_name = layout
 	add_child(field)
 	manager.field = field
+	if cam != null:
+		cam.field = field
 	if manager.fx != null:
 		manager.fx.field = field
 		manager.fx.clear()
@@ -443,6 +506,7 @@ func _start_campaign() -> void:
 	campaign_round = 0
 	campaign_wins = [0, 0]
 	campaign_kills = [0, 0]
+	war_units = {}
 	campaign_rounds.clear()
 	campaign_rosters = [[], []]
 	manager.rosters = [[], []]
@@ -604,13 +668,8 @@ func _prepare_battle(t: int) -> void:
 	for c in picked.size():
 		var a: Dictionary = ar[picked[c]]
 		var co := manager.new_company(t, c, a["drill"], a["type"], slots[c % slots.size()], (a["men"] as Array).size())
-		if picked.size() > 4:
-			# more than four: they share the whole front, up to eight abreast, a ninth and more
-			# behind - nobody stands where he can only see his own men's backs
-			var across := mini(picked.size(), 8)
-			var i_line := c % across
-			co["band"] = 45.0 - (float(i_line) + 0.5) * (90.0 / float(across))
-			co["slot"] = "Line %d" % i_line
+		co["full"] = COMPANY_MEN   # its strength bar measures what is left of the full company
+
 		co["name"] = a["name"]
 		co["type"] = (a["type_obj"] as SoldierType).copy()
 		co["type_name"] = a["type"]
@@ -620,6 +679,7 @@ func _prepare_battle(t: int) -> void:
 			var rec: Dictionary = (m as Dictionary).duplicate()
 			rec["co"] = c
 			roster.append(rec)
+	MatchManager.spread_front(cos)
 	manager.companies[t] = cos
 	manager.battalion_names[t] = "Army"
 	manager.rosters[t] = roster
@@ -779,6 +839,7 @@ func _abandon_campaign() -> void:
 ## companies merge, the front moves one field toward the loser. The war is won by winning on
 ## the enemy's last field, or when the enemy has nobody left.
 func _on_round_ended(result: Dictionary) -> void:
+	_add_war_units(result)
 	var w: int = result["winner"]
 	if w >= 0:
 		campaign_wins[w] += 1
@@ -890,7 +951,7 @@ func _on_round_ended(result: Dictionary) -> void:
 		"kills": campaign_kills.duplicate(), "history": campaign_rounds.duplicate(true), "counts": counts,
 		"men_before": men_before, "men_after": men_after, "men_full": ARMY_COMPANIES * COMPANY_MEN,
 		"armies": [army_view(0), army_view(1)], "merges": merges, "over": over, "campaign_winner": cw, "why": why,
-		"fall_back": _fall_back.duplicate(), "result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate()}
+		"fall_back": _fall_back.duplicate(), "war_units": war_unit_rows(), "result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate()}
 	if not over:
 		# the next battlefield goes up now, so it can be surveyed before the companies are chosen
 		_rebuild_field(next_layout)
@@ -1064,6 +1125,12 @@ func _ui_walk() -> void:
 	await manager.match_ended
 	await get_tree().create_timer(2.5).timeout
 	print("result panel rows %d" % hud.results_box.get_child_count())
+	await _shot("result")
+	var t0 := Time.get_ticks_msec()
+	hud.simulate_requested.emit()
+	await manager.match_ended
+	print("simulated battle: %.1f s real for %d s of battle; 3d drawn again %s" % [(Time.get_ticks_msec() - t0) / 1000.0, int(manager.elapsed), not get_viewport().disable_3d])
+	await get_tree().create_timer(1.0).timeout
 	hud.show_pick()
 	hud.campaign_requested.emit()
 	print("campaign pick open %s, title %s" % [hud._pick_overlay.visible, hud._pick_title.text])
@@ -1072,6 +1139,7 @@ func _ui_walk() -> void:
 	await manager.match_ended
 	await get_tree().create_timer(2.5).timeout
 	print("round panel: %s" % hud.results_title.text)
+	await _shot("round")
 	hud.show_pick()
 	await _shot("pick2")
 	print("pick 2: %s" % hud._pick_title.text)
@@ -1094,3 +1162,45 @@ func _shot(tag: String) -> void:
 	for k in 4:
 		await get_tree().process_frame
 	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [dir, tag])
+
+
+## The war's books, company by company: every battle's men, shots, thrusts, kills and losses
+## added to the army company they belong to.
+func _add_war_units(result: Dictionary) -> void:
+	var seen := {}
+	for m in result["soldiers"]:
+		var t: int = m["team"]
+		var c: int = int(m.get("company", 0))
+		if c >= (manager.companies[t] as Array).size():
+			continue
+		var co: Dictionary = manager.companies[t][c]
+		var key := "%d:%d" % [t, int(co.get("army_i", c))]
+		if not war_units.has(key):
+			war_units[key] = {"team": t, "name": co["name"], "drill": co["persona_name"], "type": co["type_name"], "battles": 0,
+				"men": 0, "fell": 0, "ran": 0, "shots": 0, "hits": 0, "thrusts": 0, "thrust_hits": 0, "kills": 0, "bkills": 0}
+		var u: Dictionary = war_units[key]
+		u["drill"] = co["persona_name"]
+		u["type"] = co["type_name"]
+		if not seen.has(key):
+			seen[key] = true
+			u["battles"] += 1
+		u["men"] += 1
+		if not m["alive"]:
+			u["fell"] += 1
+		elif m["routed"] or m["gone"]:
+			u["ran"] += 1
+		u["shots"] += int(m["shots"])
+		u["hits"] += int(m["hits"])
+		u["thrusts"] += int(m.get("thrusts", 0))
+		u["thrust_hits"] += int(m.get("thrust_hits", 0))
+		u["kills"] += int(m["kills"])
+		u["bkills"] += int(m["bayonet_kills"])
+
+
+func war_unit_rows() -> Array:
+	var keys := war_units.keys()
+	keys.sort_custom(func(a, b): return String(a) < String(b) if String(a).length() == String(b).length() else String(a).length() < String(b).length())
+	var out := []
+	for k in keys:
+		out.append((war_units[k] as Dictionary).duplicate())
+	return out

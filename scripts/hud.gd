@@ -13,6 +13,7 @@ signal campaign_abandoned
 signal field_chosen(layout: String)
 signal army_pick(t: int, i: int)
 signal fall_back_to(no: int)
+signal simulate_requested
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
 const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Random"]
@@ -37,6 +38,7 @@ var _army_locked := [[], []]   # controls that would break the army mapping: loc
 var front: Array = []          # the campaign's front, field 1 first
 var _army_boxes := [null, null]
 var _next_head: Label = null
+var _war_over := false       # the war-end panel stays until a new campaign is begun
 var _army_secret := false     # the computer's picks are hidden on the round panel
 var _next_help: Label = null
 var _fb_chips := {}           # field no -> chip
@@ -954,6 +956,11 @@ func show_pick() -> void:
 		else:
 			new_match_requested.emit())
 	row.add_child(fight)
+	var simb := _button("Simulate battle")
+	simb.custom_minimum_size = Vector2(0, 46)
+	simb.tooltip_text = "Fight this battle at full speed without drawing it, straight to the results"
+	simb.pressed.connect(func(): _close_overlays(); simulate_requested.emit())
+	row.add_child(simb)
 	if not camp:
 		var sim := _button("Sim ×%d" % BATCH_N)
 		sim.custom_minimum_size = Vector2(0, 46)
@@ -1029,6 +1036,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if not event.is_action_pressed("ui_cancel"):
 		return
+	if _war_over and results_overlay.visible:
+		return
 	if _any_overlay():
 		_close_overlays()
 		get_viewport().set_input_as_handled()
@@ -1090,6 +1099,7 @@ func _update_debug(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_pad_tick(delta)
+	update_sim_cover()
 	if _dbg_label != null:
 		_update_debug(delta)
 	_tick -= delta
@@ -1119,6 +1129,8 @@ func _process(delta: float) -> void:
 
 
 func show_result(res: Dictionary) -> void:
+	_war_over = false
+	_results_close().visible = true
 	for c in results_box.get_children():
 		c.queue_free()
 	results_title.text = "%s - %s (%d:%02d)" % [
@@ -1135,40 +1147,10 @@ func show_result(res: Dictionary) -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[t].lightened(0.4))
 		results_box.add_child(l)
-	# the companies
-	_section(results_box, "The companies")
-	var cg := GridContainer.new()
-	cg.columns = 6
-	cg.add_theme_constant_override("h_separation", 10)
-	results_box.add_child(cg)
-	for h in ["Company", "Fielded as", "Stood", "Ran", "Fell", "Kills (bayonet)"]:
-		_cell(cg, h, true)
-	var cstats := {}
-	for m in res["soldiers"]:
-		var key := "%d:%d" % [int(m["team"]), int(m.get("company", 0))]
-		if not cstats.has(key):
-			cstats[key] = [0, 0, 0, 0, 0]
-		var cs: Array = cstats[key]
-		if not m["alive"]:
-			cs[2] += 1
-		elif m["routed"] or m["gone"]:
-			cs[1] += 1
-		else:
-			cs[0] += 1
-		cs[3] += int(m["kills"])
-		cs[4] += int(m["bayonet_kills"])
-	var cos: Array = res.get("companies", [[], []])
-	for t in 2:
-		for c in (cos[t] as Array).size():
-			var co: Dictionary = cos[t][c]
-			var cs: Array = cstats.get("%d:%d" % [t, c], [0, 0, 0, 0, 0])
-			var col: Color = MatchManager.TEAM_COLORS[t].lightened(0.45)
-			_cell(cg, "%s %s" % [MatchManager.TEAM_NAMES[t], co["name"]], true, col)
-			_cell(cg, "%s / %s, %s" % [co["persona"], co["type"], co["slot"]], false, col)
-			_cell(cg, str(cs[0]), false)
-			_cell(cg, str(cs[1]), false)
-			_cell(cg, str(cs[2]), false)
-			_cell(cg, "%d (%d)" % [cs[3], cs[4]], false)
+	# the books: by company, then by type
+	var rows := battle_unit_rows(res)
+	unit_table(results_box, "The companies", rows)
+	type_table(results_box, "By troop type", rows)
 	# the men, best first
 	var men: Array = res["soldiers"].duplicate()
 	men.sort_custom(func(a, b): return a["kills"] > b["kills"] or (a["kills"] == b["kills"] and a["hits"] > b["hits"]))
@@ -1198,6 +1180,8 @@ func show_result(res: Dictionary) -> void:
 
 
 func show_batch(summary: Dictionary) -> void:
+	_war_over = false
+	_results_close().visible = true
 	for c in results_box.get_children():
 		c.queue_free()
 	var d: Dictionary = summary["data"]
@@ -1419,6 +1403,13 @@ func show_round(sm: Dictionary) -> void:
 	_stat_row(g2, "Killed by ball / bayonet", ["%d / %d" % [st["kills"][0][0], st["kills"][0][1]], "%d / %d" % [st["kills"][1][0], st["kills"][1][1]]])
 	_stat_row(g2, "Battles won, killed in the war", ["%d, %d" % [sm["wins"][0], sm["kills"][0]], "%d, %d" % [sm["wins"][1], sm["kills"][1]]])
 	_stat_row(g2, "Men left in the army", [sm["men_after"][0], sm["men_after"][1]])
+	var b_rows := battle_unit_rows(res)
+	unit_table(results_box, "This battle, company by company", b_rows)
+	type_table(results_box, "This battle, by troop type", b_rows)
+	var w_rows: Array = sm.get("war_units", [])
+	if not w_rows.is_empty():
+		unit_table(results_box, "The war so far, company by company" if not over else "The whole war, company by company", w_rows, true)
+		type_table(results_box, "The war so far, by troop type" if not over else "The whole war, by troop type", w_rows)
 	for note in sm.get("merges", []):
 		var ml := Label.new()
 		ml.text = String(note)
@@ -1450,14 +1441,13 @@ func show_round(sm: Dictionary) -> void:
 		_cell(g5, "%s, %d:%02d" % [b["reason"], int(b["duration"]) / 60, int(b["duration"]) % 60], false)
 	var row := HFlowContainer.new()
 	results_box.add_child(row)
+	_war_over = over
+	_results_close().visible = not over   # the war is over: the only way on is a new one
 	if over:
 		var again := _button("» New campaign")
 		_accent(again)
-		again.pressed.connect(func(): _close_overlays(); campaign_requested.emit())
+		again.pressed.connect(func(): _war_over = false; _results_close().visible = true; _close_overlays(); campaign_requested.emit())
 		row.add_child(again)
-		var sim := _button("« Back to the armies")
-		sim.pressed.connect(func(): open_setup(""))
-		row.add_child(sim)
 	else:
 		var nxt := _button("» Choose companies for battle %d" % (int(sm["round"]) + 1))
 		_style(nxt, "go")
@@ -1650,3 +1640,149 @@ func _pad_tick(delta: float) -> void:
 func _cursor_for_tree(n: Node) -> void:
 	for ch in n.get_children():
 		_cursor_for(ch)
+
+
+# ---------------------------------------------------------------- the books: by company and by type
+
+## A battle's men, added up by company: the rows the tables below are drawn from.
+func battle_unit_rows(res: Dictionary) -> Array:
+	var cos: Array = res.get("companies", [[], []])
+	var rows := {}
+	for m in res["soldiers"]:
+		var t: int = m["team"]
+		var c: int = int(m.get("company", 0))
+		var key := "%d:%d" % [t, c]
+		if not rows.has(key):
+			var co: Dictionary = cos[t][c] if c < (cos[t] as Array).size() else {"name": "?", "persona": "?", "type": "?"}
+			rows[key] = {"team": t, "name": co["name"], "drill": co["persona"], "type": co["type"], "battles": 1,
+				"men": 0, "fell": 0, "ran": 0, "shots": 0, "hits": 0, "thrusts": 0, "thrust_hits": 0, "kills": 0, "bkills": 0}
+		var u: Dictionary = rows[key]
+		u["men"] += 1
+		if not m["alive"]:
+			u["fell"] += 1
+		elif m["routed"] or m["gone"]:
+			u["ran"] += 1
+		u["shots"] += int(m["shots"])
+		u["hits"] += int(m["hits"])
+		u["thrusts"] += int(m.get("thrusts", 0))
+		u["thrust_hits"] += int(m.get("thrust_hits", 0))
+		u["kills"] += int(m["kills"])
+		u["bkills"] += int(m["bayonet_kills"])
+	var out := []
+	for t in 2:
+		for c in 64:
+			if rows.has("%d:%d" % [t, c]):
+				out.append(rows["%d:%d" % [t, c]])
+	return out
+
+
+const BOOK_HEAD := ["Company", "Men", "Fell", "Ran", "Shots", "Hit %", "Bayonet", "Kills", "K/D"]
+
+
+func _book_row(g: GridContainer, label: String, u: Dictionary, col: Color, extra := "") -> void:
+	var acc := 100.0 * float(u["hits"]) / maxf(float(u["shots"]), 1.0)
+	var tacc := 100.0 * float(u["thrust_hits"]) / maxf(float(u["thrusts"]), 1.0)
+	_bcell(g, label + extra, col)
+	_bcell(g, str(u["men"]))
+	_bcell(g, str(u["fell"]))
+	_bcell(g, str(u["ran"]))
+	_bcell(g, str(u["shots"]))
+	_bcell(g, ("%d%%" % int(round(acc))) if int(u["shots"]) > 0 else "-")
+	_bcell(g, ("%d (%d%%)" % [int(u["thrusts"]), int(round(tacc))]) if int(u["thrusts"]) > 0 else "-")
+	_bcell(g, "%d (%d bay.)" % [int(u["kills"]), int(u["bkills"])] if int(u["bkills"]) > 0 else str(u["kills"]))
+	_bcell(g, "%.1f" % (float(u["kills"]) / float(u["fell"])) if int(u["fell"]) > 0 else ("%d / 0" % int(u["kills"])))
+
+
+func _bcell(g: GridContainer, text: String, color: Color = Color(0.9, 0.9, 0.86), bold := false) -> void:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 13 if bold else 12)
+	l.add_theme_color_override("font_color", color)
+	l.custom_minimum_size = Vector2(46, 0)
+	g.add_child(l)
+
+
+func _book_grid(parent: Control, first: String) -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = BOOK_HEAD.size()
+	g.add_theme_constant_override("h_separation", 12)
+	g.add_theme_constant_override("v_separation", 2)
+	# on a narrow phone the table slides sideways rather than being cut off
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(sc)
+	sc.add_child(g)
+	for i in BOOK_HEAD.size():
+		_bcell(g, first if i == 0 else BOOK_HEAD[i], Color(0.95, 0.88, 0.6), true)
+	return g
+
+
+## Company by company: who went in, what they shot, what they hit, what it cost.
+func unit_table(parent: Control, title: String, rows: Array, show_battles := false) -> void:
+	_section(parent, title)
+	_small(parent, "Men = men who went in%s. Hit %% = shots that struck someone. Bayonet = thrusts (how many landed). K/D = kills for each man lost." % (" (over all the battles)" if show_battles else ""))
+	var g := _book_grid(parent, "Company")
+	for u in rows:
+		var col: Color = MatchManager.TEAM_COLORS[int(u["team"])].lightened(0.45)
+		var extra := ("  %d battles" % int(u["battles"])) if show_battles else ""
+		_book_row(g, "%s %s - %s / %s" % [MatchManager.TEAM_NAMES[int(u["team"])], u["name"], u["drill"], u["type"]], u, col, extra)
+
+
+## The same, added up by troop type for each side - which kind of man earns his keep.
+func type_table(parent: Control, title: String, rows: Array) -> void:
+	_section(parent, title)
+	var g := _book_grid(parent, "Type")
+	for t in 2:
+		var by := {}
+		var order := []
+		for u in rows:
+			if int(u["team"]) != t:
+				continue
+			var ty: String = u["type"]
+			if not by.has(ty):
+				by[ty] = {"team": t, "companies": 0, "men": 0, "fell": 0, "ran": 0, "shots": 0, "hits": 0, "thrusts": 0, "thrust_hits": 0, "kills": 0, "bkills": 0}
+				order.append(ty)
+			var b: Dictionary = by[ty]
+			b["companies"] += 1
+			for f in ["men", "fell", "ran", "shots", "hits", "thrusts", "thrust_hits", "kills", "bkills"]:
+				b[f] += int(u[f])
+		for ty in order:
+			var b: Dictionary = by[ty]
+			_book_row(g, "%s %s" % [MatchManager.TEAM_NAMES[t], ty], b, MatchManager.TEAM_COLORS[t].lightened(0.45), "  (%d co.)" % int(b["companies"]))
+
+
+func _results_close() -> Button:
+	return results_title.get_parent().get_child(0) as Button
+
+
+# ---------------------------------------------------------------- simulating
+
+var _sim_cover: PanelContainer = null
+var _sim_label: Label = null
+
+
+## While a battle is simulated the field is not drawn: a plain cover with the clock instead.
+func show_sim_cover(on: bool) -> void:
+	if _sim_cover == null:
+		_sim_cover = PanelContainer.new()
+		_sim_cover.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.07, 0.08, 0.1, 0.97)
+		_sim_cover.add_theme_stylebox_override("panel", sb)
+		_sim_label = Label.new()
+		_sim_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_sim_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_sim_label.add_theme_font_size_override("font_size", 22)
+		_sim_cover.add_child(_sim_label)
+		_root.add_child(_sim_cover)
+	_sim_cover.visible = on
+	_sim_cover.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func update_sim_cover() -> void:
+	if _sim_cover == null or not _sim_cover.visible or manager == null:
+		return
+	var e := int(manager.elapsed)
+	_sim_label.text = "Simulating the battle...\n%d:%02d of the fight\n%d Red and %d Blue still standing" % [e / 60, e % 60, manager.alive_count(0), manager.alive_count(1)]
