@@ -7,6 +7,7 @@ dials aggression 0.95 discipline 0.50 cohesion 0.20 cover 0.00 patience 0.10 ner
 
 sergeant:
   when enemy charging and enemy within 10              -> charge; form open
+  when smoke between us and enemy within 40            -> charge; form open
   when enemy charging and enemy within 40              -> hold; volley at 30
   otherwise                                            -> charge; form open
 

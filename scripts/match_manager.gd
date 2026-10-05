@@ -1052,6 +1052,11 @@ func _run_sergeant(t: int, c: int) -> void:
 				ready += 1
 		var need: float = float(_plan.get("volley_need", 0.45 + 0.4 * float(mix["discipline"])))
 		var cooldown: float = VOLLEY_COOLDOWN + 4.0 * mix["patience"]
+		if _plan.get("by_halves", false):
+			# by halves: each half fires on its own word, so half the line is always loaded
+			need *= 0.5
+			cooldown *= 0.5
+		order["by_halves"] = _plan.get("by_halves", false)
 		if _plan.get("volley_now", false) and float(ready) / men.size() >= 0.3 and elapsed - _last_volley_t[k] > 1.5:
 			_call_volley(t, c)
 		elif float(ready) / men.size() >= need and elapsed - _last_volley_t[k] > cooldown:
@@ -1169,6 +1174,17 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 				if e.kneeling or e.action == "cover":
 					k += 1
 			return not enemies.is_empty() and float(k) / enemies.size() >= 0.4
+		"in_smoke":
+			var cc: Vector3 = c["centre"]
+			return field.smoke_at(cc.x, cc.z) >= 2.0
+		"enemy_in_smoke":
+			var ec: Vector3 = c["enemy_centre"]
+			return not enemies.is_empty() and field.smoke_at(ec.x, ec.z) >= 2.0
+		"smoke_between":
+			return not enemies.is_empty() and field.visibility((c["centre"] as Vector3) + Vector3(0, 1.6, 0), (c["enemy_centre"] as Vector3) + Vector3(0, 1.0, 0)) < 0.5
+		"wind_behind":
+			var fwd: Vector3 = (c["enemy_centre"] as Vector3) - (c["centre"] as Vector3) if not enemies.is_empty() else Vector3(0, 0, -signf(home_z(t)))
+			return field.wind.length() > 0.3 and field.wind.normalized().dot(Vector2(fwd.x, fwd.z).normalized()) > 0.4
 		"enemy_uphill":
 			return (c["enemy_centre"] as Vector3).y - (c["centre"] as Vector3).y > 1.5
 		"enemy_downhill", "high_ground":
@@ -1284,6 +1300,9 @@ func _sgt_act(id: String, args: Array, c: Dictionary) -> bool:
 		"form_skirmish":
 			_plan["spacing"] = 4.0
 			return true
+		"volley_halves":
+			_plan["by_halves"] = true
+			return true
 		"volley_at":
 			_plan["volley_at"] = float(args[0])
 			return true
@@ -1362,6 +1381,7 @@ func _call_volley(t: int, c: int) -> void:
 	_last_volley_t[k] = elapsed
 	_volley_ids[k] = int(_volley_ids.get(k, 0)) + 1
 	orders[t][c]["volley_id"] = _volley_ids[k]
+	orders[t][c]["volley_half"] = (_volley_ids[k] % 2) if orders[t][c].get("by_halves", false) else -1
 	orders[t][c]["volley_age"] = 0.0
 	stats["volleys"][t] += 1
 	if fx != null:

@@ -8,7 +8,9 @@ dials aggression 0.30 discipline 0.95 cohesion 0.90 cover 0.10 patience 0.60 ner
 sergeant:
   when enemy charging and enemy within 40  -> hold; form tight; stand fast; volley at 30
   when my losses over 60%                  -> fall back 25
-  when enemy within 60 paces               -> hold; form tight; volley when 70% loaded
+  when smoke between us and enemy beyond 25 and not enemy charging -> hold; form tight; hold fire
+  # by halves: one half fires while the other stays loaded - never all empty at once
+  when enemy within 60 paces               -> hold; form tight; volley by halves; volley when 70% loaded
   otherwise                                -> advance slow; form tight; hold fire
 
 man:

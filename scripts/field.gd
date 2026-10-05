@@ -1262,7 +1262,7 @@ func clear_smoke(rng: RandomNumberGenerator = null) -> void:
 	smoke = PackedFloat32Array()
 	smoke.resize(_sm_w * _sm_h)
 	var a := (rng.randf() if rng != null else randf()) * TAU
-	var spd := (rng.randf_range(0.4, 1.6) if rng != null else 1.0)
+	var spd := (rng.randf_range(0.1, 1.6) if rng != null else 1.0)
 	wind = Vector2(cos(a), sin(a)) * spd
 
 
@@ -1285,6 +1285,11 @@ func add_smoke(muzzle: Vector3, dir: Vector3, amount: float = 1.0) -> void:
 		_sm_clear = false
 
 
+## In still air the smoke hangs; a breeze carries it off. About 40 s calm, 25 s in a fresh breeze.
+func smoke_half_life() -> float:
+	return 18.0 + 30.0 / (1.0 + 2.0 * wind.length())
+
+
 func smoke_at(x: float, z: float) -> float:
 	if smoke.is_empty():
 		return 0.0
@@ -1301,7 +1306,7 @@ func tick_smoke(delta: float) -> void:
 		return
 	var dt := _sm_acc
 	_sm_acc = 0.0
-	var keep := pow(0.5, dt / SMOKE_HALF_LIFE)
+	var keep := pow(0.5, dt / smoke_half_life())
 	var out := PackedFloat32Array()
 	out.resize(smoke.size())
 	# semi-Lagrangian drift: each cell takes what was upwind of it

@@ -5,6 +5,8 @@ type Even
 dials aggression 0.45 discipline 0.90 cohesion 0.85 cover 0.20 patience 0.60 nerve 0.65
 
 sergeant:
+  # their own smoke between them and the enemy: wait for it to drift before the next volley
+  when smoke between us and enemy beyond 20 and not enemy charging -> hold; hold fire
   when enemy within 45 -> volley when 80% loaded
 
 man:

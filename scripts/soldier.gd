@@ -343,7 +343,8 @@ func _decide() -> void:
 	# firing
 	if loaded and enemy != null and enemy_d <= fire_range_to(enemy) and enemy_d >= STEEL_RANGE and _can_fire_at(enemy):
 		var my_range := 75.0 - 50.0 * p("patience")
-		var volley_now: bool = order["volley_id"] != _volley_seen and order["volley_age"] < 0.7
+		var volley_now: bool = order["volley_id"] != _volley_seen and order["volley_age"] < 0.7 \
+			and (int(order.get("volley_half", -1)) < 0 or slot % 2 == int(order["volley_half"]))   # by halves: his half's turn
 		var disciplined: bool = p("discipline") > 0.45 and order["mode"] != "at_will" and not order["alone"]
 		var fire_now := false
 		if volley_now and enemy_d <= my_range + 15.0:
@@ -425,6 +426,16 @@ func _drill_sense(id: String, args: Array) -> bool:
 				and not field.water_between(global_position, e.global_position)   # not across a river
 		"enemy_in_cover":
 			return e != null and (e.kneeling or e.action == "cover")
+		"in_smoke":
+			return field.smoke_at(global_position.x, global_position.z) >= 2.0
+		"enemy_in_smoke":
+			return e != null and field.smoke_at(e.global_position.x, e.global_position.z) >= 2.0
+		"smoke_between":
+			return e != null and field.visibility(global_position + Vector3(0, EYE_HEIGHT, 0), e.global_position + Vector3(0, 1.0, 0)) < 0.5
+		"wind_behind":
+			var fwd := (e.global_position - global_position) if e != null else Vector3(0, 0, -signf(manager.home_z(team)))
+			var f2 := Vector2(fwd.x, fwd.z).normalized()
+			return field.wind.length() > 0.3 and field.wind.normalized().dot(f2) > 0.4
 		"enemy_uphill":
 			return e != null and e.global_position.y - global_position.y > 1.5
 		"enemy_downhill", "high_ground":
@@ -458,7 +469,8 @@ func _drill_sense(id: String, args: Array) -> bool:
 		"alone":
 			return alone >= 1.0
 		"volley_called":
-			return float(_d_order.get("volley_age", 999.0)) < 0.7
+			var half := int(_d_order.get("volley_half", -1))
+			return float(_d_order.get("volley_age", 999.0)) < 0.7 and (half < 0 or slot % 2 == half)
 		"mode_is":
 			return String(_d_order.get("mode", "")) == _mode_word(String(args[0]))
 		"charging":
@@ -652,6 +664,31 @@ func _drill_act(id: String, args: Array) -> bool:
 			want_run = false
 			face_point = e.global_position
 			return true
+		"clear_smoke":
+			# out of the cloud: the clearest ground within a few paces, not backward, upwind first
+			if field.smoke_at(global_position.x, global_position.z) < 1.0:
+				return false
+			var best_p := Vector3.INF
+			var best_v := field.smoke_at(global_position.x, global_position.z) - 0.5
+			var toward_e := (e.global_position - global_position).normalized() if e != null else Vector3(0, 0, -signf(manager.home_z(team)))
+			for k in 8:
+				var a := TAU * float(k) / 8.0
+				var dv := Vector3(cos(a), 0, sin(a))
+				if dv.dot(toward_e) < -0.3:
+					continue   # not backward
+				var q := field.clamp_point(global_position + dv * 7.0)
+				var v := field.smoke_at(q.x, q.z) - 0.3 * Vector2(dv.x, dv.z).dot(-field.wind.normalized())
+				if v < best_v:
+					best_v = v
+					best_p = q
+			if best_p == Vector3.INF:
+				return false
+			goal = field.free_point(best_p)
+			action = "form"
+			want_run = false
+			if e != null:
+				face_point = e.global_position
+			return true
 		"high_ground":
 			# make for the highest rise within reach that still looks at the enemy - kneel there
 			if e == null:
@@ -733,7 +770,7 @@ func _can_fire_at(enemy: Soldier) -> bool:
 		return false
 	# he has to be able to make the man out: not lost in the smoke, not unnoticed
 	var d := from.distance_to(to)
-	if d > 12.0 and field.visibility(from, to) < 0.2:
+	if d > 12.0 and field.visibility(from, to) < 0.12:
 		return false
 	if d > enemy.notice_range():
 		return false
@@ -794,7 +831,7 @@ func _fire(enemy: Soldier) -> void:
 	if order_volley():
 		sig *= 1.1                        # on the word, not on his own time
 	sig *= clampf(1.0 - (from.y - aim.y) * 0.04, 0.8, 1.15)   # looking down on them steadies the aim
-	sig *= 1.0 + 2.5 * (1.0 - field.visibility(from, aim))     # aiming into the smoke at a shape in it
+	sig *= 1.0 + 1.2 * (1.0 - field.visibility(from, aim))     # aiming into the smoke at the shapes in it
 	var dev_h := Ballistics.gauss(rng) * sig
 	var dev_v := Ballistics.gauss(rng) * sig + sig * 0.2   # frightened men shoot high
 	# a moving target has to be led; nobody leads it exactly

@@ -17,6 +17,8 @@ man:
   # the enemy wavers or runs: everyone goes in
   when ( enemy breaking or enemy broken or enemy losses over 40% ) and enemy within 40 -> charge
   # close and unseen: the blade. Close at all: in with the bayonet (a loaded man fires first)
+  # the smoke hides them: close in under it and go in
+  when smoke between us and enemy within 30 and not spotted -> charge
   when enemy within 12 and not spotted                 -> charge
   when enemy within 12                                 -> charge
   # they turned and saw me: shoot first, but never stand in the open at a distance to do it

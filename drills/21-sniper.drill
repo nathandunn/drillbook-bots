@@ -18,6 +18,8 @@ man:
   when enemy within 4                                  -> bayonet
   # they are too close: give ground to the next cover
   when enemy within 20                                 -> back 15
+  # a target lost in the smoke is no target: wait for it to clear
+  when enemy in smoke and enemy beyond 25              -> hold kneeling
   # seen, in cover, loaded: hold ground and shoot
   when in cover and loaded and enemy within 90         -> fire
   when on high ground and loaded and enemy within 140  -> fire

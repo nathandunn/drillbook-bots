@@ -14,6 +14,8 @@ sergeant:
 
 man:
   when enemy charging and enemy within 20  -> fire; back 10
+  # never fire through your own smoke: step out of it first, upwind if you can
+  when in smoke and enemy beyond 20        -> step out of the smoke
   when in cover and loaded and enemy within 70 -> fire
   when not in cover                        -> take cover within 12
   otherwise                                -> reload kneeling

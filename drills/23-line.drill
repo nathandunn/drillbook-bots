@@ -11,6 +11,8 @@ sergeant:
   when phase is gone and no harm for 8s                -> advance; set phase line
   when losing the exchange                             -> fall back 30; set phase gone
   when winning the exchange                            -> press; form tight
+  # fire, then go forward through the smoke and fire again
+  when smoke between us and enemy within 45            -> advance; form tight
   when enemy within 45                                 -> advance slow; form tight; fire at will
   otherwise                                            -> advance; form skirmish; fire at will
 
