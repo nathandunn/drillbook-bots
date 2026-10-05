@@ -2,6 +2,7 @@ import itertools, shlex, os, sys
 G, OUT, JOBS = sys.argv[1], sys.argv[2], sys.argv[3]
 d=[l.strip().split('|') for l in open('drill_types.txt') if l.strip()]
 os.makedirs(JOBS, exist_ok=True)
+os.makedirs(OUT, exist_ok=True)
 i=0
 for (a,ta),(b,tb) in itertools.combinations(d,2):
     for f in ["Open Plain","Walled Farm"]:
