@@ -16,7 +16,7 @@ signal fall_back_to(no: int)
 signal simulate_requested
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
-const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Scout", "Random"]
+const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Scout", "Shinobi", "Random"]
 const BATCH_N := 10
 
 var manager: MatchManager

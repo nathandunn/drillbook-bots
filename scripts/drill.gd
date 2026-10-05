@@ -192,7 +192,7 @@ static func parse(text: String) -> Drill:
 		elif low.begins_with("type "):
 			d.type_name = line.substr(5).strip_edges().capitalize()
 			if not SoldierType.PRESETS.has(d.type_name):
-				d.errors.append("line %d: no such type '%s' (Even, Marksman, Grenadier, Runner, Ironside, Brawler, Scout)" % [ln, d.type_name])
+				d.errors.append("line %d: no such type '%s' (Even, Marksman, Grenadier, Runner, Ironside, Brawler, Scout, Shinobi)" % [ln, d.type_name])
 		elif low.begins_with("dials "):
 			var parts := low.substr(6).split(" ", false)
 			var k := 0

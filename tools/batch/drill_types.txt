@@ -5,7 +5,7 @@ Militia|Even
 Veterans|Ironside
 Thin Red Line|Marksman
 Fabian Screen|Marksman
-Ninjas|Scout
+Ninjas|Shinobi
 Sniper|Marksman
 Linebreaker|Grenadier
 Line|Even

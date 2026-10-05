@@ -24,7 +24,7 @@ const BATTALIONS := {
 	"Assault column": [["Regulars", "Even", "Left"], ["Shock", "Grenadier", "Centre-left"], ["Shock", "Grenadier", "Centre-right"], ["Regulars", "Even", "Right"]],
 	"Mixed": [["Skirmishers", "Marksman", "Left"], ["Regulars", "Even", "Centre-left"], ["Regulars", "Even", "Centre-right"], ["Shock", "Grenadier", "Reserve"]],
 	"Old guard": [["Veterans", "Ironside", "Left"], ["Veterans", "Ironside", "Centre-left"], ["Veterans", "Marksman", "Centre-right"], ["Skirmishers", "Marksman", "Right"]],
-	"Your drills": [["Sniper", "Marksman", "Left"], ["Line", "Even", "Centre-left"], ["Linebreaker", "Grenadier", "Centre-right"], ["Ninjas", "Scout", "Right"]],
+	"Your drills": [["Sniper", "Marksman", "Left"], ["Line", "Even", "Centre-left"], ["Linebreaker", "Grenadier", "Centre-right"], ["Ninjas", "Shinobi", "Right"]],
 }
 const BATTALION_HELP := {
 	"Line battalion": "Four companies of regulars shoulder to shoulder across the front",
