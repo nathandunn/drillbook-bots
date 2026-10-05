@@ -23,6 +23,8 @@ const PRESETS := {
 	"Ironside":  {"run": 0.18, "melee": 0.22, "accuracy": 0.15, "stamina": 0.45, "stealth": 0.25},
 	"Brawler":   {"run": 0.35, "melee": 0.50, "accuracy": 0.00, "stamina": 0.15, "stealth": 0.25},
 	"Scout":     {"run": 0.32, "melee": 0.20, "accuracy": 0.15, "stamina": 0.13, "stealth": 0.45},
+	"ScoutB":    {"run": 0.25, "melee": 0.40, "accuracy": 0.12, "stamina": 0.13, "stealth": 0.35},
+	"ScoutC":    {"run": 0.30, "melee": 0.30, "accuracy": 0.20, "stamina": 0.10, "stealth": 0.35},
 }
 
 const TYPE_HELP := {
