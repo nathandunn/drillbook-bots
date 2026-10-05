@@ -102,7 +102,9 @@ var _volley_seen := -1
 var _cover_spot: Dictionary = {}
 var _cover_hold := 0.0
 var _bleed_t := 0.0
-var _still_t := 0.0             # how long he has stood still: a musket is aimed standing
+var _still_t := 0.0
+var _last_fire_t := -100.0       # a shot gives a man away: flash and a puff of smoke
+var _sneak_t := 0.0             # how long he has stood still: a musket is aimed standing
 var _aim_need := 1.6            # how long this shot takes to aim
 var _high_spot := Vector3.INF   # the rise he is making for
 var _high_hold := 0.0
@@ -220,6 +222,7 @@ func _tick_timers(delta: float) -> void:
 		if reload_left <= 0.0:
 			loaded = true
 	_still_t = _still_t + delta if velocity.length() < 0.5 else 0.0
+	_sneak_t = maxf(_sneak_t - delta, 0.0)
 	thrust_timer = maxf(thrust_timer - delta, 0.0)
 	kiting = maxf(kiting - delta, 0.0)
 	_halt = maxf(_halt - delta, 0.0)
@@ -480,11 +483,15 @@ func is_spotted_by(watcher: Soldier) -> bool:
 	var d: float = to_me.length()
 	if d < 0.01:
 		return true
-	if d > 90.0:
+	if d > minf(90.0, notice_range()):
 		return false
 	if watcher.facing_dir().dot(to_me / d) < 0.34:
 		return false
-	return field.line_of_fire(watcher.global_position + Vector3(0, EYE_HEIGHT, 0), global_position + Vector3(0, 1.0, 0)) > 0.0
+	var eye := watcher.global_position + Vector3(0, EYE_HEIGHT, 0)
+	var me := global_position + Vector3(0, 1.0, 0)
+	if field.visibility(eye, me) < 0.3:
+		return false   # lost in the smoke
+	return field.line_of_fire(eye, me) > 0.0
 
 
 static func _mode_word(w: String) -> String:
@@ -607,6 +614,7 @@ func _drill_act(id: String, args: Array) -> bool:
 			# No cover ahead: a slow walk on the same slant. Never runs.
 			if e == null:
 				return false
+			_sneak_t = 0.8
 			var to_e: Vector3 = e.global_position - global_position
 			to_e.y = 0.0
 			var dirn: Vector3 = to_e.normalized()
@@ -723,6 +731,12 @@ func _can_fire_at(enemy: Soldier) -> bool:
 	var to := enemy.global_position + Vector3(0, 1.0, 0)
 	if field.line_of_fire(from, to) <= 0.0:
 		return false
+	# he has to be able to make the man out: not lost in the smoke, not unnoticed
+	var d := from.distance_to(to)
+	if d > 12.0 and field.visibility(from, to) < 0.2:
+		return false
+	if d > enemy.notice_range():
+		return false
 	# a friend in the line of fire: a disciplined man holds, a careless one does not
 	var friend := manager.friend_in_line(self, enemy)
 	if friend != null and p("discipline") > 0.4:
@@ -739,6 +753,8 @@ func _fire(enemy: Soldier) -> void:
 			return
 		enemy = alt
 	enemy.under_fire = true   # being aimed at and fired on is being under fire
+	_last_fire_t = manager.elapsed
+	field.add_smoke(global_position + Vector3(0, EYE_HEIGHT, 0), enemy.global_position - global_position, 1.0)
 	if manager.fx != null:
 		manager.fx.shot(global_position)
 	loaded = false
@@ -778,6 +794,7 @@ func _fire(enemy: Soldier) -> void:
 	if order_volley():
 		sig *= 1.1                        # on the word, not on his own time
 	sig *= clampf(1.0 - (from.y - aim.y) * 0.04, 0.8, 1.15)   # looking down on them steadies the aim
+	sig *= 1.0 + 2.5 * (1.0 - field.visibility(from, aim))     # aiming into the smoke at a shape in it
 	var dev_h := Ballistics.gauss(rng) * sig
 	var dev_v := Ballistics.gauss(rng) * sig + sig * 0.2   # frightened men shoot high
 	# a moving target has to be led; nobody leads it exactly
@@ -1399,3 +1416,20 @@ func fire_range_to(e: Soldier) -> float:
 ## Has he stood still long enough to have aimed?
 func _aimed() -> bool:
 	return _still_t >= _aim_need
+
+
+## How far off an enemy can pick him out at all. A man standing in the open is seen at any
+## rifle range; stealth, kneeling, cover and creeping shrink it; a man who has just fired, or
+## who is running, gives himself away.
+func notice_range() -> float:
+	var s := soldier_type.skill("stealth")
+	var r := 220.0 * (1.3 - s)
+	if kneeling or action == "cover" or _sneak_t > 0.0:
+		r *= 0.55
+	if running:
+		r *= 1.25
+	if manager != null and manager.elapsed - _last_fire_t < 6.0:
+		r = maxf(r, 250.0)
+	if is_routed or in_melee:
+		r = maxf(r, 250.0)
+	return r

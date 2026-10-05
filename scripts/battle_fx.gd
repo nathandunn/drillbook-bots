@@ -86,6 +86,7 @@ func _ready() -> void:
 	_drop_mm.mesh = cube
 	_drop_mm.instance_count = DROPS
 	_drop_mm.visible_instance_count = 0
+	_build_smoke()
 	var dmi := MultiMeshInstance3D.new()
 	dmi.multimesh = _drop_mm
 	dmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -99,11 +100,14 @@ func clear() -> void:
 	_splat_mm.visible_instance_count = 0
 	_drops.clear()
 	_drop_mm.visible_instance_count = 0
+	_smoke_mm.visible_instance_count = 0
+	_smoke_rev = -1
 	for p in _players:
 		p.stop()
 
 
 func _process(delta: float) -> void:
+	_draw_smoke()
 	# sounds run on real time, whatever the battle speed
 	var real := delta / maxf(Engine.time_scale, 0.001)
 	_budget = minf(_budget + real * 10.0, 4.0)
@@ -239,3 +243,65 @@ func _splat(pos: Vector3, radius: float, grow_time: float) -> void:
 		_splat_grow.append([idx, p, b, 0.05, radius, 0.0, grow_time])
 	else:
 		_splat_mm.set_instance_transform(idx, Transform3D(b.scaled(Vector3(radius, 1, radius * randf_range(0.6, 1.0))), p))
+
+
+# ---------------------------------------------------------------- the smoke, drawn
+
+const SMOKE_MAX := 1600
+var _smoke_mm: MultiMesh
+var _smoke_rev := -1
+
+
+func _build_smoke() -> void:
+	var q := QuadMesh.new()
+	q.size = Vector2(9.0, 6.0)
+	var tex := GradientTexture2D.new()
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	var gr := Gradient.new()
+	gr.set_color(0, Color(1, 1, 1, 1))
+	gr.set_color(1, Color(1, 1, 1, 0))
+	tex.gradient = gr
+	tex.width = 64
+	tex.height = 64
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.vertex_color_use_as_albedo = true
+	m.albedo_texture = tex
+	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	q.material = m
+	_smoke_mm = MultiMesh.new()
+	_smoke_mm.transform_format = MultiMesh.TRANSFORM_3D
+	_smoke_mm.use_colors = true
+	_smoke_mm.mesh = q
+	_smoke_mm.instance_count = SMOKE_MAX
+	_smoke_mm.visible_instance_count = 0
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = _smoke_mm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+
+func _draw_smoke() -> void:
+	if field == null or field.smoke.is_empty() or field.smoke_rev == _smoke_rev:
+		return
+	_smoke_rev = field.smoke_rev
+	var sz := field.smoke_size()
+	var n := 0
+	for j in sz.y:
+		for i in sz.x:
+			var v: float = field.smoke[j * sz.x + i]
+			if v < 0.1:
+				continue
+			if n >= SMOKE_MAX:
+				break
+			var c := field.smoke_cell_centre(i, j)
+			var g := field.height_at(clampf(c.x, -Field.HALF_X, Field.HALF_X), clampf(c.y, -Field.HALF_Z, Field.HALF_Z))
+			var s := 0.8 + minf(v, 6.0) * 0.12
+			_smoke_mm.set_instance_transform(n, Transform3D(Basis().scaled(Vector3(s, s, s)), Vector3(c.x, g + 2.4, c.y)))
+			_smoke_mm.set_instance_color(n, Color(0.94, 0.94, 0.91, 0.8 * (1.0 - exp(-0.35 * v))))
+			n += 1
+	_smoke_mm.visible_instance_count = n

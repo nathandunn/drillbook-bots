@@ -1,25 +1,28 @@
 class_name SoldierType
 extends RefCounted
-## What a soldier *is*: four properties that always add up to 1, so every type costs the same
+## What a soldier *is*: five properties that always add up to the same budget, so every type costs the same
 ## and a strength is paid for somewhere else - the budget idea shared with Dodgeball Bots and
 ## Legion Bots. An even split (0.25 each) reproduces the base numbers exactly.
 
-const PROPS: Array[String] = ["run", "melee", "accuracy", "stamina"]
+const PROPS: Array[String] = ["run", "melee", "accuracy", "stamina", "stealth"]
+const BUDGET := 1.25   # five even shares of 0.25
 
 const PROP_HELP := {
 	"run": "Running and walking speed",
 	"melee": "Bayonet: hit chance, parry and damage",
 	"accuracy": "Musketry: hit chance at range and a quicker, cleaner reload",
 	"stamina": "Wind: how long he can run and stay steady; recovers faster",
+	"stealth": "How hard he is to notice: seen later, from closer, above all kneeling, in cover or creeping",
 }
 
 const PRESETS := {
-	"Even":      {"run": 0.25, "melee": 0.25, "accuracy": 0.25, "stamina": 0.25},
-	"Marksman":  {"run": 0.15, "melee": 0.12, "accuracy": 0.53, "stamina": 0.20},
-	"Grenadier": {"run": 0.15, "melee": 0.50, "accuracy": 0.15, "stamina": 0.20},
-	"Runner":    {"run": 0.50, "melee": 0.15, "accuracy": 0.15, "stamina": 0.20},
-	"Ironside":  {"run": 0.18, "melee": 0.22, "accuracy": 0.15, "stamina": 0.45},
-	"Brawler":   {"run": 0.35, "melee": 0.50, "accuracy": 0.00, "stamina": 0.15},
+	"Even":      {"run": 0.25, "melee": 0.25, "accuracy": 0.25, "stamina": 0.25, "stealth": 0.25},
+	"Marksman":  {"run": 0.15, "melee": 0.12, "accuracy": 0.53, "stamina": 0.20, "stealth": 0.25},
+	"Grenadier": {"run": 0.15, "melee": 0.60, "accuracy": 0.15, "stamina": 0.25, "stealth": 0.10},
+	"Runner":    {"run": 0.50, "melee": 0.15, "accuracy": 0.15, "stamina": 0.20, "stealth": 0.25},
+	"Ironside":  {"run": 0.18, "melee": 0.22, "accuracy": 0.15, "stamina": 0.45, "stealth": 0.25},
+	"Brawler":   {"run": 0.35, "melee": 0.50, "accuracy": 0.00, "stamina": 0.15, "stealth": 0.25},
+	"Scout":     {"run": 0.32, "melee": 0.20, "accuracy": 0.15, "stamina": 0.13, "stealth": 0.45},
 }
 
 const TYPE_HELP := {
@@ -29,6 +32,7 @@ const TYPE_HELP := {
 	"Runner": "Fast on his feet, and that's the whole of it",
 	"Ironside": "Never tires; ordinary at everything else",
 	"Brawler": "All bayonet and legs: the best in a melee and quick to get there; can barely shoot",
+	"Scout": "Hard to see and quick: noticed late, above all creeping or in cover; little else",
 }
 
 const CURVE := 0.8
@@ -67,14 +71,14 @@ func normalize() -> void:
 			props[p] = EVEN
 		return
 	for p in PROPS:
-		props[p] = float(props[p]) / total
+		props[p] = float(props[p]) / total * BUDGET
 
 
 ## Set one property and take the difference out of (or give back to) the others in
 ## proportion, so dragging one slider visibly moves the rest.
 func set_and_rebalance(p: String, v: float) -> void:
 	v = clampf(v, 0.0, 0.85)
-	var rest := 1.0 - v
+	var rest := BUDGET - v
 	var others_total := 0.0
 	for q in PROPS:
 		if q != p:

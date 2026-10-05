@@ -24,7 +24,7 @@ const BATTALIONS := {
 	"Assault column": [["Regulars", "Even", "Left"], ["Shock", "Grenadier", "Centre-left"], ["Shock", "Grenadier", "Centre-right"], ["Regulars", "Even", "Right"]],
 	"Mixed": [["Skirmishers", "Marksman", "Left"], ["Regulars", "Even", "Centre-left"], ["Regulars", "Even", "Centre-right"], ["Shock", "Grenadier", "Reserve"]],
 	"Old guard": [["Veterans", "Ironside", "Left"], ["Veterans", "Ironside", "Centre-left"], ["Veterans", "Marksman", "Centre-right"], ["Skirmishers", "Marksman", "Right"]],
-	"Your drills": [["Sniper", "Marksman", "Left"], ["Line", "Even", "Centre-left"], ["Linebreaker", "Grenadier", "Centre-right"], ["Ninjas", "Runner", "Right"]],
+	"Your drills": [["Sniper", "Marksman", "Left"], ["Line", "Even", "Centre-left"], ["Linebreaker", "Grenadier", "Centre-right"], ["Ninjas", "Scout", "Right"]],
 }
 const BATTALION_HELP := {
 	"Line battalion": "Four companies of regulars shoulder to shoulder across the front",
@@ -280,6 +280,7 @@ func start_match(seed_value: int = -1) -> void:
 		rng.seed = seed_value
 	else:
 		rng.randomize()
+	field.clear_smoke(rng)
 	elapsed = 0.0
 	stats = _fresh_stats()
 	for t in 2:
@@ -541,9 +542,14 @@ func nearest_enemy(s: Soldier) -> Soldier:
 		# a man who has broken is a poorer target than one still fighting, unless he is close
 		if o.is_routed:
 			d *= 1.6
-		if d < best_d:
-			best_d = d
-			best = o
+		if d >= best_d:
+			continue
+		# fog of war: a man not yet noticed - far off, still, hidden, stealthy - is not there
+		var nr := o.notice_range()
+		if o.global_position.distance_squared_to(s.global_position) > nr * nr:
+			continue
+		best_d = d
+		best = o
 	return best
 
 
@@ -738,6 +744,7 @@ func _physics_process(delta: float) -> void:
 	if not running:
 		return
 	elapsed += delta
+	field.tick_smoke(delta)
 	for t in 2:
 		for c in (orders[t] as Array).size():
 			orders[t][c]["volley_age"] = elapsed - float(_last_volley_t.get(ck(t, c), -100.0))

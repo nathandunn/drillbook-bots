@@ -1237,3 +1237,131 @@ func walk_distance(a: Vector3, b: Vector3) -> float:
 	for k in range(1, path.size()):
 		d += path[k - 1].distance_to(path[k])
 	return maxf(d, straight)
+
+
+# ---------------------------------------------------------------- powder smoke
+
+## Black powder makes a white cloud with every shot; a volley makes a bank of it. It hangs about
+## three metres high, drifts on the wind and thins over half a minute or so. Kept as a grid of
+## 4 m cells (density 1 = one shot's worth): a line of sight through it is dimmed, a man in it
+## cannot be picked out, and a man aiming through it aims worse.
+const SMOKE_CELL := 4.0
+const SMOKE_HALF_LIFE := 22.0
+var smoke := PackedFloat32Array()
+var _sm_w := 0
+var _sm_h := 0
+var wind := Vector2.ZERO        # m/s, a new breeze each battle
+var _sm_acc := 0.0
+var smoke_rev := 0
+var _sm_clear := true          # no smoke anywhere: every line is clear              # bumped when the cloud changes, for whoever draws it
+
+
+func clear_smoke(rng: RandomNumberGenerator = null) -> void:
+	_sm_w = int(ceil((HALF_X * 2.0 + 24.0) / SMOKE_CELL))
+	_sm_h = int(ceil((HALF_Z * 2.0 + 24.0) / SMOKE_CELL))
+	smoke = PackedFloat32Array()
+	smoke.resize(_sm_w * _sm_h)
+	var a := (rng.randf() if rng != null else randf()) * TAU
+	var spd := (rng.randf_range(0.4, 1.6) if rng != null else 1.0)
+	wind = Vector2(cos(a), sin(a)) * spd
+
+
+func _sm_idx(x: float, z: float) -> int:
+	var i := int(floor((x + HALF_X + 12.0) / SMOKE_CELL))
+	var j := int(floor((z + HALF_Z + 12.0) / SMOKE_CELL))
+	if i < 0 or j < 0 or i >= _sm_w or j >= _sm_h:
+		return -1
+	return j * _sm_w + i
+
+
+## A shot's worth of smoke, a couple of metres in front of the muzzle.
+func add_smoke(muzzle: Vector3, dir: Vector3, amount: float = 1.0) -> void:
+	if smoke.is_empty():
+		clear_smoke()
+	var p := muzzle + Vector3(dir.x, 0, dir.z).normalized() * 2.5
+	var k := _sm_idx(p.x, p.z)
+	if k >= 0:
+		smoke[k] = minf(smoke[k] + amount, 12.0)
+		_sm_clear = false
+
+
+func smoke_at(x: float, z: float) -> float:
+	if smoke.is_empty():
+		return 0.0
+	var k := _sm_idx(x, z)
+	return smoke[k] if k >= 0 else 0.0
+
+
+## Once a second: thin it, drift it downwind, let it spread a little.
+func tick_smoke(delta: float) -> void:
+	if smoke.is_empty():
+		return
+	_sm_acc += delta
+	if _sm_acc < 1.0:
+		return
+	var dt := _sm_acc
+	_sm_acc = 0.0
+	var keep := pow(0.5, dt / SMOKE_HALF_LIFE)
+	var out := PackedFloat32Array()
+	out.resize(smoke.size())
+	# semi-Lagrangian drift: each cell takes what was upwind of it
+	var sx := -wind.x * dt / SMOKE_CELL
+	var sz := -wind.y * dt / SMOKE_CELL
+	var any := false
+	for j in _sm_h:
+		for i in _sm_w:
+			var fx := float(i) + sx
+			var fz := float(j) + sz
+			var i0 := int(floor(fx))
+			var j0 := int(floor(fz))
+			var tx := fx - i0
+			var tz := fz - j0
+			var v := 0.0
+			for dj in 2:
+				for di in 2:
+					var ii := i0 + di
+					var jj := j0 + dj
+					if ii < 0 or jj < 0 or ii >= _sm_w or jj >= _sm_h:
+						continue
+					var w := (tx if di == 1 else 1.0 - tx) * (tz if dj == 1 else 1.0 - tz)
+					v += smoke[jj * _sm_w + ii] * w
+			v *= keep
+			if v < 0.02:
+				v = 0.0
+			else:
+				any = true
+			out[j * _sm_w + i] = v
+	# spread: a little to the neighbours
+	if any:
+		var spread := PackedFloat32Array(out)
+		for j in range(1, _sm_h - 1):
+			for i in range(1, _sm_w - 1):
+				var k := j * _sm_w + i
+				var nb := out[k - 1] + out[k + 1] + out[k - _sm_w] + out[k + _sm_w]
+				spread[k] = out[k] * 0.8 + nb * 0.05
+		out = spread
+	smoke = out
+	_sm_clear = not any
+	smoke_rev += 1
+
+
+## How much of a man can be made out from a to b through the smoke: 1 clear, toward 0 in a bank of it.
+func visibility(a: Vector3, b: Vector3) -> float:
+	if smoke.is_empty() or _sm_clear:
+		return 1.0
+	var d := Vector2(b.x - a.x, b.z - a.z).length()
+	var steps := maxi(int(d / SMOKE_CELL), 1)
+	var sum := 0.0
+	for k in range(0, steps + 1):
+		var t := float(k) / steps
+		sum += smoke_at(lerpf(a.x, b.x, t), lerpf(a.z, b.z, t))
+	sum *= d / float(steps + 1) / SMOKE_CELL   # cell-lengths of smoke the line passes through
+	return exp(-0.22 * sum)
+
+
+func smoke_size() -> Vector2i:
+	return Vector2i(_sm_w, _sm_h)
+
+
+func smoke_cell_centre(i: int, j: int) -> Vector2:
+	return Vector2(-HALF_X - 12.0 + (i + 0.5) * SMOKE_CELL, -HALF_Z - 12.0 + (j + 0.5) * SMOKE_CELL)

@@ -2,7 +2,7 @@
 # flank; if seen far off, melt away; if seen close, shoot first; go in when the enemy wavers.
 drill "Ninjas"
 about "Creep from cover to cover toward his flank, weapon ready. Unseen and close: the blade. Seen close: shoot first. Seen far off: melt away."
-type Runner
+type Scout
 dials aggression 0.55 discipline 0.25 cohesion 0.10 cover 1.00 patience 0.90 nerve 0.70
 
 sergeant:

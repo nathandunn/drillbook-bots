@@ -268,7 +268,7 @@ func _build_lighting() -> void:
 	e.ambient_light_energy = 0.75
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.74, 0.8, 0.86)
-	e.fog_density = 0.0016
+	e.fog_density = 0.0009
 	e.fog_sky_affect = 0.0
 	env.environment = e
 	add_child(env)
