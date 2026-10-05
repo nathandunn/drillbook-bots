@@ -435,7 +435,8 @@ func _build_teams_overlay() -> void:
 	_setup_note.visible = false
 	box.add_child(_setup_note)
 	var note := Label.new()
-	note.text = "Each army is twelve companies. Make each one here: its drill (how it fights - written rules for when to fire, charge, take cover and give ground) and its type (what its men are good at). Before every battle you only choose which companies go in; they line up by themselves, left to right in letter order, and a fifth and more form a second line."
+	note.text = "Twelve companies an army - point at anything for what it means."
+	_hover(note, "Each army is twelve companies. Make each one here: its drill (how it fights - written rules for when to fire, charge, take cover and give ground) and its type (what its men are good at). Before every battle you only choose which companies go in; they line up by themselves, left to right in letter order, and a fifth and more form a second line.")
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", 13)
 	note.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
@@ -574,7 +575,7 @@ func _fill_side(t: int) -> void:
 		var b := _chip("You" if who == "you" else "Computer", commanders[t] == who)
 		b.pressed.connect(func(): _set_commander(t, who); refresh_setup())
 		crow.add_child(b)
-	_small(vb, "In a campaign the computer chooses its own drills, types and how many companies go in - in secret." if commanders[t] == "computer" else "You choose everything, before every battle.")
+	_hover(cl, "In a campaign the computer chooses its own drills, types and how many companies go in - in secret." if commanders[t] == "computer" else "You choose everything, before every battle.")
 	var locked := _locked(t)
 	# quick fill
 	var fl := Label.new()
@@ -670,7 +671,7 @@ func _fill_editor(t: int) -> void:
 		b.pressed.connect(func(): game.set_company(t, i, n, ""); _fill_roster(t); _fill_editor(t))
 		drow.add_child(b)
 	var d: Drill = Drill.named(String(a["drill"]))
-	_small(ed, d.about if d != null else "")
+	_hover(dl, "%s: %s" % [a["drill"], d.about if d != null else ""])
 	var read := _button("Read the drill")
 	read.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	read.pressed.connect(func(): show_drill_named(String(a["drill"]), t))
@@ -688,12 +689,7 @@ func _fill_editor(t: int) -> void:
 		b.disabled = locked
 		b.pressed.connect(func(): game.set_company(t, i, "", n); _fill_roster(t); _fill_editor(t))
 		trow.add_child(b)
-	var th := Label.new()
-	th.add_theme_font_size_override("font_size", 12)
-	th.add_theme_color_override("font_color", Color(0.7, 0.7, 0.65))
-	th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ed.add_child(th)
-	_type_help[t] = th
+	_type_help[t] = tl   # the type's description and numbers show when pointed at
 	var ft := _chip("Fine-tune the type" + (" (hide)" if _finetune[t] else ""), _finetune[t])
 	ft.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	ft.pressed.connect(func(): _finetune[t] = not _finetune[t]; _fill_editor(t))
@@ -725,7 +721,7 @@ func _fill_editor(t: int) -> void:
 			_type_val_labels[t][p] = v
 			var pp: String = p
 			s.value_changed.connect(func(val: float): _on_type_slider2(t, pp, val))
-			_small(ed, SoldierType.PROP_HELP[p])
+			_hover(l, SoldierType.PROP_HELP[p])
 	_update_type_bits(t)
 	# 3. the rest of the army
 	var cp := _button("Copy company %s to the whole army" % a["name"])
@@ -753,7 +749,8 @@ func _update_type_bits(t: int) -> void:
 	var ty: SoldierType = a["type_obj"]
 	var sk: float = ty.skill("accuracy")
 	if _type_help[t] != null and is_instance_valid(_type_help[t]):
-		_type_help[t].text = "%s. On the range he hits a man %d%% of the time at 100 m; reloads in %d s." % [
+		_hover(_type_help[t], "")
+		_type_help[t].tooltip_text = "%s. On the range he hits a man %d%% of the time at 100 m; reloads in %d s." % [
 			SoldierType.TYPE_HELP.get(String(a["type"]), "A build of your own"),
 			int(round(100.0 * Ballistics.p_range(sk, 100.0))), int(round(Soldier.RELOAD * 1.2 / (0.8 + 0.4 * sk)))]
 	_updating = true
@@ -870,13 +867,13 @@ func show_pick() -> void:
 		var rno: int = int(game.campaign_round) + 1
 		var fno: int = int(game.campaign_field)
 		_pick_title.text = "Battle %d - field %d of %d, %s" % [rno, fno, front.size(), front[fno - 1]]
-		_small(_pick_box, _round_text)
-		_small(_pick_box, "%s  (It is on the map behind this panel.)" % Field.LAYOUT_HELP.get(front[fno - 1], ""))
+		var rl := _small(_pick_box, _round_text + "  (point here for the field)")
+		_hover(rl, "%s: %s  (It is on the map behind this panel.)" % [front[fno - 1], Field.LAYOUT_HELP.get(front[fno - 1], "")])
 		var fb: Dictionary = game._fall_back
 		if not fb.is_empty():
 			var side: String = MatchManager.TEAM_NAMES[int(fb["side"])]
 			_section(_pick_box, "%s may fall back and choose its ground" % side)
-			_small(_pick_box, "Every field given up is the enemy's, and losing on %s's last field loses the war." % side)
+			_hover(_pick_box.get_child(_pick_box.get_child_count() - 1), "Every field given up is the enemy's, and losing on %s's last field loses the war." % side)
 			var fr := HFlowContainer.new()
 			_pick_box.add_child(fr)
 			var order := range(int(fb["lo"]), int(fb["hi"]) + 1)
@@ -900,6 +897,7 @@ func show_pick() -> void:
 			frow.add_child(fb2)
 			_field_chips[fname] = fb2
 		_field_help = _small(_pick_box, "")
+		_field_help.visible = false   # each field's description shows on its button
 		mark_field(game.field.layout_name)
 	for t in 2:
 		var ar: Array = game.armies[t]
@@ -1426,6 +1424,8 @@ func show_round(sm: Dictionary) -> void:
 		fl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.8))
 		results_box.add_child(fl)
 		_next_help = fl
+		fl.visible = false
+		_hover(_next_head, "%s  (It is on the map now.)" % Field.LAYOUT_HELP.get(sm["next_field"], ""))
 	_section(results_box, "The battles so far")
 	var g5 := GridContainer.new()
 	g5.columns = 4
@@ -1722,7 +1722,7 @@ func _book_grid(parent: Control, first: String) -> GridContainer:
 ## Company by company: who went in, what they shot, what they hit, what it cost.
 func unit_table(parent: Control, title: String, rows: Array, show_battles := false) -> void:
 	_section(parent, title)
-	_small(parent, "Men = men who went in%s. Hit %% = shots that struck someone. Bayonet = thrusts (how many landed). K/D = kills for each man lost." % (" (over all the battles)" if show_battles else ""))
+	_hover(parent.get_child(parent.get_child_count() - 1), "Men = men who went in%s. Hit %% = shots that struck someone. Bayonet = thrusts (how many landed). K/D = kills for each man lost." % (" (over all the battles)" if show_battles else ""))
 	var g := _book_grid(parent, "Company")
 	for u in rows:
 		var col: Color = MatchManager.TEAM_COLORS[int(u["team"])].lightened(0.45)
@@ -1786,3 +1786,14 @@ func update_sim_cover() -> void:
 		return
 	var e := int(manager.elapsed)
 	_sim_label.text = "Simulating the battle...\n%d:%02d of the fight\n%d Red and %d Blue still standing" % [e / 60, e % 60, manager.alive_count(0), manager.alive_count(1)]
+
+
+## A description that shows when the pointer rests on it, rather than taking room on the page.
+func _hover(n: Node, text: String) -> void:
+	var c := n as Control
+	if c == null:
+		return
+	c.mouse_filter = Control.MOUSE_FILTER_PASS
+	c.mouse_default_cursor_shape = Control.CURSOR_HELP
+	if text != "":
+		c.tooltip_text = text
