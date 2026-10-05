@@ -168,17 +168,23 @@ func setup(m: MatchManager) -> void:
 	status_label.add_theme_constant_override("shadow_offset_y", 1)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top.add_child(status_label)
+	status_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var clock_row := HBoxContainer.new()
+	clock_row.add_theme_constant_override("separation", 14)
+	clock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(clock_row)
+	clock_row.add_child(status_label)
 	round_label = Label.new()
+	round_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	round_label.add_theme_font_size_override("font_size", 15)
-	round_label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.6))
+	round_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.9))
 	round_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	round_label.add_theme_constant_override("shadow_offset_x", 1)
 	round_label.add_theme_constant_override("shadow_offset_y", 1)
 	round_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	round_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	round_label.visible = false
-	top.add_child(round_label)
+	clock_row.add_child(round_label)
 	for t in 2:
 		var l := Label.new()
 		l.add_theme_font_size_override("font_size", 15)
@@ -961,6 +967,28 @@ func show_pick() -> void:
 			var idx := i
 			b.pressed.connect(func(): army_pick.emit(t, idx))
 			ab.add_child(b)
+		# the play: one plan the whole army follows (or the general's own choice)
+		if secret:
+			var sl := _small(_pick_box, "Plan: the computer's general decides - and may change his mind (shown during the battle)")
+			sl.add_theme_color_override("font_color", Color(0.75, 0.75, 0.7))
+		elif manager != null:
+			var prow := HFlowContainer.new()
+			prow.add_theme_constant_override("h_separation", 6)
+			_pick_box.add_child(prow)
+			var pl := Label.new()
+			pl.text = "Plan:"
+			pl.add_theme_font_size_override("font_size", 13)
+			_hover(pl, "One play the whole army carries out together, over each company's own drill. When one company charges, the others go in with it (except under Drill book).")
+			prow.add_child(pl)
+			for pname in General.PLAYS:
+				var pc := _chip(pname, String(manager.plays[t]) == pname)
+				pc.tooltip_text = General.HELP.get(pname, "")
+				var side := t
+				var pn: String = pname
+				pc.pressed.connect(func():
+					manager.plays[side] = pn
+					show_pick())
+				prow.add_child(pc)
 	var row := HFlowContainer.new()
 	_pick_box.add_child(row)
 	var fight := _button("» Fight")
@@ -1138,8 +1166,12 @@ func _process(delta: float) -> void:
 				modes.append("%s reserve" % manager.companies[t][c]["name"])
 			else:
 				modes.append("%s %s" % [manager.companies[t][c]["name"], String(os[c].get("mode", "")).replace("_", " ")])
-		team_labels[t].text = "%s: %d standing (%d in line) · %s · shots %d/%d" % [
-			MatchManager.TEAM_NAMES[t], alive, fighting, ", ".join(modes), st["hits"][t], st["shots"][t]]
+		var txt := "%s: %d/%d standing (%d in line) · %s · shots %d/%d" % [
+			MatchManager.TEAM_NAMES[t], alive, int(manager.side_n[t]), fighting, ", ".join(modes), st["hits"][t], st["shots"][t]]
+		var g: General = manager.generals[t]
+		if g != null:
+			txt += "\n" + g.label()
+		team_labels[t].text = txt
 	if manager.running:
 		var clock := "%d:%02d" % [int(manager.elapsed) / 60, int(manager.elapsed) % 60]
 		status_label.text = (_batch_text + " · " + clock) if _batch_text != "" else clock

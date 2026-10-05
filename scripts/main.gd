@@ -95,6 +95,12 @@ func _ready() -> void:
 	for t in 2:
 		var key: String = ["red", "blue"][t]
 		manager.set_battalion(t, String(args.get(key + "bat", manager.battalion_names[t])), per)
+		General.trace = args.has("trace")
+		if args.has(key + "play"):
+			# --redplay="Hammer and anvil" (default: the general's choice)
+			manager.plays[t] = String(args[key + "play"]).replace("_", " ")
+			if not General.PLAYS.has(manager.plays[t]):
+				push_warning("no play called %s; plays: %s" % [manager.plays[t], ", ".join(General.PLAYS)])
 		if args.has("companies"):
 			var want := clampi(int(args["companies"]), 1, MatchManager.EDIT_COMPANIES)
 			var cos: Array = manager.companies[t]
@@ -376,7 +382,7 @@ func _on_match_ended(result: Dictionary) -> void:
 		batch_left -= 1
 		batch_results.append(result)
 		if headless:
-			print("  battle %d: %s by %s in %ds (standing %d-%d)" % [result["match"], result["winner_name"], result["reason"], int(result["duration"]), result["alive"][0], result["alive"][1]])
+			print("  battle %d: %s by %s in %ds (standing %d-%d) plays: %s / %s" % [result["match"], result["winner_name"], result["reason"], int(result["duration"]), result["alive"][0], result["alive"][1], result["plays"][0], result["plays"][1]])
 		if batch_left > 0:
 			if hud != null:
 				hud.batch_progress(batch_results.size() + 1, batch_results.size() + batch_left)
@@ -477,7 +483,7 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 	var battles := []
 	for r in results:
 		battles.append({"match": r["match"], "winner": r["winner"], "winner_name": r["winner_name"], "reason": r["reason"],
-			"duration": r["duration"], "alive": r["alive"], "fighting": r["fighting"]})
+			"duration": r["duration"], "alive": r["alive"], "fighting": r["fighting"], "plays": r.get("plays", [])})
 	return {"text": txt, "data": {"matches": results.size(), "wins": wins, "draws": draws, "avg_duration": dur / n,
 		"totals": tot, "kills": kills, "presets": [manager.battalion_label(0), manager.battalion_label(1)], "types": [manager._types_label(0), manager._types_label(1)],
 		"sizes": manager.side_n.duplicate(), "battles": battles, "companies": manager._company_summary(), "co_stats": _co_stats(results), "tally": tally}}

@@ -103,6 +103,7 @@ var _cover_spot: Dictionary = {}
 var _cover_hold := 0.0
 var _bleed_t := 0.0
 var _still_t := 0.0
+var _about_face := false       # falling back with his back to the enemy (full walking pace, no shooting)
 var _last_fire_t := -100.0       # a shot gives a man away: flash and a puff of smoke
 var _sneak_t := 0.0             # how long he has stood still: a musket is aimed standing
 var _aim_need := 1.6            # how long this shot takes to aim
@@ -384,6 +385,9 @@ func _decide() -> void:
 		goal = _slot_position(order, order["rally_z"])
 		action = "fallback"
 		want_run = p("nerve") < 0.5
+		# with the enemy well off he turns about and marches back; close to them he backs away
+		# facing them, rifle ready - and that is slow (see _move)
+		_about_face = enemy == null or global_position.distance_to(enemy.global_position) > 25.0
 		if enemy != null:
 			face_point = enemy.global_position
 		return
@@ -1044,6 +1048,14 @@ func _move(delta: float) -> void:
 	if speed > 0.0:
 		var climb := field.slope(global_position, dir)
 		speed *= clampf(1.0 - climb * 0.8, 0.6, 1.12)
+		# backing away while still facing the enemy - rifle up, feeling for the ground behind him -
+		# goes at a quarter of the pace. Turning round to walk or run off is full pace, but then
+		# he is not shooting.
+		if not _faces_way(dir):
+			var fp := face_point - global_position
+			fp.y = 0.0
+			if fp.length() > 0.5 and dir.dot(fp.normalized()) < -0.3:
+				speed *= 0.25
 	velocity = dir * speed + push * 1.2
 	velocity.y = 0.0
 	move_and_slide()
@@ -1051,7 +1063,7 @@ func _move(delta: float) -> void:
 	# facing
 	var face := face_point - global_position
 	face.y = 0.0
-	if action == "rout" or action == "kite" or (action == "fallback" and want_run):
+	if _faces_way(dir):
 		face = dir if dir.length() > 0.1 else face
 	elif dir.length() > 0.1 and (action == "form" or action == "charge" or action == "cover") and dist > 1.5:
 		face = dir
@@ -1451,6 +1463,13 @@ func fire_range_to(e: Soldier) -> float:
 
 
 ## Has he stood still long enough to have aimed?
+## Does he face the way he is going (turned about to walk or run off), rather than the enemy?
+func _faces_way(dir: Vector3) -> bool:
+	if dir.length() < 0.1:
+		return false
+	return action == "rout" or action == "kite" or (action == "fallback" and (want_run or _about_face))
+
+
 func _aimed() -> bool:
 	return _still_t >= _aim_need
 

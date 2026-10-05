@@ -85,6 +85,8 @@ var rule_tally := {}                          # ck -> {rule line -> ticks it dec
 var round_no := 0                             # campaign round, for "round N"
 var _sgt_memory := {}                         # ck -> the drill's "for Ns" memory for that sergeant
 var _plan: Dictionary = {}                    # this tick's sergeant plan from the drill
+var plays := [General.CHOICE, General.CHOICE] # the play each side was given (or the general's choice)
+var generals: Array = [null, null]            # General per side, this battle
 ## Campaign rosters: per team, the men to field this round as records
 ## {name, seed, kills, rounds, recruit}. Empty means a fresh company of team_sizes[t].
 var rosters: Array = [[], []]
@@ -375,6 +377,9 @@ func start_match(seed_value: int = -1) -> void:
 				fill = _bar_quad(lab, TEAM_COLORS[t].lightened(0.35), BAR_W, BAR_H, 0.0, 1)
 				co_bars[k] = [fill, maxi(int(co.get("full", n)), n)]   # against full strength, not today's
 	running = true
+	for t in 2:
+		generals[t] = General.new(t, String(plays[t]))
+		generals[t].begin(self)
 	match_started.emit(match_index)
 
 
@@ -1055,9 +1060,25 @@ func _run_sergeant(t: int, c: int) -> void:
 		idl = [elapsed, fired, men.size()]
 	_idle[k] = idl
 	order["sent_up"] = false
-	if elapsed - float(idl[0]) > 40.0 and (mode == "fallback" or mode == "hold"):
+	var idle_limit := 40.0
+	if generals[t] != null and String((generals[t] as General).play) in ["Hold and receive", "Feint and draw"]:
+		idle_limit = 90.0   # waiting is the plan
+	if elapsed - float(idl[0]) > idle_limit and (mode == "fallback" or mode == "hold"):
 		mode = "advance"
 		order["sent_up"] = true
+	# --- the general's play, over the drill: go together, wait, swing round, all in at once
+	if generals[t] != null:
+		var before := mode
+		mode = (generals[t] as General).mode_for(self, c, mode, order)
+		if mode == "charge" and before != "charge" and String(order["mode"]) != "charge":
+			_charge_since[k] = elapsed
+			_press_since[k] = -1.0
+			stats["charges"][t] += 1
+			if fx != null:
+				fx.charge(centre)
+		elif mode == "fallback" and before != "fallback" and String(order["mode"]) != "fallback":
+			_fallback_since[k] = elapsed
+			stats["fallbacks"][t] += 1
 	order["mode"] = mode
 	order["press"] = pressing and mode == "advance"
 	order["seek_cover"] = losing_fire or _plan.get("seek_cover", false)
@@ -1112,6 +1133,9 @@ func _run_sergeant(t: int, c: int) -> void:
 				order["line_z"] = clampf(centre.z + toward * 10.0, -Field.HALF_Z + 3.0, Field.HALF_Z - 3.0)
 			else:
 				order["line_z"] = centre.z
+
+	if generals[t] != null:
+		(generals[t] as General).place(self, c, order)
 
 	# --- the order of battle: a rear rank keeps behind the front rank while the front rank stands
 	var my_depth := float(companies[t][c].get("depth", 0.0))
@@ -1538,6 +1562,8 @@ func _on_routed(s: Soldier) -> void:
 ## The captain: every second, sends the reserve where the line is going worst - or where it is
 ## going best, if he has the blood for it - and keeps the company labels over their men.
 func _run_captain(t: int) -> void:
+	if generals[t] != null:
+		(generals[t] as General).tick(self)
 	var cos: Array = companies[t]
 	var agg := 0.0
 	for co in cos:
@@ -1669,7 +1695,8 @@ func end_match(reason: String) -> void:
 		"reason": reason, "duration": elapsed, "alive": a, "fighting": f, "stats": stats.duplicate(true),
 		"sizes": side_n.duplicate(), "soldiers": per, "companies": _company_summary(),
 		"presets": [battalion_label(0), battalion_label(1)], "types": [_types_label(0), _types_label(1)],
-		"tally": _tally_summary()}
+		"tally": _tally_summary(),
+		"plays": [generals[0].play if generals[0] != null else "", generals[1].play if generals[1] != null else ""]}
 	match_ended.emit(result)
 
 
