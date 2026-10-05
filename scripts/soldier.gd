@@ -945,7 +945,7 @@ func take_damage(amount: float, source: String, attacker: Soldier) -> void:
 	damaged.emit(self, amount, source, attacker)
 	if manager.fx != null:
 		var from_dir := (global_position - attacker.global_position) if attacker != null else Vector3.FORWARD
-		manager.fx.hit(global_position + Vector3(0, 1.2, 0), from_dir, hp <= 0.0)
+		manager.fx.hit(global_position + Vector3(0, 1.2, 0), from_dir, hp <= 0.0, source == "bayonet")
 	_flash()
 	if hp <= 0.0:
 		_die(source, attacker)

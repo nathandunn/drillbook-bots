@@ -8,11 +8,19 @@ extends Node3D
 ## come from a small pool of players, rate-limited so a volley of forty is one volley sound and
 ## a few cracks, not forty voices.
 
-const SOUND_DIR := "res://sounds/"
+const SOUND_DIR := "res://audio/"
+## Recorded sound (Freesound, CC0 - see CREDITS.md), sliced into short pieces.
 const SETS := {
-	"shot": 4, "volley": 2,   # only the guns: the made-up voices were not good enough
+	"shot": ["musket_1", "musket_2", "musket_3", "musket_4"],
+	"volley": ["musket_bed"],
+	"die": ["die_1", "die_2", "die_3", "die_4", "die_5"],
+	"charge": ["charge_1", "charge_2"],
+	"stab": ["stab_1"],
 }
-const VOICES := 14            # sounds at once
+const LOOPS := ["drum_loop", "talk_loop"]
+const VOICES := 20            # sounds at once
+const DRUM_DB := -4.0
+const TALK_DB := -16.0
 const SPLATS := 700           # blood on the ground, oldest overwritten first
 const DROPS := 240            # drops in the air
 
@@ -25,6 +33,10 @@ var _players: Array[AudioStreamPlayer3D] = []
 var _next_player := 0
 var _budget := 0.0            # sounds allowed this instant (refills in real time)
 var _shot_budget := 0.0
+var _die_budget := 0.0
+var _charge_quiet := 0.0      # real seconds until another battle cry may sound
+var _loop_players := []       # [side] -> {"drum": player, "talk": player}
+var _loop_want := [{"drum": false, "talk": false}, {"drum": false, "talk": false}]
 
 var _splat_mm: MultiMesh
 var _splat_n := 0
@@ -37,20 +49,26 @@ var field: Field
 func _ready() -> void:
 	for s in SETS:
 		var arr := []
-		for i in int(SETS[s]):
-			var path := "%s%s_%d.wav" % [SOUND_DIR, s, i]
+		for nm in SETS[s]:
+			var path := "%s%s.ogg" % [SOUND_DIR, nm]
 			if ResourceLoader.exists(path):
 				arr.append(load(path))
 		_streams[s] = arr
+	# every sound is placed in the world and heard from the camera, so the closer you zoom in the louder it is
 	for i in VOICES:
-		var p := AudioStreamPlayer3D.new()
-		p.unit_size = 18.0
-		p.max_distance = 420.0
-		p.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
-		p.panning_strength = 0.8
-		p.bus = "Master"
-		add_child(p)
-		_players.append(p)
+		_players.append(_new_player())
+	for t in 2:
+		var d := {}
+		for nm in LOOPS:
+			var path := "%s%s.ogg" % [SOUND_DIR, nm]
+			var p := _new_player()
+			if ResourceLoader.exists(path):
+				var st: AudioStreamOggVorbis = load(path)
+				st.loop = true
+				p.stream = st
+			p.volume_db = -60.0
+			d[nm.get_slice("_", 0)] = p
+		_loop_players.append(d)
 	# blood on the ground: a flat dark-red disc, scaled and turned per splash
 	var disc := CylinderMesh.new()
 	disc.top_radius = 0.5
@@ -93,6 +111,46 @@ func _ready() -> void:
 	add_child(dmi)
 
 
+func _new_player() -> AudioStreamPlayer3D:
+	var p := AudioStreamPlayer3D.new()
+	p.unit_size = 18.0
+	p.max_distance = 420.0
+	p.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	p.panning_strength = 0.8
+	p.bus = "Master"
+	add_child(p)
+	return p
+
+
+## Told every frame by the battle: where a side is, whether it is marching up (the drums), and whether the
+## enemy is still far off (talk in the ranks).
+func side_state(t: int, centre: Vector3, marching: bool, quiet: bool) -> void:
+	if t >= _loop_players.size():
+		return
+	for k in _loop_players[t]:
+		(_loop_players[t][k] as AudioStreamPlayer3D).global_position = centre + Vector3(0, 1.5, 0)
+	_loop_want[t]["drum"] = marching
+	_loop_want[t]["talk"] = quiet
+
+
+func _tick_loops(real: float) -> void:
+	var silent := muted or muted_sim
+	for t in _loop_players.size():
+		for k in _loop_players[t]:
+			var p: AudioStreamPlayer3D = _loop_players[t][k]
+			if p.stream == null:
+				continue
+			var on: bool = (not silent) and bool(_loop_want[t][k])
+			var top := DRUM_DB if k == "drum" else TALK_DB
+			var target := top if on else -60.0
+			# fade in or out over about half a second
+			p.volume_db = move_toward(p.volume_db, target, real * 90.0)
+			if on and not p.playing:
+				p.play(randf() * 5.0)
+			elif not on and p.playing and p.volume_db <= -59.0:
+				p.stop()
+
+
 ## A new battle: the ground is clean again.
 func clear() -> void:
 	_splat_n = 0
@@ -104,6 +162,11 @@ func clear() -> void:
 	_smoke_rev = -1
 	for p in _players:
 		p.stop()
+	for t in _loop_players.size():
+		_loop_want[t] = {"drum": false, "talk": false}
+		for k in _loop_players[t]:
+			(_loop_players[t][k] as AudioStreamPlayer3D).stop()
+			(_loop_players[t][k] as AudioStreamPlayer3D).volume_db = -60.0
 
 
 func _process(delta: float) -> void:
@@ -112,6 +175,9 @@ func _process(delta: float) -> void:
 	var real := delta / maxf(Engine.time_scale, 0.001)
 	_budget = minf(_budget + real * 10.0, 4.0)
 	_shot_budget = minf(_shot_budget + real * 7.0, 3.0)
+	_die_budget = minf(_die_budget + real * 6.0, 2.0)
+	_charge_quiet = maxf(_charge_quiet - real, 0.0)
+	_tick_loops(real)
 	# drops fly and fall; where one lands it leaves a spot
 	var g := 9.8
 	var i := 0
@@ -177,9 +243,21 @@ func volley(pos: Vector3) -> void:
 	_play("volley", pos + Vector3(0, 1.5, 0), 2.0, 0.05, 0.5)
 
 
-## Voices and steel: silent for now (the hooks stay, for recorded sounds one day).
-func charge(_pos: Vector3) -> void:
-	pass
+## The battle cry, once per charge order (and not again for a few seconds, whoever charges).
+func charge(pos: Vector3) -> void:
+	if _charge_quiet > 0.0:
+		return
+	_charge_quiet = 5.0
+	_play("charge", pos + Vector3(0, 1.5, 0), 0.0, 0.06, 0.5)
+
+
+## A man struck down (or only wounded, more quietly); steel going in when it was a bayonet or a blade.
+func wound_sound(at: Vector3, killed: bool, melee: bool) -> void:
+	if melee:
+		_play("stab", at, 0.0 if killed else -5.0, 0.12, 0.3)
+	if _die_budget >= 1.0 and (killed or randf() < 0.35):
+		_die_budget -= 1.0
+		_play("die", at, -1.0 if killed else -8.0, 0.1, 0.3)
 
 
 func sergeant(_pos: Vector3) -> void:
@@ -197,7 +275,8 @@ func rout(_pos: Vector3) -> void:
 # ---------------------------------------------------------------- blood
 
 ## A man hit at `at`, the blow coming along `dir`: blood sprays out of the far side.
-func hit(at: Vector3, dir: Vector3, killed: bool) -> void:
+func hit(at: Vector3, dir: Vector3, killed: bool, melee: bool = false) -> void:
+	wound_sound(at, killed, melee)
 	if gore:
 		var d := dir
 		d.y = 0.0

@@ -11,3 +11,4 @@ Linebreaker|Grenadier
 Line|Even
 Anvil|Marksman
 Hammer|Brawler
+Patient Line|Even

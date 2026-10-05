@@ -768,6 +768,11 @@ func _process(_delta: float) -> void:
 	if not running or co_labels.is_empty():
 		return
 	for t in 2:
+		# what the side sounds like: drums while it marches up, talk in the ranks while the enemy is far off
+		var side_cen := Vector3.ZERO
+		var side_n := 0
+		var marching := false
+		var near_d := INF
 		for c in (companies[t] as Array).size():
 			var k := ck(t, c)
 			if not co_labels.has(k):
@@ -783,6 +788,11 @@ func _process(_delta: float) -> void:
 				cen += m.global_position
 				top = maxf(top, m.global_position.y)
 			cen /= men.size()
+			side_cen += cen
+			side_n += 1
+			near_d = minf(near_d, float(orders[t][c].get("nearest_d", INF)))
+			if String(orders[t][c].get("mode", "")) == "advance" and not is_reserve(t, c):
+				marching = true
 			lab.visible = true
 			lab.position = Vector3(cen.x, top + 4.0, cen.z)
 			var mode: String = orders[t][c].get("mode", "")
@@ -793,6 +803,9 @@ func _process(_delta: float) -> void:
 				var frac: float = clampf(float(men.size()) / maxf(float(co_bars[k][1]), 1.0), 0.0, 1.0)
 				q.size.x = BAR_W * frac
 				q.center_offset = Vector3(-BAR_W * (1.0 - frac) * 0.5, BAR_Y, 0)
+		if fx != null:
+			fx.side_state(t, side_cen / maxf(side_n, 1), side_n > 0 and marching and near_d > 45.0,
+				side_n > 0 and near_d > 90.0)
 
 
 # ---------------------------------------------------------------- the sergeants
@@ -1556,6 +1569,16 @@ func _run_captain(t: int) -> void:
 		if run_n >= 4:
 			committed[ck(t, c)] = clampf(run_x / run_n, -Field.HALF_X + 8.0, Field.HALF_X - 8.0)
 			continue
+		# the enemy is locked in hand-to-hand with our line: go in now, while they are busy, not after
+		var busy_x := 0.0
+		var busy_n := 0
+		for e in alive_soldiers():
+			if e.team != t and e.in_melee and not e.is_routed:
+				busy_x += e.global_position.x
+				busy_n += 1
+		if busy_n >= 6:
+			committed[ck(t, c)] = clampf(busy_x / busy_n, -Field.HALF_X + 8.0, Field.HALF_X - 8.0)
+			continue
 		if worst >= 0 and worst_l >= trigger:
 			committed[ck(t, c)] = band_x(t, worst)
 		elif elapsed > 90.0 and agg > 0.6 and strength_ratio(t) > 1.3:
@@ -1687,12 +1710,21 @@ static func form_ranks(cos: Array) -> void:
 		for co in cos:
 			co["depth"] = 0.0
 		return   # one rank of four or fewer: the old left-to-right slots
-	for r in groups:
+	# a chequerboard: each rank spreads over the whole front, and a rear rank stands behind the GAPS of the
+	# rank ahead, not behind its men - so the shooters at the back have a clear line past the bayonets
+	var order: Array = []
+	for r in ["Front", "Line", "Back"]:
+		if groups.has(r):
+			order.append(r)
+	var nr := order.size()
+	for ri in nr:
+		var r: String = order[ri]
 		var g: Array = groups[r]
 		var across := mini(g.size(), 8)
+		var shift := (float(ri) - float(nr - 1) * 0.5) / float(nr)
 		for i in g.size():
 			var i_line := i % across
-			g[i]["band"] = 45.0 - (float(i_line) + 0.5) * (90.0 / float(across))
+			g[i]["band"] = 45.0 - clampf((float(i_line) + 0.5 + shift) / float(across), 0.03, 0.97) * 90.0
 			g[i]["slot"] = "%s %d" % [r, i_line]
 			g[i]["depth"] = float(RANK_DEPTH[r])
 

@@ -1,0 +1,25 @@
+# A test of the owner's idea (2026-10-05): the line keeps its fire until the skirmishers behind it have
+# fired, then gives its volley into an enemy already shaken and blinded by smoke. Put Skirmishers (or
+# any shooters) in the rank behind; on its own it behaves like Line that waits until 35 paces.
+drill "Patient Line"
+about "Line that holds its fire until the rank behind it has fired (or the enemy is within 35), then volleys. Meant to stand in front of Skirmishers."
+type Even
+dials aggression 0.50 discipline 0.85 cohesion 0.90 cover 0.20 patience 0.70 nerve 0.75
+
+sergeant:
+  when enemy charging and enemy within 40              -> hold; stand fast; volley at 30
+  when losing the exchange                             -> fall back 30
+  when winning the exchange                            -> press; form tight
+  when rank behind firing and enemy within 60          -> hold; form tight; fire at will
+  when enemy within 35                                 -> hold; form tight; fire at will
+  when enemy within 60                                 -> hold; form tight; hold fire
+  otherwise                                            -> advance; form tight
+
+man:
+  when alone                                           -> keep slot tight
+  when enemy within 6                                  -> bayonet
+  when enemy charging and loaded and enemy within 40   -> fire
+  when enemy charging                                  -> keep slot tight
+  when rank behind firing and loaded and enemy within 60 -> fire
+  when loaded and enemy within 35                      -> fire
+  otherwise                                            -> follow sergeant
