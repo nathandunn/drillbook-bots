@@ -1,0 +1,35 @@
+# The owner's first drill (2026-09-29). Sneak up under cover, ready the weapon, strike from the
+# flank; if seen far off, melt away; if seen close, shoot first; go in when the enemy wavers.
+# v2 (2026-10-05): the ambush is the company's, not each man's - unseen and close, everyone goes
+# in together; the smoke counts as cover; a man keeps to the company's charge once it is called.
+drill "Ninjas"
+about "Creep from cover to cover toward his flank, weapon ready. Unseen and close: the whole company goes in with the blade. Seen close: shoot first. Seen far off: melt away."
+type Scout
+dials aggression 0.55 discipline 0.25 cohesion 0.10 cover 1.00 patience 0.90 nerve 0.70
+
+sergeant:
+  when enemy breaking or enemy broken                  -> charge
+  # the ambush: close and still unseen, or hidden by their smoke - all in at once
+  when not spotted and enemy within 30                 -> charge; form open
+  when smoke between us and enemy within 40            -> charge; form open
+  # seen at middle distance: melt away (seen from very far, keep creeping)
+  when spotted and enemy beyond 40 and enemy within 90 -> fall back 15; find cover
+  when losing the exchange                             -> fall back 25; find cover; form skirmish
+  otherwise                                            -> advance slow; find cover; form skirmish; hold fire
+
+man:
+  # the enemy wavers or runs: everyone goes in
+  when ( enemy breaking or enemy broken or enemy losses over 40% ) and enemy within 40 -> charge
+  # the company has gone in: so does he
+  when mode is charge and enemy within 60              -> charge
+  when smoke between us and enemy within 30            -> charge
+  when enemy within 15                                 -> charge
+  # they turned and saw me: shoot first, but never stand in the open at a distance to do it
+  when spotted and loaded and enemy within 35 and ( in cover or enemy within 20 ) -> fire
+  # seen from afar: melt away
+  when spotted and enemy beyond 35 and enemy within 60 -> back 10
+  when spotted and in cover                            -> hold kneeling
+  when spotted                                         -> take cover within 10
+  # ready the weapon while nobody is looking
+  when not loaded                                      -> reload kneeling
+  otherwise                                            -> sneak 16

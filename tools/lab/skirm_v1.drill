@@ -1,0 +1,15 @@
+# Light infantry: open order, every man his own shot from behind whatever is there.
+drill "Skirmishers"
+about "Open order, every man in cover and firing at will; no volleys, no stomach for the bayonet."
+type Marksman
+dials aggression 0.35 discipline 0.35 cohesion 0.15 cover 0.95 patience 0.45 nerve 0.50
+
+sergeant:
+  otherwise -> fire at will
+
+man:
+  when in smoke and enemy beyond 20 -> step out of the smoke
+  when in cover and loaded and enemy within 55 -> fire
+  when on high ground and loaded and enemy within 80 -> fire
+  when not in cover and not on high ground and enemy within 120 -> take the high ground within 20
+  otherwise -> follow sergeant
