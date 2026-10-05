@@ -1,0 +1,31 @@
+# The owner's first drill (2026-09-29). Sneak up under cover, ready the weapon, strike from the
+# flank; if seen far off, melt away; if seen close, shoot first; go in when the enemy wavers.
+# v3 (2026-10-05): the whole company creeps in and goes in together at 30 m, or as soon as the
+# enemy's smoke hides it; melts away only when seen at middle range; shoots only from cover.
+drill "Ninjas"
+about "Creep from cover to cover toward his flank, weapon ready. Close enough - or hidden by their smoke - the whole company goes in with the blade. Seen close: shoot first, from cover. Seen at middle range: melt away."
+type Scout
+dials aggression 0.55 discipline 0.25 cohesion 0.10 cover 1.00 patience 0.90 nerve 0.70
+
+sergeant:
+  when enemy breaking or enemy broken                  -> charge
+  # the ambush: close, or hidden by their smoke - all in at once
+  when enemy within 30                                 -> charge; form open
+  when smoke between us and enemy within 45            -> charge; form open
+  when losing the exchange and enemy beyond 40         -> fall back 15; find cover
+  otherwise                                            -> advance slow; find cover; form skirmish; hold fire
+
+man:
+  # the enemy wavers or runs: everyone goes in
+  when ( enemy breaking or enemy broken or enemy losses over 40% ) and enemy within 40 -> charge
+  # the company has gone in: so does he
+  when mode is charge and enemy within 60              -> charge
+  when enemy within 15                                 -> charge
+  # they turned and saw me: shoot first - from cover, never standing in the open
+  when spotted and loaded and enemy within 35 and in cover -> fire
+  # seen at middle range: melt away
+  when spotted and enemy beyond 45 and enemy within 70 -> back 10
+  when spotted and in cover                            -> hold kneeling
+  # ready the weapon while nobody is looking
+  when not loaded                                      -> reload kneeling
+  otherwise                                            -> sneak 16
