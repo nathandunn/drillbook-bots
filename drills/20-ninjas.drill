@@ -18,6 +18,10 @@ sergeant:
 man:
   # the enemy wavers or runs: everyone goes in
   when ( enemy breaking or enemy broken or enemy losses over 40% ) and enemy within 40 -> charge
+  # someone else has their attention: take them in the flank
+  when enemy engaged elsewhere and enemy within 40      -> charge
+  # men of theirs running: cut them down
+  when enemy running nearby and enemy within 40        -> charge
   # the smoke hides them: close in under it and go in
   when smoke between us and enemy within 35           -> charge
   # close and unseen: the blade

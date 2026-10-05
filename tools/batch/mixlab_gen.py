@@ -11,10 +11,14 @@ D = {"Sn": "Sniper/Marksman", "Fa": "Fabian Screen/Marksman", "An": "Anvil/Marks
 
 
 def army(spec):
-    """'Sn6 Ni2' -> eight companies, spread so the minority is not all on one flank."""
+    """'Sn6 Ni2' -> eight companies, spread so the minority is not all on one flank. A trailing
+    'h' ('Ni2h') holds those companies back as the captain's reserve. Ranks otherwise come from
+    the type (bayonet men in front, shooters behind)."""
     parts = []
     for tok in spec.split():
-        parts += [D[tok[:2]]] * int(tok[2:])
+        held = tok.endswith("h")
+        n = int(tok[2:-1] if held else tok[2:])
+        parts += [D[tok[:2]] + ("/Held back" if held else "")] * n
     # interleave: e.g. Sn Sn Sn Ni Sn Sn Sn Ni
     major = [p for p in parts if p == parts[0]]
     minor = [p for p in parts if p != parts[0]]
@@ -31,9 +35,13 @@ def army(spec):
     return ",".join(out)
 
 
-CANDS = ["Sn8", "Fa8", "An8", "Ha8", "Sh8", "Sk8", "Ni8",
-         "Sn7 Ni1", "Sn6 Ni2", "Sn4 Ni4", "Fa6 Ni2", "An6 Ni2", "Sk6 Ni2",
-         "Sn6 Ha2", "Sn4 Ha4", "Fa6 Ha2", "Sn6 Sh2", "An4 Ha4", "An3 Ha3 Ni2", "Sn4 Ha2 Ni2", "Fa4 Sn4"]
+# lab 1 (2026-10-05, before ranks): CANDS = ["Sn8", "Fa8", "An8", "Ha8", "Sh8", "Sk8", "Ni8", "Sn7 Ni1", "Sn6 Ni2",
+#   "Sn4 Ni4", "Fa6 Ni2", "An6 Ni2", "Sk6 Ni2", "Sn6 Ha2", "Sn4 Ha4", "Fa6 Ha2", "Sn6 Sh2", "An4 Ha4", "An3 Ha3 Ni2",
+#   "Sn4 Ha2 Ni2", "Fa4 Sn4"]
+# lab 2: with the order of battle (ranks by type) and held-back companies
+CANDS = ["An8", "Ha8", "Sh8", "Fa8", "Sn8",
+         "Ha4 Sn4", "Ha4 Fa4", "Sh4 Sn4", "Sh4 Fa4", "An4 Ha4", "Sh4 Sk4", "Li4 Sk4",
+         "Ha3 Sn3 Ni2", "Ha4 Sn3 Ni1h", "Sn6 Ni2h", "An6 Ni2h", "Fa6 Ni2h", "Ha4 Fa2 Ni2h", "Sh3 An3 Ha2h", "Ha2 An4 Sn2"]
 PANEL = ["Sn8", "Fa8", "An8", "Ha8", "Sh8", "Li8", "Lb8", "An4 Ha4"]
 FIELDS = ["Open Plain", "Walled Farm", "Woodland", "Village", "City"]
 os.makedirs(JOBS, exist_ok=True); os.makedirs(OUT, exist_ok=True)

@@ -125,12 +125,15 @@ func _ready() -> void:
 			var parts := String(args[key + "mix"]).split(",", false)
 			for c in mini(parts.size(), MatchManager.MAX_COMPANIES):
 				var f := parts[c].split("/")
+				var third: String = f[2].strip_edges() if f.size() > 2 else ""
 				var co := manager.new_company(t, c, f[0].strip_edges(), f[1].strip_edges() if f.size() > 1 else "Even",
-					f[2].strip_edges() if f.size() > 2 else MatchManager.SLOTS[mini(c, 3)], per)
+					third if MatchManager.SLOTS.has(third) else MatchManager.SLOTS[mini(c, 3)], per)
+				if MatchManager.RANKS.has(third):
+					co["rank"] = third   # Drill/Type/Front|Line|Back|Held back
 				if co.get("drill") == null:
 					push_warning("no drill called %s" % f[0])
 				cos2.append(co)
-			MatchManager.spread_front(cos2)
+			MatchManager.form_ranks(cos2)
 			manager.companies[t] = cos2
 			manager.battalion_names[t] = "Mix"
 		manager.select_company(t, 0)
@@ -674,12 +677,13 @@ func _prepare_battle(t: int) -> void:
 		co["type"] = (a["type_obj"] as SoldierType).copy()
 		co["type_name"] = a["type"]
 		co["army_i"] = picked[c]
+		co["rank"] = String(a.get("rank", "Auto"))
 		cos.append(co)
 		for m in a["men"]:
 			var rec: Dictionary = (m as Dictionary).duplicate()
 			rec["co"] = c
 			roster.append(rec)
-	MatchManager.spread_front(cos)
+	MatchManager.form_ranks(cos)
 	manager.companies[t] = cos
 	manager.battalion_names[t] = "Army"
 	manager.rosters[t] = roster
@@ -1064,6 +1068,10 @@ func set_company(t: int, i: int, drill_name: String, type_name: String) -> void:
 	if type_name != "":
 		a["type_obj"] = SoldierType.preset(type_name)
 		a["type"] = type_name if type_name != "Random" else (a["type_obj"] as SoldierType).label()
+
+
+func set_company_rank(t: int, i: int, rank: String) -> void:
+	armies[t][i]["rank"] = rank
 
 
 func copy_to_all(t: int, i: int) -> void:

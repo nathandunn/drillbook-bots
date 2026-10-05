@@ -9,6 +9,8 @@ dials aggression 0.85 discipline 0.60 cohesion 0.60 cover 0.40 patience 0.30 ner
 sergeant:
   when enemy breaking or enemy broken                          -> charge
   when enemy charging and enemy within 30                      -> charge
+  # the enemy is locked in a fight with another company of ours: hit it from the side
+  when enemy engaged elsewhere and enemy within 50             -> charge; form open
   # they have just fired and are blind in their own smoke: go in through it
   when smoke between us and enemy within 50                    -> charge; form open
   when neighbour engaged and enemy reloading and enemy within 60 -> charge; form open

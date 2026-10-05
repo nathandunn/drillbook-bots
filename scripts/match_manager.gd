@@ -103,7 +103,8 @@ var _spot_claims := {}   # "x,z" -> soldier
 var _last_volley_t := {}   # ck -> time
 var _volley_ids := {}
 var _charge_since := {}
-var _idle := {}              # ck -> [since, shots, men]: a company doing nothing, and since when
+var _idle := {}
+var _fired_at := {}          # ck -> when a man of the company last fired              # ck -> [since, shots, men]: a company doing nothing, and since when
 var _exch := {}            # ck -> [hits given, hits taken] lately (decays)
 var _last_harm_t := 0.0    # when anyone last hit anyone
 var _press_since := {}
@@ -305,7 +306,7 @@ func start_match(seed_value: int = -1) -> void:
 			var reserve: bool = String(co["slot"]) == "Reserve"
 			var stack: int = int(per_slot.get(co["slot"], 0))
 			per_slot[co["slot"]] = stack + 1
-			var z0: float = home_z(t) + toward(t) * (0.0 if reserve else 22.0) - toward(t) * 8.0 * stack
+			var z0: float = home_z(t) + toward(t) * (0.0 if reserve else 22.0) - toward(t) * (8.0 * stack + float(co.get("depth", 0.0)))
 			order["line_z"] = z0
 			order["rally_z"] = z0
 			order["center_x"] = band_x(t, c)
@@ -400,6 +401,7 @@ func clear() -> void:
 	_last_volley_t = {}
 	_charge_since = {}
 	_idle = {}
+	_fired_at = {}
 	_fallback_since = {}
 	_exch = {}
 	_last_harm_t = 0.0
@@ -516,6 +518,61 @@ func neighbour_sense(id: String, t: int, c: int) -> bool:
 			"neighbour_engaged":
 				if fighting_n > 0 and float(o.get("nearest_d", INF)) <= 60.0:
 					return true
+	return false
+
+
+## Rank words: the companies of my side in a rank ahead of mine (nearer the enemy) are in it -
+## charging, fighting hand to hand or within 25 m - or are firing; or those behind me are firing.
+func rank_sense(id: String, t: int, c: int) -> bool:
+	var my_d := float(companies[t][c].get("depth", 0.0)) if c < (companies[t] as Array).size() else 0.0
+	for c2 in (companies[t] as Array).size():
+		if c2 == c or fighting_company(t, c2).is_empty() or is_reserve(t, c2):
+			continue
+		var d2 := float(companies[t][c2].get("depth", 0.0))
+		var o: Dictionary = orders[t][c2]
+		var fired_lately := elapsed - float(_fired_at.get(ck(t, c2), -100.0)) < 6.0
+		match id:
+			"rank_ahead_engaged":
+				if d2 < my_d and (String(o.get("mode", "")) == "charge" or float(o.get("nearest_d", INF)) <= 25.0):
+					return true
+			"rank_ahead_firing":
+				if d2 < my_d and fired_lately:
+					return true
+			"rank_behind_firing":
+				if d2 > my_d and fired_lately:
+					return true
+	return false
+
+
+## The enemy company nearest me is busy with another of my companies (closer to it than I am,
+## within 25 m of it): its flank or back is mine to take.
+func enemy_engaged_elsewhere(t: int, c: int) -> bool:
+	var here: Vector3 = orders[t][c].get("centre", Vector3(band_x(t, c), 0, home_z(t)))
+	var best := -1
+	var best_d := INF
+	for ec in (orders[1 - t] as Array).size():
+		var eo: Dictionary = orders[1 - t][ec]
+		if not eo.has("centre") or fighting_company(1 - t, ec).is_empty():
+			continue
+		var d := (eo["centre"] as Vector3).distance_to(here)
+		if d < best_d:
+			best_d = d
+			best = ec
+	if best < 0:
+		return false
+	var nd := float(orders[1 - t][best].get("nearest_d", INF))
+	return nd <= 25.0 and best_d > nd + 10.0
+
+
+## Men of theirs running within `r` metres of this company.
+func enemy_broken_near(t: int, c: int, r: float) -> bool:
+	var here: Vector3 = orders[t][c].get("centre", Vector3(band_x(t, c), 0, home_z(t)))
+	var n := 0
+	for s in alive_soldiers():
+		if s.team != t and s.is_routed and not s.gone and s.global_position.distance_to(here) < r:
+			n += 1
+			if n >= 2:
+				return true
 	return false
 
 
@@ -1043,6 +1100,21 @@ func _run_sergeant(t: int, c: int) -> void:
 			else:
 				order["line_z"] = centre.z
 
+	# --- the order of battle: a rear rank keeps behind the front rank while the front rank stands
+	var my_depth := float(companies[t][c].get("depth", 0.0))
+	if my_depth > 0.0 and mode != "charge" and mode != "fallback":
+		var lead := INF
+		for c2 in (companies[t] as Array).size():
+			if c2 == c or is_reserve(t, c2) or fighting_company(t, c2).is_empty():
+				continue
+			if float(companies[t][c2].get("depth", 0.0)) < my_depth and (orders[t][c2] as Dictionary).has("centre"):
+				var z2: float = (orders[t][c2]["centre"] as Vector3).z * toward
+				lead = minf(lead, z2) if lead < INF else z2
+		if lead < INF:
+			var cap: float = (lead - (my_depth - 0.0) * 0.8) * toward
+			if (float(order["line_z"]) - cap) * toward > 0.0:
+				order["line_z"] = cap
+
 	# --- the volley: enough men loaded and in range, and it's been a moment since the last
 	if mode != "charge" and mode != "fallback" and not enemies.is_empty() and not _plan.get("hold_fire", false):
 		var ready := 0
@@ -1107,6 +1179,12 @@ func shared_sense(id: String, args: Array, t: int, c: int, r: RandomNumberGenera
 			return alive_e == 0 or float(fighting(1 - t).size()) / float(alive_e) < 0.5
 		"neighbour_charging", "neighbour_falling_back", "neighbour_engaged", "neighbour_broken":
 			return neighbour_sense(id, t, c)
+		"rank_ahead_engaged", "rank_ahead_firing", "rank_behind_firing":
+			return rank_sense(id, t, c)
+		"enemy_engaged_elsewhere":
+			return enemy_engaged_elsewhere(t, c)
+		"enemy_broken_nearby":
+			return enemy_broken_near(t, c, 50.0)
 		"mates_running":
 			# two in five of my own side are routed: the line is going
 			var own_n := 0
@@ -1410,6 +1488,7 @@ func volley_pressure(shooter: Soldier, mark: Vector3, hit: bool) -> void:
 
 func _on_fired(s: Soldier, victim: Soldier, hit: bool) -> void:
 	stats["shots"][s.team] += 1
+	_fired_at[ck(s.team, s.company)] = elapsed
 	if hit and victim.team != s.team:
 		stats["hits"][s.team] += 1
 		_exch[ck(s.team, s.company)][0] += 1.0
@@ -1467,6 +1546,16 @@ func _run_captain(t: int) -> void:
 				worst_l = l
 				worst = o
 		var trigger := 0.45 - 0.25 * agg   # an eager captain sends it in sooner
+		# the enemy is running: the held-back company goes after them
+		var run_x := 0.0
+		var run_n := 0
+		for e in alive_soldiers():
+			if e.team != t and e.is_routed and not e.gone:
+				run_x += e.global_position.x
+				run_n += 1
+		if run_n >= 4:
+			committed[ck(t, c)] = clampf(run_x / run_n, -Field.HALF_X + 8.0, Field.HALF_X - 8.0)
+			continue
 		if worst >= 0 and worst_l >= trigger:
 			committed[ck(t, c)] = band_x(t, worst)
 		elif elapsed > 90.0 and agg > 0.6 and strength_ratio(t) > 1.3:
@@ -1561,13 +1650,53 @@ func end_match(reason: String) -> void:
 	match_ended.emit(result)
 
 
-## More than four companies share the whole front, up to eight abreast, a ninth and more behind -
-## nobody stands where he can only see his own men's backs. Four or fewer keep their slots.
+## The order of battle: every company takes a rank - Front, Line or Back (or is Held back by the
+## captain) - by its own choice or, left to "Auto", by its type: bayonet men in front, shooters
+## behind, the rest between. Each rank spreads across the whole front (up to eight abreast, more
+## stack behind), the ranks ten metres apart. Four or fewer companies all in one rank keep the
+## old left / centre / right slots.
+const RANKS := ["Auto", "Front", "Line", "Back", "Held back"]
+const RANK_DEPTH := {"Front": 0.0, "Line": 10.0, "Back": 20.0, "Held back": 0.0}
+
+
+static func default_rank(type_name: String) -> String:
+	match type_name:
+		"Brawler", "Grenadier", "Ironside", "Shinobi":
+			return "Front"
+		"Marksman", "Scout":
+			return "Back"
+	return "Line"
+
+
+static func form_ranks(cos: Array) -> void:
+	var groups := {}
+	for co in cos:
+		var r: String = String(co.get("rank", "Auto"))
+		if r == "" or r == "Auto" or not RANKS.has(r):
+			r = default_rank(String(co.get("type_name", "Even")))
+		co["rank"] = r
+		if r == "Held back":
+			co["slot"] = "Reserve"
+			co.erase("band")
+			co["depth"] = 0.0
+			continue
+		if not groups.has(r):
+			groups[r] = []
+		groups[r].append(co)
+	if groups.size() <= 1 and cos.size() <= 4:
+		for co in cos:
+			co["depth"] = 0.0
+		return   # one rank of four or fewer: the old left-to-right slots
+	for r in groups:
+		var g: Array = groups[r]
+		var across := mini(g.size(), 8)
+		for i in g.size():
+			var i_line := i % across
+			g[i]["band"] = 45.0 - (float(i_line) + 0.5) * (90.0 / float(across))
+			g[i]["slot"] = "%s %d" % [r, i_line]
+			g[i]["depth"] = float(RANK_DEPTH[r])
+
+
+## Kept for older callers: the order of battle by type.
 static func spread_front(cos: Array) -> void:
-	if cos.size() <= 4:
-		return
-	var across := mini(cos.size(), 8)
-	for c in cos.size():
-		var i_line := c % across
-		cos[c]["band"] = 45.0 - (float(i_line) + 0.5) * (90.0 / float(across))
-		cos[c]["slot"] = "Line %d" % i_line
+	form_ranks(cos)

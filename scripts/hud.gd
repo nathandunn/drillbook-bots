@@ -631,7 +631,10 @@ func _company_card(a: Dictionary, show_men: bool) -> Button:
 	var b := Button.new()
 	b.toggle_mode = true
 	var men := (" · %d" % (a["men"] as Array).size()) if show_men else ""
-	b.text = "%s%s\n%s\n%s" % [a["name"], men, a["drill"], a["type"]]
+	var rk: String = String(a.get("rank", "Auto"))
+	if rk == "Auto" or rk == "":
+		rk = MatchManager.default_rank(String(a["type"]))
+	b.text = "%s%s\n%s\n%s\n%s" % [a["name"], men, a["drill"], a["type"], rk]
 	b.custom_minimum_size = Vector2(96, 0)
 	b.add_theme_font_size_override("font_size", 12)
 	b.focus_mode = Control.FOCUS_NONE
@@ -690,6 +693,22 @@ func _fill_editor(t: int) -> void:
 		b.pressed.connect(func(): game.set_company(t, i, "", n); _fill_roster(t); _fill_editor(t))
 		trow.add_child(b)
 	_type_help[t] = tl   # the type's description and numbers show when pointed at
+	# 3. where it stands in the order of battle
+	var rkl := Label.new()
+	rkl.text = "Rank - where it stands"
+	rkl.add_theme_font_size_override("font_size", 15)
+	ed.add_child(rkl)
+	_hover(rkl, "Front: first in the line - bayonet men. Line: the main line. Back: behind the others, firing past them - shooters; a back rank stays behind the front while the front stands. Held back: kept in reserve; the captain sends it in where the line is going worst or after a running enemy. Auto: by its type (Brawler, Grenadier, Ironside, Shinobi in front; Marksman, Scout at the back; the rest in the line).")
+	var rrow := HFlowContainer.new()
+	ed.add_child(rrow)
+	var cur_rank: String = String(a.get("rank", "Auto"))
+	for rn in MatchManager.RANKS:
+		var label: String = rn if rn != "Auto" else "Auto (%s)" % MatchManager.default_rank(String(a["type"]))
+		var rb := _chip(label, rn == cur_rank or (cur_rank == "" and rn == "Auto"))
+		rb.disabled = locked
+		var rr: String = rn
+		rb.pressed.connect(func(): game.set_company_rank(t, i, rr); _fill_roster(t); _fill_editor(t))
+		rrow.add_child(rb)
 	var ft := _chip("Fine-tune the type" + (" (hide)" if _finetune[t] else ""), _finetune[t])
 	ft.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	ft.pressed.connect(func(): _finetune[t] = not _finetune[t]; _fill_editor(t))
