@@ -23,7 +23,7 @@ const PRESETS := {
 	"Ironside":  {"run": 0.18, "melee": 0.22, "accuracy": 0.15, "stamina": 0.45, "stealth": 0.25},
 	"Brawler":   {"run": 0.35, "melee": 0.50, "accuracy": 0.00, "stamina": 0.15, "stealth": 0.25},
 	"Scout":     {"run": 0.32, "melee": 0.20, "accuracy": 0.15, "stamina": 0.13, "stealth": 0.45},
-	"Shinobi":   {"run": 0.25, "melee": 0.42, "accuracy": 0.08, "stamina": 0.10, "stealth": 0.40},
+	"Shinobi":   {"run": 0.38, "melee": 0.45, "accuracy": 0.02, "stamina": 0.06, "stealth": 0.34},
 }
 
 const TYPE_HELP := {
@@ -34,7 +34,7 @@ const TYPE_HELP := {
 	"Ironside": "Never tires; ordinary at everything else",
 	"Brawler": "All bayonet and legs: the best in a melee and quick to get there; can barely shoot",
 	"Scout": "Hard to see and quick: noticed late, above all creeping or in cover; little else",
-	"Shinobi": "Unseen until close, then deadly with the blade; tires fast and can barely shoot",
+	"Shinobi": "Fast and hard to see, deadly with the blade; tires fast and can barely shoot",
 }
 
 const CURVE := 0.8

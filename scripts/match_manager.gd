@@ -429,7 +429,7 @@ func clear() -> void:
 func _fresh_stats() -> Dictionary:
 	return {
 		"shots": [0, 0], "hits": [0, 0], "kills": [[0, 0], [0, 0]],   # kills[t] = [rifle, bayonet]
-		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "rallied": [0, 0], "fled": [0, 0],
+		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "rallied": [0, 0], "own_kills": [0, 0], "fled": [0, 0],
 		"friendly": [0, 0], "thrusts": [0, 0], "thrust_hits": [0, 0], "wounds": [0, 0],
 	}
 
@@ -613,6 +613,10 @@ func nearest_enemy(s: Soldier) -> Soldier:
 			continue
 		# fog of war: a man not yet noticed - far off, still, hidden, stealthy - is not there
 		var nr := o.notice_range()
+		# ... and a man looking ahead does not see what is behind him: only close (a step, a
+		# breath) or when it makes itself known (a shot, the clash of a fight, a man running)
+		if nr < 250.0 and not s.in_melee and not s.is_routed and s.is_behind_me(o):
+			nr = minf(nr, 6.0)
 		if o.global_position.distance_squared_to(s.global_position) > nr * nr:
 			continue
 		best_d = d
@@ -632,6 +636,29 @@ func nearest_clear_enemy(s: Soldier) -> Soldier:
 			best_d = d
 			best = o
 	return best
+
+
+## A friend near the path a miss at `enemy` would fly on along - beyond the target, out to `reach` m.
+func friend_beyond(s: Soldier, enemy: Soldier, reach: float) -> Soldier:
+	var a := s.global_position
+	var ab := enemy.global_position - a
+	ab.y = 0.0
+	var len := ab.length()
+	if len < 0.5:
+		return null
+	var dir := ab / len
+	for o in alive_soldiers():
+		if o.team != s.team or o == s:
+			continue
+		var ao := o.global_position - a
+		ao.y = 0.0
+		var along := ao.dot(dir)
+		if along <= len or along > len + reach:
+			continue
+		# the spread of a miss widens with the distance past the target
+		if (ao - dir * along).length() < 1.5 + 0.15 * (along - len):
+			return o
+	return null
 
 
 ## A friend standing within a shoulder of the line of fire, closer than the target.
@@ -1556,6 +1583,8 @@ func _on_damaged(s: Soldier, amount: float, _source: String, _attacker: Soldier)
 func _on_died(s: Soldier, source: String, attacker: Soldier) -> void:
 	if attacker != null and attacker.team != s.team:
 		stats["kills"][attacker.team][1 if source == "bayonet" else 0] += 1
+	elif attacker != null:
+		stats["own_kills"][s.team] += 1   # a stray ball from his own side
 	for o in alive_soldiers():
 		if o.team == s.team:
 			o.notice_death(s.global_position)

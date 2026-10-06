@@ -15,6 +15,7 @@ signal field_chosen(layout: String)
 signal army_pick(t: int, i: int)
 signal fall_back_to(no: int)
 signal simulate_requested
+signal simulate_rest_requested
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
 const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Scout", "Shinobi", "Random"]
@@ -68,6 +69,7 @@ var _campaign_btn: Button
 var _fight_btn: Button
 var _top_campaign_btn: Button
 var _top_epic_btn: Button
+var _sim_rest_btn: Button
 var _setup_epic_btn: Button
 var epic_on := false
 var _fight_btn0: Button
@@ -158,6 +160,10 @@ func setup(m: MatchManager) -> void:
 		pause_btn.text = "Resume" if _paused else "Pause"
 		pause_toggled.emit(_paused))
 	row.add_child(pause_btn)
+	_sim_rest_btn = _button("Sim the rest")
+	_sim_rest_btn.tooltip_text = "Finish this battle unseen, at full speed, and go straight to the result"
+	_sim_rest_btn.pressed.connect(func(): simulate_rest_requested.emit())
+	row.add_child(_sim_rest_btn)
 	var fit := _button("Fit view")
 	fit.pressed.connect(func(): fit_requested.emit())
 	row.add_child(fit)
@@ -1212,6 +1218,8 @@ func _process(delta: float) -> void:
 		if g != null:
 			txt += "\n" + g.label()
 		team_labels[t].text = txt
+	if _sim_rest_btn != null:
+		_sim_rest_btn.visible = manager.running
 	if manager.running:
 		var clock := "%d:%02d" % [int(manager.elapsed) / 60, int(manager.elapsed) % 60]
 		if manager.pursuit_since >= 0.0:
@@ -1489,9 +1497,10 @@ func show_round(sm: Dictionary) -> void:
 	fm.men_full = [sm["men_full"], sm["men_full"]]
 	fm.over = over
 	fm.campaign_winner = cw
-	if not is_epic:   # an epic has no front, only what each army has left
-		results_box.add_child(fm)
-		fm.play()
+	if is_epic:
+		fm.fields = []   # an epic has no front: only each army's bar, draining to what it has left
+	results_box.add_child(fm)
+	fm.play()
 	if over:
 		var why := Label.new()
 		why.text = String(sm.get("why", ""))
@@ -1507,6 +1516,10 @@ func show_round(sm: Dictionary) -> void:
 	_stat_row(g2, "Fell - gone for good", [c[0]["fell"], c[1]["fell"]])
 	var st: Dictionary = res["stats"]
 	_stat_row(g2, "Killed by ball / bayonet", ["%d / %d" % [st["kills"][0][0], st["kills"][0][1]], "%d / %d" % [st["kills"][1][0], st["kills"][1][1]]])
+	var own: Array = st.get("own_kills", [0, 0])
+	if int(own[0]) + int(own[1]) > 0:
+		_stat_row(g2, "Fell to their own side's stray balls", [own[0], own[1]])
+		_hover(g2.get_child(g2.get_child_count() - 3), "Men killed by a ball from their own side - a miss flies on and hits whoever is in its path. These count in 'Fell' but not in the enemy's kills.")
 	_stat_row(g2, "Battles won, killed in the war", ["%d, %d" % [sm["wins"][0], sm["kills"][0]], "%d, %d" % [sm["wins"][1], sm["kills"][1]]])
 	_stat_row(g2, "Men left in the army", [sm["men_after"][0], sm["men_after"][1]])
 	var b_rows := battle_unit_rows(res)

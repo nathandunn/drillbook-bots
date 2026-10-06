@@ -193,6 +193,7 @@ func _ready() -> void:
 	hud.epic_requested.connect(_start_epic)
 	hud.next_round_requested.connect(_next_round)
 	hud.simulate_requested.connect(_simulate)
+	hud.simulate_rest_requested.connect(_simulate_rest)
 	hud.campaign_abandoned.connect(_abandon_campaign)
 	hud.army_pick.connect(toggle_army_pick)
 	hud.fall_back_to.connect(fall_back_to)
@@ -375,6 +376,20 @@ func _simulate() -> void:
 		_start_next()
 
 
+## Fight the rest of the battle on the field unseen, at full speed, straight to the result.
+func _simulate_rest() -> void:
+	if not manager.running or _simulating:
+		return
+	_simulating = true
+	_speed_before = Engine.time_scale
+	get_viewport().disable_3d = true
+	if manager.fx != null:
+		manager.fx.muted_sim = true
+	hud.show_sim_cover(true)
+	set_sim_speed(24.0)
+	Engine.max_physics_steps_per_frame = 96
+
+
 func _end_simulation() -> void:
 	if not _simulating:
 		return
@@ -451,7 +466,7 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 	var wins := [0, 0]
 	var draws := 0
 	var dur := 0.0
-	var keys := ["shots", "hits", "volleys", "charges", "fallbacks", "routed", "rallied", "friendly", "thrusts", "thrust_hits"]
+	var keys := ["shots", "hits", "volleys", "charges", "fallbacks", "routed", "rallied", "own_kills", "friendly", "thrusts", "thrust_hits"]
 	var tot := {}
 	for k in keys:
 		tot[k] = [0, 0]

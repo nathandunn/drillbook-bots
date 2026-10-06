@@ -29,6 +29,8 @@ func _init() -> void:
 
 
 func play() -> void:
+	if fields.is_empty():
+		custom_minimum_size = Vector2(0, 46)
 	_t = 0.0
 	queue_redraw()
 
@@ -45,11 +47,12 @@ static func _ease(x: float) -> float:
 
 func _draw() -> void:
 	var n := fields.size()
-	if n == 0:
-		return
 	var font := get_theme_default_font()
 	var w := size.x
 	var pad := 6.0
+	if n == 0:
+		_draw_bars(font, w, pad, 6.0)   # no front (an epic): the armies only
+		return
 	var cell := (w - pad * 2.0) / n
 	var top := 22.0
 	var h := 46.0
@@ -87,10 +90,14 @@ func _draw() -> void:
 	draw_line(Vector2(mx - 8, my - 8), Vector2(mx + 8, my + 8), mc, 3.0)
 	draw_line(Vector2(mx + 8, my - 8), Vector2(mx - 8, my + 8), mc, 3.0)
 	draw_line(Vector2(mx, top + h), Vector2(mx, my - 9), mc, 1.5)
-	# the armies: bars draining from before to after
+	_draw_bars(font, w, pad, top + h + 30.0)
+
+
+## The armies: bars draining from before to after.
+func _draw_bars(font: Font, w: float, pad: float, y0: float) -> void:
 	var s := _ease(clampf((_t - 0.3) / 0.7, 0.0, 1.0))
 	for t in 2:
-		var y := top + h + 30.0 + t * 18.0
+		var y := y0 + t * 18.0
 		var full := maxf(float(men_full[t]), 1.0)
 		var now := lerpf(float(men_before[t]), float(men_after[t]), s)
 		var bw := w - pad * 2.0 - 120.0

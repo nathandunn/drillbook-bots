@@ -17,7 +17,7 @@ const MAX_HP := 100.0
 const WALK := 1.7
 const RUN := 4.6
 const RELOAD := 20.0           # seconds: the fastest a man can shoot, one round every 20 s (owner, 2026-09-30)
-const AMMO := 40               # rounds in the cartridge box, the loaded one included
+const AMMO := 30               # rounds in the cartridge box, the loaded one included
 const MAX_RANGE := 100.0
 const POINT_BLANK := 12.0
 const STEEL_RANGE := 3.0        # an enemy this close is a bayonet matter; no one shoots with a blade coming in
@@ -104,6 +104,7 @@ var _cover_spot: Dictionary = {}
 var _cover_hold := 0.0
 var _bleed_t := 0.0
 var _still_t := 0.0
+var _kite_lock := 0.0          # after running back: this long standing his ground before he may run back again
 var _about_face := false       # falling back with his back to the enemy (full walking pace, no shooting)
 var _last_fire_t := -100.0       # a shot gives a man away: flash and a puff of smoke
 var _sneak_t := 0.0             # how long he has stood still: a musket is aimed standing
@@ -227,6 +228,7 @@ func _tick_timers(delta: float) -> void:
 	_sneak_t = maxf(_sneak_t - delta, 0.0)
 	thrust_timer = maxf(thrust_timer - delta, 0.0)
 	kiting = maxf(kiting - delta, 0.0)
+	_kite_lock = maxf(_kite_lock - delta, 0.0)
 	_halt = maxf(_halt - delta, 0.0)
 	_cover_hold = maxf(_cover_hold - delta, 0.0)
 	_high_hold = maxf(_high_hold - delta, 0.0)
@@ -472,6 +474,8 @@ func _drill_sense(id: String, args: Array) -> bool:
 			return e != null and not e.loaded
 		"spotted":
 			return e != null and is_spotted_by(e)
+		"behind_enemy":
+			return e != null and _behind_line_of(e)
 		"loaded":
 			return loaded
 		"out_of_ammo":
@@ -500,6 +504,22 @@ func _drill_sense(id: String, args: Array) -> bool:
 		"charging":
 			return charging
 	return false
+
+
+## Am I behind the line of e's company - on the side of it toward their own rear?
+func _behind_line_of(e: Soldier) -> bool:
+	var ord: Dictionary = manager.orders[e.team][e.company]
+	var cen: Vector3 = ord.get("centre", e.global_position)
+	return (global_position.z - cen.z) * signf(manager.home_z(e.team)) > 4.0
+
+
+## Is `other` behind me - outside what a man looking ahead can see (about 100 degrees either side)?
+func is_behind_me(other: Soldier) -> bool:
+	var to_o := other.global_position - global_position
+	to_o.y = 0.0
+	if to_o.length() < 0.01:
+		return false
+	return facing_dir().dot(to_o.normalized()) < -0.17
 
 
 ## Which way the man is looking (flat, unit length). The body is turned yaw + PI in `_move`.
@@ -627,6 +647,12 @@ func _drill_act(id: String, args: Array) -> bool:
 		"back":
 			if e == null:
 				return false
+			# one clean run back - then stand, load and fire, and only then see whether to go back
+			# again (no dithering back and forth every second)
+			if kiting > 0.0 and action == "kite":
+				return true
+			if _kite_lock > 0.0:
+				return false
 			var dist: float = float(args[0]) if not args.is_empty() else 10.0
 			var away: Vector3 = global_position - e.global_position
 			away.y = 0.0
@@ -635,6 +661,7 @@ func _drill_act(id: String, args: Array) -> bool:
 			want_run = true
 			face_point = e.global_position
 			kiting = dist / maxf(run_speed, 1.0)
+			_kite_lock = kiting + 6.0
 			return true
 		"advance":
 			if e == null:
@@ -644,6 +671,37 @@ func _drill_act(id: String, args: Array) -> bool:
 			goal = field.free_point(global_position + toward.normalized() * minf(6.0, maxf(ed - 3.0, 0.0)))
 			action = "form"
 			face_point = e.global_position
+			return true
+		"go_round":
+			# Out round the end of the enemy's line - wide, walking, keeping low - and in behind it,
+			# where the men are all looking the other way. Then the drill's "behind the enemy" rule
+			# sends him in.
+			if e == null:
+				return false
+			var ord: Dictionary = manager.orders[e.team][e.company]
+			var cen: Vector3 = ord.get("centre", e.global_position)
+			var back := signf(manager.home_z(e.team))            # the way to the enemy's rear
+			var half_w := maxf(8.0, float(ord.get("count", 10)) * float(ord.get("spacing", 1.0)) * 0.7)
+			var side := signf(global_position.x - cen.x)
+			if side == 0.0:
+				side = 1.0 if slot % 2 == 0 else -1.0
+			var dist: float = float(args[0]) if not args.is_empty() else 15.0
+			var g: Vector3
+			if _behind_line_of(e):
+				g = Vector3(cen.x, 0, cen.z + back * dist)        # in behind: close on the middle of their back
+			elif absf(global_position.x - cen.x) < half_w + 22.0:
+				g = Vector3(cen.x + side * (half_w + 30.0), 0, global_position.z)   # out wide first
+			else:
+				g = Vector3(cen.x + side * (half_w + 22.0), 0, cen.z + back * dist)  # past the end, round behind
+			g += Vector3(float(slot % 5) * 2.5 - 5.0, 0, float(slot / 5) * 2.5)   # spread out, not a knot
+			g.x = clampf(g.x, -Field.HALF_X + 2.0, Field.HALF_X - 2.0)
+			g.z = clampf(g.z, -Field.HALF_Z + 3.0, Field.HALF_Z - 3.0)
+			goal = field.free_point(g)
+			action = "cover"
+			kneeling = false
+			want_run = false
+			_sneak_t = 0.8
+			face_point = goal
 			return true
 		"sneak":
 			# Creep from cover to cover toward the enemy, walking, drifting toward his flank.
@@ -800,7 +858,11 @@ func _can_fire_at(enemy: Soldier) -> bool:
 		return false
 	# a friend in the line of fire: a disciplined man holds, a careless one does not
 	var friend := manager.friend_in_line(self, enemy)
-	if friend != null and p("discipline") > 0.4:
+	if friend != null and (p("discipline") > 0.4 or friend.global_position.distance_to(global_position) < 5.0):
+		return false   # (nobody, however careless, fires through the back of a mate at arm's length)
+	# ... or one of ours beyond him, where a miss would fly on (men of ours behind their line):
+	# a careful man holds his fire, a careless one shoots anyway
+	if p("discipline") > 0.3 and manager.friend_beyond(self, enemy, 90.0) != null:
 		return false
 	return true
 
@@ -950,12 +1012,27 @@ func _try_thrust(enemy: Soldier) -> void:
 		p_hit *= 1.5
 	if tired():
 		p_hit *= 0.75
-	var landed := rng.randf() < clampf(p_hit, 0.08, 0.95)
+	# from behind: he cannot parry what he cannot see - and if he never knew I was there, it is
+	# over before he turns
+	var from_behind := enemy.is_behind_me(self)
+	var unaware := from_behind and enemy.target != self and not enemy.in_melee
+	if from_behind:
+		p_hit *= 1.8
+	if unaware:
+		p_hit = maxf(p_hit, 0.92)
+	var landed := rng.randf() < clampf(p_hit, 0.08, 0.97)
 	if not landed and manager.fx != null and rng.randf() < 0.5:
 		manager.fx.clash(global_position)   # parried: steel on steel
 	if landed:
 		thrust_hits += 1
 		var dmg := BAYONET_DMG * melee_mult * rng.randf_range(0.8, 1.3)
+		if from_behind:
+			dmg *= 2.2 if unaware else 1.5
+			# a blade in the back: the men about him feel it - the enemy is behind the line
+			for o in manager.fighting(enemy.team):
+				if o != enemy and o.global_position.distance_to(enemy.global_position) < 10.0:
+					o.fear = minf(o.fear + 0.12, 0.6)
+					o.under_fire = true
 		dmg_done += dmg
 		enemy.take_damage(dmg, "bayonet", self)
 	thrust.emit(self, landed)
