@@ -169,6 +169,13 @@ func _first_choice(m: MatchManager) -> Array:
 	var us := _make_up(m, t)
 	var them := _make_up(m, 1 - t)
 	var ratio := float(us["men"]) / maxf(float(them["men"]), 1.0)
+	# (from the play lab, 2026-10-05: an army all of marksmen does best pressing in together and
+	# finishing with the bayonet, and one all of bayonets going forward as one line; standing to
+	# receive lost for both. Mixed armies did best with this general choosing and changing.)
+	if us["shoot"] >= 0.8:
+		return ["All-out charge", "every man of ours is a marksman - press in shooting and finish with the bayonet"]
+	if us["steel"] >= 0.8:
+		return ["General advance", "all bayonets - go forward as one line and close"]
 	if ratio >= 1.25:
 		return ["Hammer and anvil", "we have %.1f men to their 1 - enough to go round them" % ratio]
 	if us["shoot"] >= 0.5 and them["shoot"] < 0.4:
@@ -295,7 +302,7 @@ func _rethink(m: MatchManager) -> void:
 	elif taken > 2.5 * given + 4.0 and play == "General advance" and ratio > 1.0 and _make_up(m, t)["steel"] >= 0.4:
 		want = "All-out charge"
 		why = "still losing the firefight (%d hits taken to %d given) - everyone in with the bayonet" % [int(taken), int(given)]
-	elif ratio < 0.6 and play != "Hold and receive":
+	elif ratio < 0.6 and play != "Hold and receive" and _make_up(m, t)["shoot"] > 0.2 and _make_up(m, t)["shoot"] < 0.8:
 		want = "Hold and receive"
 		why = "too few of us left to attack - hold what we have"
 	elif play == "Hold and receive" and quiet > 25.0 and m.elapsed > 40.0:

@@ -10,6 +10,8 @@ G, OUT, JOBS = sys.argv[1], sys.argv[2], sys.argv[3]
 CANDS = ["An8", "Ha8", "Sh8", "Fa8", "Sn8", "An4 Ha4", "Ha4 Sn4", "Sh4 Sk4"]
 PLAYS = ["General's choice", "General advance", "Hammer and anvil", "Hold and receive", "Feint and draw",
          "All-out charge", "Drill book"]
+if os.environ.get("PLAYS"):   # e.g. PLAYS="General's choice|Drill book" for a quick check
+    PLAYS = os.environ["PLAYS"].split("|")
 PANEL = ["Sn8", "Fa8", "An8", "Ha8", "Sh8", "Li8", "Lb8", "An4 Ha4"]
 FIELDS = ["Open Plain", "Woodland", "Village"]
 os.makedirs(JOBS, exist_ok=True); os.makedirs(OUT, exist_ok=True)
