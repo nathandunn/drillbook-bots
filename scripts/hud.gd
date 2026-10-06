@@ -317,8 +317,8 @@ const TIPS := {
 	"» Another battle": "Fight again with the same companies",
 	"» Sim ×": "Run the same battle that many times again, fast, and see the numbers",
 	"» New campaign": "Start a new war with the armies as they are set up",
-	"» Start an epic": "One field for the whole war. Each side has 50 companies (the twelve on the Armies screen, repeated); before each battle you send in up to 10, the computer chooses its own. What is left of a company fights again later. The war ends when a side has nobody left.",
-	"» New epic": "Start a new epic war on the field on the map",
+	"» Start an epic": "A campaign along the same front of eleven fields, but each side has 50 companies (the twelve on the Armies screen, repeated); before each battle you send in up to 10 and the computer chooses its own. What is left of a company fights again later. Take the enemy's last field, or leave them nobody, to win.",
+	"» New epic": "Start a new epic war",
 	"» Choose companies for battle": "On to the next battle: choose the companies",
 	"View": "Show or hide the view controls",
 }
@@ -919,16 +919,7 @@ func show_pick() -> void:
 		var fno: int = int(game.campaign_field)
 		_pick_title.text = "Battle %d - field %d of %d, %s" % [rno, fno, front.size(), front[fno - 1]]
 		if epic_on:
-			_pick_title.text = "Epic battle %d on %s - up to %d companies a side" % [rno, front[fno - 1], int(game.EPIC_PICK)]
-			if rno == 1:
-				_section(_pick_box, "The field for the whole war")
-				var efr := HFlowContainer.new()
-				_pick_box.add_child(efr)
-				for fname in Field.ALL_FIELDS:
-					var fc := _chip(fname, fname == front[fno - 1])
-					fc.tooltip_text = Field.LAYOUT_HELP.get(fname, "")
-					fc.pressed.connect(func(): field_chosen.emit(fname))
-					efr.add_child(fc)
+			_pick_title.text = "Epic battle %d - field %d of %d, %s - up to %d companies a side" % [rno, fno, front.size(), front[fno - 1], int(game.EPIC_PICK)]
 		var rl := _small(_pick_box, _round_text + "  (point here for the field)")
 		_hover(rl, "%s: %s  (It is on the map behind this panel.)" % [front[fno - 1], Field.LAYOUT_HELP.get(front[fno - 1], "")])
 		var fb: Dictionary = game._fall_back
@@ -1427,11 +1418,6 @@ func batch_progress(i: int, n: int) -> void:
 func set_round(r: int, layout: String, men: Array, field_no: int = 0) -> void:
 	var n := front.size()
 	_round_text = "Battle %d - field %d of %d, %s · armies: Red %d men, Blue %d men" % [r, field_no, n, layout, men[0], men[1]]
-	if epic_on:
-		_round_text = "Epic battle %d on %s · men left in the armies: Red %d, Blue %d" % [r, layout, men[0], men[1]]
-		round_label.text = _round_text
-		round_label.visible = true
-		return
 	if field_no >= n:
 		_round_text += " · a Red win here takes Blue's country"
 	elif field_no > 0:
@@ -1492,8 +1478,7 @@ func show_round(sm: Dictionary) -> void:
 		results_title.text = "Battle %d on %d. %s - %s" % [sm["round"], sm["field_no"], sm["field"],
 			("%s wins" % res["winner_name"]) if res["winner"] >= 0 else "drawn, the front holds"]
 		if sm.get("epic", false):
-			results_title.text = "Epic battle %d on %s - %s" % [sm["round"], sm["field"],
-				("%s wins" % res["winner_name"]) if res["winner"] >= 0 else "drawn"]
+			results_title.text = "Epic " + results_title.text
 	# the front, animated: where the fight was, where it goes, what each army has left
 	var is_epic: bool = sm.get("epic", false)
 	var fm := FrontMap.new()
@@ -1506,8 +1491,6 @@ func show_round(sm: Dictionary) -> void:
 	fm.men_full = [sm["men_full"], sm["men_full"]]
 	fm.over = over
 	fm.campaign_winner = cw
-	if is_epic:
-		fm.fields = []   # an epic has no front: only each army's bar, draining to what it has left
 	results_box.add_child(fm)
 	fm.play()
 	if over:
@@ -1544,9 +1527,7 @@ func show_round(sm: Dictionary) -> void:
 		ml.add_theme_font_size_override("font_size", 12)
 		ml.add_theme_color_override("font_color", Color(0.8, 0.78, 0.65))
 		results_box.add_child(ml)
-	if not over and is_epic:
-		_section(results_box, "Next: battle %d on %s - the same field" % [int(sm["round"]) + 1, sm["next_field"]])
-	elif not over:
+	if not over:
 		_section(results_box, "Next: field %d of %d, %s" % [int(sm["next_field_no"]), (sm["front"] as Array).size(), sm["next_field"]])
 		_next_head = results_box.get_child(results_box.get_child_count() - 1) as Label
 		var fl := Label.new()

@@ -24,8 +24,8 @@ var COMPANY_MEN := 10   # men a company in the campaign: 10 (40 a side) or 20 (8
 const FIGHTING := 4
 var MERGE_BELOW := 3   # a company with fewer men than this joins another (3 at 10 a company, 5 at 20)
 const ROUND_CAP := 30
-# Epic: one field for the whole war, fifty companies a side (the twelve on the Armies screen, over
-# and over), up to ten of them in each battle; what is left of a company fights again later
+# Epic: the campaign's front of eleven fields, but fifty companies a side (the twelve on the Armies
+# screen, over and over), up to ten of them in each battle; what is left of a company fights again later
 const EPIC_COMPANIES := 50
 const EPIC_PICK := 10
 const EPIC_ROUND_CAP := 40
@@ -206,20 +206,6 @@ func _ready() -> void:
 	if args.has("shadows") and _sun != null:
 		_sun.shadow_enabled = String(args["shadows"]) != "0"
 	hud.field_chosen.connect(func(n: String):
-		if campaign_active and epic and campaign_round == 0:
-			# an epic's field may be chosen before the first battle
-			for i in front.size():
-				front[i] = n
-			hud.front = front
-			_rebuild_field(n)
-			hud.set_round(1, n, [_army_men(0), _army_men(1)], campaign_field)
-			for t in 2:
-				if hud.commanders[t] == "computer" and Quartermaster.ready():
-					_ai_plan(t)
-			hud.show_pick()
-			if cam != null:
-				cam.refit()
-			return
 		if campaign_active:
 			return
 		_rebuild_field(n)
@@ -573,12 +559,6 @@ func _start_campaign(epic_war := false) -> void:
 	front = []
 	for i in FRONT_LEN:
 		front.append(String(pool[i]))
-	if epic:
-		# the field on the map now is the field for the whole war
-		var here: String = String(pool[0])   # a field at random (it can be changed before the first battle)
-		front = []
-		for i in FRONT_LEN:
-			front.append(here)
 	campaign_field = (FRONT_LEN + 1) / 2
 	_last_fielded = ["", ""]
 	_fielded_last = [4, 4]
@@ -1122,9 +1102,7 @@ func _on_round_ended(result: Dictionary) -> void:
 	var over := false
 	var cw := -1
 	var why := ""
-	if epic:
-		pass   # one field, no front: the war goes on while both sides have men
-	elif w == 0 and campaign_field == FRONT_LEN:
+	if w == 0 and campaign_field == FRONT_LEN:
 		over = true
 		cw = 0
 		why = "Red carries the last field - Blue's country is taken"
@@ -1140,17 +1118,13 @@ func _on_round_ended(result: Dictionary) -> void:
 		else:
 			cw = 0 if men_after[1] == 0 else 1
 			why = "%s has nobody left to fight" % MatchManager.TEAM_NAMES[1 - cw]
-	elif epic and campaign_round >= EPIC_ROUND_CAP:
-		over = true
-		cw = 0 if men_after[0] >= men_after[1] else 1
-		why = "after %d battles the war is called for the side with more men left" % EPIC_ROUND_CAP
-	elif not epic and campaign_round >= ROUND_CAP:
+	elif campaign_round >= (EPIC_ROUND_CAP if epic else ROUND_CAP):
 		over = true
 		var mid := (FRONT_LEN + 1) / 2
 		cw = 0 if campaign_field > mid else (1 if campaign_field < mid else (0 if men_after[0] >= men_after[1] else 1))
-		why = "after %d battles the war is called for whoever holds more of the front" % ROUND_CAP
+		why = "after %d battles the war is called for whoever holds more of the front" % (EPIC_ROUND_CAP if epic else ROUND_CAP)
 	_fall_back = {}
-	if not over and not epic:
+	if not over:
 		if w == 0:
 			campaign_field += 1
 		elif w == 1:
