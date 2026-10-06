@@ -8,6 +8,7 @@ extends CharacterBody3D
 signal fired(soldier: Soldier, target: Soldier, hit: bool)
 signal damaged(soldier: Soldier, amount: float, source: String, attacker: Soldier)
 signal died(soldier: Soldier, source: String, attacker: Soldier)
+signal rallied(s: Soldier)
 signal routed(soldier: Soldier)
 signal fled(soldier: Soldier)
 signal thrust(soldier: Soldier, landed: bool)
@@ -280,8 +281,29 @@ func _decide() -> void:
 	in_melee = enemy != null and enemy_d < STEEL_RANGE
 
 	if is_routed:
-		# a man who has broken runs for the rear and off the field - there is no stopping him,
-		# and every step of the way he is in reach of the enemy's rifles and bayonets
+		# a man who has broken runs for the rear and off the field, in reach of the enemy's rifles
+		# and bayonets every step of the way - unless he steadies: well clear of the enemy, his
+		# nerve coming back, and other men of his side about him (runners gathering together, or
+		# a company still standing) - then he turns and comes back to his company
+		if enemy_d > 40.0:
+			fear = maxf(fear - 0.05, 0.0)   # out of the fire his heart slows (on top of the usual)
+		if enemy_d > 40.0 and rng.randf() < 0.2:
+			var near := 0
+			for o in manager.alive_soldiers():
+				if o != self and o.team == team and o.global_position.distance_to(global_position) < 8.0:
+					near += 1
+					if near >= 5:
+						break
+			# his own nerve, what has been done to him, and the men about him - not the day's
+			# losses, which have already done their work
+			var steady := p("nerve") - fear * 0.6 - (1.0 - hp / MAX_HP) * 0.4 + 0.08 * near \
+				- clampf(1.0 - manager.morale_ratio(team), 0.0, 1.0) * 0.2
+			if near >= 2 and steady > 0.35:
+				is_routed = false
+				fear = minf(fear, 0.2)
+				_stand_fast = 6.0   # a moment's resolve before the next shock can break him again
+				rallied.emit(self)
+	if is_routed:
 		goal = Vector3(global_position.x, 0, manager.home_z(team) * 1.15)
 		want_run = true
 		action = "rout"

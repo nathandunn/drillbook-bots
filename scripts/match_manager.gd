@@ -358,6 +358,7 @@ func start_match(seed_value: int = -1) -> void:
 				s.damaged.connect(_on_damaged)
 				s.died.connect(_on_died)
 				s.routed.connect(_on_routed)
+				s.rallied.connect(func(_m): stats["rallied"][_m.team] += 1)
 				s.fled.connect(_on_fled)
 				s.thrust.connect(_on_thrust)
 				world.add_child(s)
@@ -428,7 +429,7 @@ func clear() -> void:
 func _fresh_stats() -> Dictionary:
 	return {
 		"shots": [0, 0], "hits": [0, 0], "kills": [[0, 0], [0, 0]],   # kills[t] = [rifle, bayonet]
-		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "fled": [0, 0],
+		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "rallied": [0, 0], "fled": [0, 0],
 		"friendly": [0, 0], "thrusts": [0, 0], "thrust_hits": [0, 0], "wounds": [0, 0],
 	}
 
@@ -841,6 +842,8 @@ func _physics_process(delta: float) -> void:
 	# the fight is over when one side has nobody left standing on the field
 	var f0 := fighting(0).size()
 	var f1 := fighting(1).size()
+	if f0 > 0 and f1 > 0:
+		pursuit_since = -1.0   # (the broken side has rallied: the battle is on again)
 	if f0 == 0 and f1 == 0:
 		end_match("mutual rout")
 	elif f0 == 0 or f1 == 0:

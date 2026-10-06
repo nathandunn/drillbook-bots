@@ -451,7 +451,7 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 	var wins := [0, 0]
 	var draws := 0
 	var dur := 0.0
-	var keys := ["shots", "hits", "volleys", "charges", "fallbacks", "routed", "friendly", "thrusts", "thrust_hits"]
+	var keys := ["shots", "hits", "volleys", "charges", "fallbacks", "routed", "rallied", "friendly", "thrusts", "thrust_hits"]
 	var tot := {}
 	for k in keys:
 		tot[k] = [0, 0]
