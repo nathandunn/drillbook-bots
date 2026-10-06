@@ -67,6 +67,8 @@ var _last_doctrine := ["", ""]
 
 func _ready() -> void:
 	field = Field.new()
+	if DisplayServer.get_name() != "headless":
+		field.layout_name = Field.ALL_FIELDS[randi() % Field.ALL_FIELDS.size()]   # a different field to open on
 	add_child(field)
 	_build_lighting()
 	manager = MatchManager.new()
@@ -204,6 +206,20 @@ func _ready() -> void:
 	if args.has("shadows") and _sun != null:
 		_sun.shadow_enabled = String(args["shadows"]) != "0"
 	hud.field_chosen.connect(func(n: String):
+		if campaign_active and epic and campaign_round == 0:
+			# an epic's field may be chosen before the first battle
+			for i in front.size():
+				front[i] = n
+			hud.front = front
+			_rebuild_field(n)
+			hud.set_round(1, n, [_army_men(0), _army_men(1)], campaign_field)
+			for t in 2:
+				if hud.commanders[t] == "computer" and Quartermaster.ready():
+					_ai_plan(t)
+			hud.show_pick()
+			if cam != null:
+				cam.refit()
+			return
 		if campaign_active:
 			return
 		_rebuild_field(n)
@@ -559,7 +575,7 @@ func _start_campaign(epic_war := false) -> void:
 		front.append(String(pool[i]))
 	if epic:
 		# the field on the map now is the field for the whole war
-		var here: String = field.layout_name if field != null else String(pool[0])
+		var here: String = String(pool[0])   # a field at random (it can be changed before the first battle)
 		front = []
 		for i in FRONT_LEN:
 			front.append(here)
@@ -574,6 +590,9 @@ func _start_campaign(epic_war := false) -> void:
 	# the armies as set up on the Armies screen, every man fresh; whoever was chosen last goes
 	# in first unless changed (the first four if nobody was)
 	_refresh_men_all()
+	for t in 2:
+		if hud.commanders[t] == "computer" and Quartermaster.ready():
+			_ai_raise(t)
 	if epic:
 		_build_epic_armies()
 	for t in 2:
@@ -586,6 +605,9 @@ func _start_campaign(epic_war := false) -> void:
 	for t in 2:
 		# a computer commander chooses its own companies (blind) and opens with a pick of its own
 		if hud.commanders[t] == "computer":
+			if Quartermaster.ready():
+				_ai_plan(t)
+				continue
 			if epic:
 				_default_picks(t, _computer_count(t))
 				_prepare_battle(t)   # in an epic its companies keep the drills they were given
@@ -829,6 +851,128 @@ func _merge_army(t: int) -> Array:
 	return notes
 
 
+## What the computer reads the enemy (side 1 - t) to be: {drill: share} - half his whole army,
+## half what he sent into the last battle (once there has been one).
+func _enemy_profile(t: int) -> Dictionary:
+	var e := 1 - t
+	var army := {}
+	var tot := 0.0
+	for a in armies[e]:
+		var n := float(maxi((a["men"] as Array).size(), 1))
+		army[a["drill"]] = float(army.get(a["drill"], 0.0)) + n
+		tot += n
+	for k in army:
+		army[k] = army[k] / maxf(tot, 1.0)
+	if campaign_round == 0 or (manager.companies[e] as Array).is_empty():
+		return army
+	var last := {}
+	var lt := 0.0
+	for co in manager.companies[e]:
+		var n := float(int(co.get("size", 1)))
+		last[co["persona_name"]] = float(last.get(co["persona_name"], 0.0)) + n
+		lt += n
+	var out := {}
+	for k in army:
+		out[k] = 0.5 * float(army[k])
+	for k in last:
+		out[k] = float(out.get(k, 0.0)) + 0.5 * float(last[k]) / maxf(lt, 1.0)
+	return out
+
+
+var _ai_reason := ["", ""]
+
+
+## A computer side raises its army for the war: the candidate army that does best against what
+## the enemy has, over the fields the war will be fought on - a mix unless one drill is clearly
+## better. Its twelve companies take that army's drills and types.
+func _ai_raise(t: int) -> void:
+	var fields := []
+	for f in front:
+		if not fields.has(f):
+			fields.append(f)
+	var r := Quartermaster.raise_army(_enemy_profile(t), fields)
+	if String(r[0]) == "":
+		return
+	var cos := Quartermaster.companies_for(String(r[0]), (armies[t] as Array).size())
+	for i in (armies[t] as Array).size():
+		var a: Dictionary = armies[t][i]
+		a["drill"] = cos[i][0]
+		a["type"] = cos[i][1]
+		a["type_obj"] = SoldierType.preset(cos[i][1])
+		a["rank"] = "Auto"
+	_ai_reason[t] = "raised %s: %s" % [r[0], r[1]]
+
+
+## A computer side's companies for the next battle: how many (its blind guess), which army shape
+## suits this field against what it expects, and which of its companies make that shape - in a
+## campaign it may also retrain them; in an epic it uses the companies it has.
+func _ai_plan(t: int) -> void:
+	var n := _computer_count(t)
+	var fld: String = front[campaign_field - 1] if not front.is_empty() else field.layout_name
+	var enemy := _enemy_profile(t)
+	var ar: Array = armies[t]
+	var allowed := []
+	if epic:
+		# only shapes it can still make from the companies it has left
+		var have := {}
+		for a in ar:
+			if (a["men"] as Array).size() > 0:
+				have["%s/%s" % [a["drill"], a["type"]]] = true
+		for tn in Quartermaster.templates():
+			var ok := true
+			for k in Quartermaster.templates()[tn]:
+				if not have.has(k):
+					ok = false
+			if ok:
+				allowed.append(tn)
+		if allowed.is_empty():
+			_default_picks(t, n)
+			_prepare_battle(t)
+			return
+	var choice := Quartermaster.pick(enemy, fld, randf(), allowed)
+	if choice.is_empty():
+		_default_picks(t, n)
+		_prepare_battle(t)
+		return
+	var want := Quartermaster.companies_for(String(choice[1]), n)
+	for a in ar:
+		a["fights"] = false
+	if epic:
+		# the freshest company of each drill wanted, then the freshest of any to make up the number
+		var order := range(ar.size())
+		order.sort_custom(func(i, j): return (ar[i]["men"] as Array).size() > (ar[j]["men"] as Array).size())
+		var taken := 0
+		for w in want:
+			for i in order:
+				var a: Dictionary = ar[i]
+				if not a["fights"] and (a["men"] as Array).size() > 0 and a["drill"] == w[0] and a["type"] == w[1]:
+					a["fights"] = true
+					taken += 1
+					break
+		for i in order:
+			if taken >= n:
+				break
+			if not ar[i]["fights"] and (ar[i]["men"] as Array).size() > 0:
+				ar[i]["fights"] = true
+				taken += 1
+	else:
+		_default_picks(t, n)
+		var k := 0
+		for a in ar:
+			if a["fights"] and k < want.size():
+				a["drill"] = want[k][0]
+				a["type"] = want[k][1]
+				a["type_obj"] = SoldierType.preset(want[k][1])
+				k += 1
+	_prepare_battle(t)
+	_ai_picks[t] = manager.battalion_label(t)
+	_ai_type_picks[t] = manager._types_label(t)
+	_last_doctrine[t] = String(choice[1])
+	_ai_reason[t] = "%s on %s (%d%% expected)" % [choice[1], fld, int(float(choice[0]) * 100)]
+	if DisplayServer.get_name() == "headless":
+		print("  computer (%s): %s" % [MatchManager.TEAM_NAMES[t], _ai_reason[t]])
+
+
 ## The computer's picks for a whole battalion: a doctrine per company, answering the enemy
 ## battalion's average temper, never the same doctrine for every company.
 func _ai_pick(t: int, opening: bool) -> String:
@@ -932,7 +1076,7 @@ func _abandon_campaign() -> void:
 	if epic:
 		_end_epic_armies()
 	_refresh_men_all()
-	_rebuild_field("Walled Farm")
+	_rebuild_field(Field.ALL_FIELDS[randi() % Field.ALL_FIELDS.size()])
 	hud.open_setup("Campaign abandoned. The armies are whole again - what next?")
 
 
@@ -1046,10 +1190,13 @@ func _on_round_ended(result: Dictionary) -> void:
 				_prepare_battle(t)
 		for t in 2:
 			if hud.commanders[t] == "computer" and hud.commanders[1 - t] != "computer":
+				if Quartermaster.ready():
+					_ai_plan(t)
+					continue
 				_default_picks(t, _computer_count(t))   # its own guess, made blind
 				_prepare_battle(t)
 		for t in 2:
-			if hud.commanders[t] == "computer" and not epic:
+			if hud.commanders[t] == "computer" and not epic and not Quartermaster.ready():
 				_ai_pick(t, false)
 				_sync_from_manager(t)
 	var next_layout: String = front[campaign_field - 1]
@@ -1110,6 +1257,9 @@ func fall_back_to(no: int) -> void:
 	_rebuild_field(layout)
 	for t in 2:
 		if hud.commanders[t] == "computer":
+			if Quartermaster.ready():
+				_ai_plan(t)   # the ground has changed: the computer thinks again
+				continue
 			_sync_from_manager(t)
 			_ai_pick(t, false)   # the ground has changed: the computer thinks again
 			_sync_from_manager(t)

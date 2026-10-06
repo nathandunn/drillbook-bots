@@ -255,6 +255,8 @@ func remove_company(t: int) -> void:
 
 ## Where a company stands across the front: its slot's x in the side's own frame.
 func band_x(t: int, c: int) -> float:
+	if c >= (companies[t] as Array).size():
+		return 0.0   # (asked about a company of the last battle while the next is being chosen)
 	var k := ck(t, c)
 	if committed.has(k):
 		return committed[k]
@@ -841,7 +843,9 @@ func _process(_delta: float) -> void:
 				q.size.x = BAR_W * frac
 				q.center_offset = Vector3(-BAR_W * (1.0 - frac) * 0.5, BAR_Y, 0)
 		if fx != null:
-			fx.side_state(t, side_cen / maxf(side_n, 1), side_n > 0 and marching and near_d > 45.0,
+			# the drums beat the advance until the first shot; then it is the guns' turn
+			var shooting: bool = not stats.is_empty() and int(stats["shots"][0]) + int(stats["shots"][1]) > 0
+			fx.side_state(t, side_cen / maxf(side_n, 1), side_n > 0 and marching and near_d > 45.0 and not shooting,
 				side_n > 0 and near_d > 90.0)
 
 

@@ -13,7 +13,8 @@ const SOUND_DIR := "res://audio/"
 const SETS := {
 	"shot": ["musket_1", "musket_2", "musket_3", "musket_4"],
 	"volley": ["musket_bed"],
-	"die": ["die_1", "die_2", "die_3", "die_4", "die_5"],
+	"die": ["die_1", "die_2", "die_3", "die_4", "die_5", "die_6"],
+	"bugle": ["bugle_1", "bugle_2"],
 	"charge": ["charge_1", "charge_2"],
 	"stab": ["stab_1"],
 }
@@ -35,6 +36,8 @@ var _budget := 0.0            # sounds allowed this instant (refills in real tim
 var _shot_budget := 0.0
 var _die_budget := 0.0
 var _charge_quiet := 0.0      # real seconds until another battle cry may sound
+var _bugle_quiet := 0.0
+var _bugle: AudioStreamPlayer  # the general's bugle is heard everywhere, not placed on the field
 var _loop_players := []       # [side] -> {"drum": player, "talk": player}
 var _loop_want := [{"drum": false, "talk": false}, {"drum": false, "talk": false}]
 
@@ -57,6 +60,9 @@ func _ready() -> void:
 	# every sound is placed in the world and heard from the camera, so the closer you zoom in the louder it is
 	for i in VOICES:
 		_players.append(_new_player())
+	_bugle = AudioStreamPlayer.new()
+	_bugle.volume_db = -7.0
+	add_child(_bugle)
 	for t in 2:
 		var d := {}
 		for nm in LOOPS:
@@ -177,6 +183,7 @@ func _process(delta: float) -> void:
 	_shot_budget = minf(_shot_budget + real * 7.0, 3.0)
 	_die_budget = minf(_die_budget + real * 6.0, 2.0)
 	_charge_quiet = maxf(_charge_quiet - real, 0.0)
+	_bugle_quiet = maxf(_bugle_quiet - real, 0.0)
 	_tick_loops(real)
 	# drops fly and fall; where one lands it leaves a spot
 	var g := 9.8
@@ -241,6 +248,19 @@ func shot(pos: Vector3) -> void:
 func volley(pos: Vector3) -> void:
 	_shot_budget = 0.0
 	_play("volley", pos + Vector3(0, 1.5, 0), 2.0, 0.05, 0.5)
+
+
+## The general's order: a short bugle call (not more than one every 3 seconds).
+func bugle() -> void:
+	if muted or muted_sim or _bugle_quiet > 0.0:
+		return
+	var arr: Array = _streams.get("bugle", [])
+	if arr.is_empty():
+		return
+	_bugle_quiet = 3.0
+	_bugle.stream = arr[randi() % arr.size()]
+	_bugle.pitch_scale = randf_range(0.97, 1.03)
+	_bugle.play()
 
 
 ## The battle cry, once per charge order (and not again for a few seconds, whoever charges).

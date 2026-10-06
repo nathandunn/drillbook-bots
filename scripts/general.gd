@@ -107,6 +107,8 @@ func _take(m: MatchManager, p: String, why: String) -> void:
 		since = m.elapsed
 	play = p
 	thought = why
+	if m.fx != null:
+		m.fx.bugle()   # the order goes out
 	if trace:
 		print("    %5.1fs %s general: %s (%s)" % [m.elapsed, MatchManager.TEAM_NAMES[t], p, why])
 	phase = ""
@@ -276,6 +278,8 @@ func _watch_moment(m: MatchManager) -> void:
 			print("    %5.1fs %s general: STRIKE - %s" % [m.elapsed, MatchManager.TEAM_NAMES[t], go])
 		strike = true
 		strike_t = m.elapsed
+		if m.fx != null:
+			m.fx.bugle()
 		phase = ""
 		if not is_auto():
 			thought = go

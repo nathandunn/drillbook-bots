@@ -1041,6 +1041,9 @@ func _try_thrust(enemy: Soldier) -> void:
 func take_damage(amount: float, source: String, attacker: Soldier) -> void:
 	if not alive:
 		return
+	# a musket ball or a bayonet puts a man down: nobody fights on with one in him
+	if source == "rifle" or source == "bayonet":
+		amount = maxf(amount, hp)
 	hp -= amount
 	under_fire = true
 	damaged.emit(self, amount, source, attacker)

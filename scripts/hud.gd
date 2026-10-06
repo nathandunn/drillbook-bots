@@ -920,6 +920,15 @@ func show_pick() -> void:
 		_pick_title.text = "Battle %d - field %d of %d, %s" % [rno, fno, front.size(), front[fno - 1]]
 		if epic_on:
 			_pick_title.text = "Epic battle %d on %s - up to %d companies a side" % [rno, front[fno - 1], int(game.EPIC_PICK)]
+			if rno == 1:
+				_section(_pick_box, "The field for the whole war")
+				var efr := HFlowContainer.new()
+				_pick_box.add_child(efr)
+				for fname in Field.ALL_FIELDS:
+					var fc := _chip(fname, fname == front[fno - 1])
+					fc.tooltip_text = Field.LAYOUT_HELP.get(fname, "")
+					fc.pressed.connect(func(): field_chosen.emit(fname))
+					efr.add_child(fc)
 		var rl := _small(_pick_box, _round_text + "  (point here for the field)")
 		_hover(rl, "%s: %s  (It is on the map behind this panel.)" % [front[fno - 1], Field.LAYOUT_HELP.get(front[fno - 1], "")])
 		var fb: Dictionary = game._fall_back
