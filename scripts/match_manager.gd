@@ -110,6 +110,8 @@ var _idle := {}
 var _fired_at := {}          # ck -> when a man of the company last fired              # ck -> [since, shots, men]: a company doing nothing, and since when
 var _exch := {}            # ck -> [hits given, hits taken] lately (decays)
 var _last_harm_t := 0.0    # when anyone last hit anyone
+const PURSUIT := 30.0       # seconds the winners may chase a broken enemy off the field
+var pursuit_since := -1.0  # when one side broke (the pursuit), -1 before
 var _press_since := {}
 var _fallback_since := {}
 var _captain_tick := 0.0
@@ -286,6 +288,7 @@ func start_match(seed_value: int = -1) -> void:
 		rng.randomize()
 	field.clear_smoke(rng)
 	elapsed = 0.0
+	pursuit_since = -1.0
 	stats = _fresh_stats()
 	for t in 2:
 		store_company(t)
@@ -840,10 +843,16 @@ func _physics_process(delta: float) -> void:
 	var f1 := fighting(1).size()
 	if f0 == 0 and f1 == 0:
 		end_match("mutual rout")
-	elif f0 == 0:
-		end_match("Red broken")
-	elif f1 == 0:
-		end_match("Blue broken")
+	elif f0 == 0 or f1 == 0:
+		# one side has broken. The battle is won, but its men are still running for the back of
+		# the field, and the winners go after them: the pursuit lasts until the last of them is
+		# off the field (or killed), or PURSUIT seconds
+		var lost := 0 if f0 == 0 else 1
+		if pursuit_since < 0.0:
+			pursuit_since = elapsed
+		var running_n := alive_count(lost)
+		if running_n == 0 or elapsed - pursuit_since >= PURSUIT:
+			end_match("%s broken" % TEAM_NAMES[lost])
 	elif time_limit > 0.0 and elapsed >= time_limit:
 		end_match("time")
 	elif elapsed > 120.0 and elapsed - _last_harm_t > 45.0:

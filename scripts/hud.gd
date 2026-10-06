@@ -1214,6 +1214,10 @@ func _process(delta: float) -> void:
 		team_labels[t].text = txt
 	if manager.running:
 		var clock := "%d:%02d" % [int(manager.elapsed) / 60, int(manager.elapsed) % 60]
+		if manager.pursuit_since >= 0.0:
+			var lost := 0 if manager.fighting(0).is_empty() else 1
+			clock += "  ·  %s has broken - %d running for the rear, %s in pursuit (%d s)" % [MatchManager.TEAM_NAMES[lost],
+				manager.alive_count(lost), MatchManager.TEAM_NAMES[1 - lost], int(MatchManager.PURSUIT - (manager.elapsed - manager.pursuit_since))]
 		status_label.text = (_batch_text + " · " + clock) if _batch_text != "" else clock
 
 

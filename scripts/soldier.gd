@@ -280,16 +280,14 @@ func _decide() -> void:
 	in_melee = enemy != null and enemy_d < STEEL_RANGE
 
 	if is_routed:
-		# run for the rear; a steadied man (courage back up) may stop and fight again
-		if courage > 0.4 and rng.randf() < 0.3:
-			is_routed = false
-		else:
-			goal = Vector3(global_position.x, 0, manager.home_z(team) * 1.15)
-			want_run = true
-			action = "rout"
-			if absf(global_position.z) > Field.HALF_Z - 1.5:
-				_flee()
-			return
+		# a man who has broken runs for the rear and off the field - there is no stopping him,
+		# and every step of the way he is in reach of the enemy's rifles and bayonets
+		goal = Vector3(global_position.x, 0, manager.home_z(team) * 1.15)
+		want_run = true
+		action = "rout"
+		if absf(global_position.z) > Field.HALF_Z - 1.5:
+			_flee()
+		return
 
 	# someone is on me with a bayonet: fight, whatever else I meant to do
 	if in_melee:
