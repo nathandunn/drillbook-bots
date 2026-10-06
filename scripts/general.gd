@@ -32,6 +32,7 @@ const SHORT := {
 
 var t := 0
 var chosen := CHOICE          # what the side was given
+var adapt := false            # a given play the general may change during the battle
 var play := "General advance" # what it is doing now
 var thought := ""             # why, in the general's words
 var phase := ""               # within the play: "swing" / "strike", "lure" / "strike"...
@@ -49,21 +50,25 @@ var _last_check := -100.0
 static var trace := false     # --trace: print the general's decisions (headless study)
 
 
-func _init(side: int, given: String) -> void:
+func _init(side: int, given: String, may_adapt: bool = false) -> void:
 	t = side
 	chosen = given if PLAYS.has(given) else CHOICE
+	adapt = may_adapt and chosen != CHOICE
 
 
+## Does the general weigh the battle and change the play? (His own choice, or a given play he may adapt.)
 func is_auto() -> bool:
-	return chosen == CHOICE
+	return chosen == CHOICE or adapt
 
 
 ## The line shown on the screen.
 func label() -> String:
 	var who: String = MatchManager.TEAM_NAMES[t]
 	var p := "%s general: %s" % [who, play]
-	if chosen != CHOICE:
-		p = "%s plan: %s" % [who, play]
+	if chosen != CHOICE and play == chosen:
+		p = "%s plan: %s" % [who, play] + (" (the general may change it)" if adapt else "")
+	elif chosen != CHOICE:
+		p = "%s general: %s, changed from your %s" % [who, play, chosen]
 	var what: String = SHORT.get(play, "")
 	if strike and play != "Drill book":
 		what = "everyone in - charge!"
@@ -89,7 +94,7 @@ func begin(m: MatchManager) -> void:
 	_last_check = -100.0
 	for c in (m.orders[t] as Array).size():
 		start_line[c] = float(m.orders[t][c].get("line_z", m.home_z(t)))
-	if is_auto():
+	if chosen == CHOICE:
 		var pick := _first_choice(m)
 		_take(m, pick[0], pick[1])
 	else:
@@ -308,6 +313,9 @@ func _rethink(m: MatchManager) -> void:
 	elif play == "Hold and receive" and quiet > 25.0 and m.elapsed > 40.0:
 		want = "General advance"
 		why = "they won't come to us - go and get them"
+	elif play == "Feint and draw" and strike_t > since:
+		want = "General advance"
+		why = "the trap is sprung - go forward together"
 	elif play == "Feint and draw" and m.elapsed - since > 70.0:
 		want = "General advance"
 		why = "they didn't take the bait - go forward together"

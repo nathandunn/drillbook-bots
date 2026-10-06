@@ -989,6 +989,14 @@ func show_pick() -> void:
 					manager.plays[side] = pn
 					show_pick())
 				prow.add_child(pc)
+			if String(manager.plays[t]) != General.CHOICE:
+				var ad := _chip("General may change it", bool(manager.adapt[t]))
+				ad.tooltip_text = "On: your plan is how the battle opens, and the general changes it if the battle turns (he says why at the top). Off: your plan holds to the end."
+				var side2 := t
+				ad.pressed.connect(func():
+					manager.adapt[side2] = not bool(manager.adapt[side2])
+					show_pick())
+				prow.add_child(ad)
 	var row := HFlowContainer.new()
 	_pick_box.add_child(row)
 	var fight := _button("» Fight")

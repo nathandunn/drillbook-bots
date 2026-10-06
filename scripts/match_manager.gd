@@ -87,6 +87,7 @@ var _sgt_memory := {}                         # ck -> the drill's "for Ns" memor
 var _plan: Dictionary = {}                    # this tick's sergeant plan from the drill
 var plays := [General.CHOICE, General.CHOICE] # the play each side was given (or the general's choice)
 var generals: Array = [null, null]            # General per side, this battle
+var adapt := [true, true]                     # may the general change a given play during the battle
 ## Campaign rosters: per team, the men to field this round as records
 ## {name, seed, kills, rounds, recruit}. Empty means a fresh company of team_sizes[t].
 var rosters: Array = [[], []]
@@ -378,7 +379,7 @@ func start_match(seed_value: int = -1) -> void:
 				co_bars[k] = [fill, maxi(int(co.get("full", n)), n)]   # against full strength, not today's
 	running = true
 	for t in 2:
-		generals[t] = General.new(t, String(plays[t]))
+		generals[t] = General.new(t, String(plays[t]), bool(adapt[t]))
 		generals[t].begin(self)
 	match_started.emit(match_index)
 

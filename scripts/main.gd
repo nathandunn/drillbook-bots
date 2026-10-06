@@ -99,6 +99,8 @@ func _ready() -> void:
 		if args.has(key + "play"):
 			# --redplay="Hammer and anvil" (default: the general's choice)
 			manager.plays[t] = String(args[key + "play"]).replace("_", " ")
+			# a play given on the command line stays fixed unless --redadapt=1
+			manager.adapt[t] = String(args.get(key + "adapt", "0")) == "1"
 			if not General.PLAYS.has(manager.plays[t]):
 				push_warning("no play called %s; plays: %s" % [manager.plays[t], ", ".join(General.PLAYS)])
 		if args.has("companies"):
