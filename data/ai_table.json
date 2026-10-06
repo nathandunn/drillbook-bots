@@ -1,0 +1,7624 @@
+{
+"templates": {
+"An3 Ha3 Sn2": {
+"Anvil/Marksman": 3,
+"Hammer/Brawler": 3,
+"Sniper/Marksman": 2
+},
+"An4 Ha4": {
+"Anvil/Marksman": 4,
+"Hammer/Brawler": 4
+},
+"An4 Sh4": {
+"Anvil/Marksman": 4,
+"Shock/Grenadier": 4
+},
+"An8": {
+"Anvil/Marksman": 8
+},
+"Fa8": {
+"Fabian Screen/Marksman": 8
+},
+"Ha3 Sh3 Ni2": {
+"Hammer/Brawler": 3,
+"Ninjas/Shinobi": 2,
+"Shock/Grenadier": 3
+},
+"Ha4 Sn4": {
+"Hammer/Brawler": 4,
+"Sniper/Marksman": 4
+},
+"Ha8": {
+"Hammer/Brawler": 8
+},
+"Sh4 Sk4": {
+"Shock/Grenadier": 4,
+"Skirmishers/Marksman": 4
+},
+"Sh8": {
+"Shock/Grenadier": 8
+}
+},
+"wins": {
+"An3 Ha3 Sn2": {
+"Anvil": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+1
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+1,
+1
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+}
+},
+"An4 Ha4": {
+"Anvil": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+1
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+0,
+1
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+}
+},
+"An4 Sh4": {
+"Anvil": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+}
+},
+"An8": {
+"Anvil": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+1
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+1
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+}
+},
+"Fa8": {
+"Anvil": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Line": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+1
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+}
+},
+"Ha3 Sh3 Ni2": {
+"Anvil": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+1
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Line": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+0,
+2
+]
+}
+},
+"Ha4 Sn4": {
+"Anvil": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+1
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+0,
+1
+]
+},
+"Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+1
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+1,
+1
+],
+"Suburb": [
+1,
+1
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+}
+},
+"Ha8": {
+"Anvil": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+0,
+0
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Line": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+1
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+1
+],
+"Woodland": [
+1,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+}
+},
+"Sh4 Sk4": {
+"Anvil": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+}
+},
+"Sh8": {
+"Anvil": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Fabian Screen": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Hammer": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+1,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Linebreaker": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Militia": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Ninjas": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Patient Line": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+1,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Regulars": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Shock": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+0,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+1,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+1,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+1,
+2
+]
+},
+"Skirmishers": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+2,
+2
+],
+"River Crossing": [
+1,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+1,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+1,
+2
+],
+"Woodland": [
+2,
+2
+]
+},
+"Sniper": {
+"Churchyard": [
+0,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+0,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+0,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+0,
+2
+],
+"River Crossing": [
+0,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+0,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Thin Red Line": {
+"Churchyard": [
+1,
+2
+],
+"City": [
+1,
+2
+],
+"Crossroads": [
+1,
+2
+],
+"Hedgerows": [
+0,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+0,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+0,
+2
+],
+"Sunken Road": [
+0,
+2
+],
+"Village": [
+1,
+2
+],
+"Walled Farm": [
+0,
+2
+],
+"Woodland": [
+0,
+2
+]
+},
+"Veterans": {
+"Churchyard": [
+2,
+2
+],
+"City": [
+2,
+2
+],
+"Crossroads": [
+2,
+2
+],
+"Hedgerows": [
+2,
+2
+],
+"Open Plain": [
+2,
+2
+],
+"Orchard": [
+2,
+2
+],
+"Ridge": [
+1,
+2
+],
+"River Crossing": [
+2,
+2
+],
+"Suburb": [
+2,
+2
+],
+"Sunken Road": [
+2,
+2
+],
+"Village": [
+2,
+2
+],
+"Walled Farm": [
+2,
+2
+],
+"Woodland": [
+2,
+2
+]
+}
+}
+}
+}
