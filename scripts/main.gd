@@ -24,6 +24,13 @@ var COMPANY_MEN := 10   # men a company in the campaign: 10 (40 a side) or 20 (8
 const FIGHTING := 4
 var MERGE_BELOW := 3   # a company with fewer men than this joins another (3 at 10 a company, 5 at 20)
 const ROUND_CAP := 30
+# Epic: one field for the whole war, fifty companies a side (the twelve on the Armies screen, over
+# and over), up to ten of them in each battle; what is left of a company fights again later
+const EPIC_COMPANIES := 50
+const EPIC_PICK := 10
+const EPIC_ROUND_CAP := 40
+var epic := false
+var _designs := [[], []]   # the twelve companies of the Armies screen, kept while an epic war is on
 const ARMY_NAMES := ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 var front: Array[String] = []
 var armies := [[], []]   # per side: {name, drill, type, type_obj, men: [records], fights}
@@ -182,7 +189,8 @@ func _ready() -> void:
 		_prepare_single()
 		_start_next())
 	hud.batch_requested.connect(_run_batch)
-	hud.campaign_requested.connect(_start_campaign)
+	hud.campaign_requested.connect(func(): _start_campaign())
+	hud.epic_requested.connect(_start_epic)
 	hud.next_round_requested.connect(_next_round)
 	hud.simulate_requested.connect(_simulate)
 	hud.campaign_abandoned.connect(_abandon_campaign)
@@ -209,11 +217,11 @@ func _ready() -> void:
 		# --ui on a headless server: the HUD exists but nobody watches; run it fast and capped
 		manager.time_limit = float(args.get("cap", "400"))
 		set_sim_speed(20.0)
-	if args.has("campaign"):
-		# --ui --campaign: a whole campaign, headless, rounds chained automatically
+	if args.has("campaign") or args.has("epic"):
+		# --ui --campaign (or --epic): a whole war, headless, rounds chained automatically
 		if args.has("men"):
 			set_company_men(int(args["men"]))
-		_start_campaign()
+		_start_campaign(args.has("epic"))
 		hud.results_overlay.visible = false
 		_close_pick()
 		_next_round()
@@ -510,7 +518,14 @@ func _rebuild_field(layout: String) -> void:
 		hud.mark_field(layout)
 
 
-func _start_campaign() -> void:
+func _start_epic() -> void:
+	_start_campaign(true)
+
+
+func _start_campaign(epic_war := false) -> void:
+	if epic and not epic_war:
+		_end_epic_armies()
+	epic = epic_war
 	batch_left = 0
 	batch_results.clear()
 	campaign_active = true
@@ -527,6 +542,12 @@ func _start_campaign() -> void:
 	front = []
 	for i in FRONT_LEN:
 		front.append(String(pool[i]))
+	if epic:
+		# the field on the map now is the field for the whole war
+		var here: String = field.layout_name if field != null else String(pool[0])
+		front = []
+		for i in FRONT_LEN:
+			front.append(here)
 	campaign_field = (FRONT_LEN + 1) / 2
 	_last_fielded = ["", ""]
 	_fielded_last = [4, 4]
@@ -538,14 +559,22 @@ func _start_campaign() -> void:
 	# the armies as set up on the Armies screen, every man fresh; whoever was chosen last goes
 	# in first unless changed (the first four if nobody was)
 	_refresh_men_all()
+	if epic:
+		_build_epic_armies()
 	for t in 2:
-		if _fielded(t) == 0:
-			_default_picks(t)
+		if _fielded(t) == 0 or epic:
+			_default_picks(t, EPIC_PICK if epic else FIGHTING)
 	hud.front = front
-	hud.campaign_started()
+	hud.campaign_started(epic)
+	if epic:
+		_fielded_last = [EPIC_PICK, EPIC_PICK]
 	for t in 2:
 		# a computer commander chooses its own companies (blind) and opens with a pick of its own
 		if hud.commanders[t] == "computer":
+			if epic:
+				_default_picks(t, _computer_count(t))
+				_prepare_battle(t)   # in an epic its companies keep the drills they were given
+				continue
 			_default_picks(t, FIGHTING)
 			_prepare_battle(t)
 			_ai_pick(t, true)
@@ -555,6 +584,36 @@ func _start_campaign() -> void:
 	if cam != null:
 		cam.refit()
 	hud.show_pick()
+
+
+## Fifty companies a side from the twelve on the Armies screen, repeated: A1..L1, A2..L2, ...
+func _build_epic_armies() -> void:
+	for t in 2:
+		_designs[t] = (armies[t] as Array).duplicate(true)
+		var src: Array = _designs[t]
+		var out := []
+		for i in EPIC_COMPANIES:
+			var d: Dictionary = src[i % src.size()]
+			var nm := "%s%d" % [d["name"], i / src.size() + 1]
+			var men := []
+			for k in COMPANY_MEN:
+				men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], nm, k + 1], "seed": randi(), "kills": 0, "rounds": 0})
+			out.append({"name": nm, "drill": d["drill"], "type": d["type"], "type_obj": (d["type_obj"] as SoldierType).copy(),
+				"men": men, "fights": false, "rank": String(d.get("rank", "Auto")), "slot": d.get("slot", "")})
+		armies[t] = out
+
+
+## After an epic war: the Armies screen's twelve companies again.
+func _end_epic_armies() -> void:
+	for t in 2:
+		if not (_designs[t] as Array).is_empty():
+			armies[t] = _designs[t]
+			_designs[t] = []
+	epic = false
+
+
+func pick_limit() -> int:
+	return EPIC_PICK if epic and campaign_active else 999
 
 
 func _army_men(t: int) -> int:
@@ -593,7 +652,10 @@ func _default_picks(t: int, n: int = FIGHTING) -> void:
 	for i in ar.size():
 		if (ar[i]["men"] as Array).size() > 0:
 			idx.append(i)
-	idx.sort_custom(func(a, b): return (ar[a]["men"] as Array).size() > (ar[b]["men"] as Array).size())
+	idx.sort_custom(func(a, b):
+		var na: int = (ar[a]["men"] as Array).size()
+		var nb: int = (ar[b]["men"] as Array).size()
+		return na > nb or (na == nb and a < b))   # level on men: the first in the list
 	for i in ar.size():
 		ar[i]["fights"] = idx.find(i) >= 0 and idx.find(i) < n
 
@@ -617,6 +679,11 @@ func _computer_count(t: int) -> int:
 	if avail <= 1:
 		return avail
 	var n: int = int(_fielded_last[1 - t]) + randi_range(-1, 1)
+	if epic:
+		# about what the enemy brought last time; more if it is falling behind in men
+		if _army_men(t) < _army_men(1 - t) * 0.8:
+			n += 2
+		return clampi(n, mini(4, avail), mini(avail, EPIC_PICK))
 	var behind := campaign_field <= 2 if t == 0 else campaign_field >= FRONT_LEN - 1
 	if behind:
 		n = maxi(n, avail - randi_range(0, 1))   # a last stand: nearly everyone
@@ -631,7 +698,7 @@ func toggle_army_pick(t: int, i: int) -> void:
 	if ar[i]["fights"]:
 		if _fielded(t) > 1:   # the last company in cannot stand down
 			ar[i]["fights"] = false
-	elif not (ar[i]["men"] as Array).is_empty():
+	elif not (ar[i]["men"] as Array).is_empty() and _fielded(t) < pick_limit():
 		ar[i]["fights"] = true
 	if hud != null:
 		hud.refresh_pick()
@@ -639,6 +706,11 @@ func toggle_army_pick(t: int, i: int) -> void:
 
 ## Choose Companies' quick picks: everyone who can stand, or the freshest four.
 func pick_all(t: int) -> void:
+	if epic and campaign_active:
+		_default_picks(t, EPIC_PICK)
+		if hud != null:
+			hud.refresh_pick()
+		return
 	for a in armies[t]:
 		a["fights"] = (a["men"] as Array).size() > 0
 	if hud != null:
@@ -646,7 +718,7 @@ func pick_all(t: int) -> void:
 
 
 func pick_freshest(t: int) -> void:
-	_default_picks(t, FIGHTING)
+	_default_picks(t, EPIC_PICK if epic and campaign_active else FIGHTING)
 	if hud != null:
 		hud.refresh_pick()
 
@@ -842,6 +914,8 @@ func _abandon_campaign() -> void:
 	campaign_round = 0
 	manager.rosters = [[], []]
 	hud.campaign_ended()
+	if epic:
+		_end_epic_armies()
 	_refresh_men_all()
 	_rebuild_field("Walled Farm")
 	hud.open_setup("Campaign abandoned. The armies are whole again - what next?")
@@ -889,7 +963,9 @@ func _on_round_ended(result: Dictionary) -> void:
 	var over := false
 	var cw := -1
 	var why := ""
-	if w == 0 and campaign_field == FRONT_LEN:
+	if epic:
+		pass   # one field, no front: the war goes on while both sides have men
+	elif w == 0 and campaign_field == FRONT_LEN:
 		over = true
 		cw = 0
 		why = "Red carries the last field - Blue's country is taken"
@@ -905,13 +981,17 @@ func _on_round_ended(result: Dictionary) -> void:
 		else:
 			cw = 0 if men_after[1] == 0 else 1
 			why = "%s has nobody left to fight" % MatchManager.TEAM_NAMES[1 - cw]
-	elif campaign_round >= ROUND_CAP:
+	elif epic and campaign_round >= EPIC_ROUND_CAP:
+		over = true
+		cw = 0 if men_after[0] >= men_after[1] else 1
+		why = "after %d battles the war is called for the side with more men left" % EPIC_ROUND_CAP
+	elif not epic and campaign_round >= ROUND_CAP:
 		over = true
 		var mid := (FRONT_LEN + 1) / 2
 		cw = 0 if campaign_field > mid else (1 if campaign_field < mid else (0 if men_after[0] >= men_after[1] else 1))
 		why = "after %d battles the war is called for whoever holds more of the front" % ROUND_CAP
 	_fall_back = {}
-	if not over:
+	if not over and not epic:
 		if w == 0:
 			campaign_field += 1
 		elif w == 1:
@@ -944,7 +1024,7 @@ func _on_round_ended(result: Dictionary) -> void:
 		var want := [FIGHTING, FIGHTING]
 		for t in 2:
 			if hud.commanders[t] != "computer":
-				want[t] = maxi(int(_fielded_last[t]), 1)
+				want[t] = mini(maxi(int(_fielded_last[t]), 1), pick_limit())
 		for t in 2:
 			if hud.commanders[t] != "computer" or hud.commanders[1 - t] == "computer":
 				_default_picks(t, want[t])
@@ -954,16 +1034,17 @@ func _on_round_ended(result: Dictionary) -> void:
 				_default_picks(t, _computer_count(t))   # its own guess, made blind
 				_prepare_battle(t)
 		for t in 2:
-			if hud.commanders[t] == "computer":
+			if hud.commanders[t] == "computer" and not epic:
 				_ai_pick(t, false)
 				_sync_from_manager(t)
 	var next_layout: String = front[campaign_field - 1]
 	var summary := {"round": campaign_round, "field": layout, "field_no": fought_on,
 		"next_field": next_layout, "next_field_no": campaign_field, "front": front.duplicate(), "wins": campaign_wins.duplicate(),
 		"kills": campaign_kills.duplicate(), "history": campaign_rounds.duplicate(true), "counts": counts,
-		"men_before": men_before, "men_after": men_after, "men_full": ARMY_COMPANIES * COMPANY_MEN,
+		"men_before": men_before, "men_after": men_after, "men_full": (EPIC_COMPANIES if epic else ARMY_COMPANIES) * COMPANY_MEN,
 		"armies": [army_view(0), army_view(1)], "merges": merges, "over": over, "campaign_winner": cw, "why": why,
-		"fall_back": _fall_back.duplicate(), "war_units": war_unit_rows(), "result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate()}
+		"fall_back": _fall_back.duplicate(), "war_units": war_unit_rows(), "result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate(), "epic": epic,
+		"men_start": EPIC_COMPANIES * COMPANY_MEN if epic else ARMY_COMPANIES * COMPANY_MEN}
 	if not over:
 		# the next battlefield goes up now, so it can be surveyed before the companies are chosen
 		_rebuild_field(next_layout)
@@ -973,6 +1054,8 @@ func _on_round_ended(result: Dictionary) -> void:
 	else:
 		campaign_active = false
 		hud.campaign_ended()
+		if epic:
+			_end_epic_armies()
 		_refresh_men_all()   # the war is over: the armies stand at full strength for whatever is next
 	get_tree().create_timer(2.0).timeout.connect(func(): hud.show_round(summary))
 	if DisplayServer.get_name() == "headless":
@@ -1038,7 +1121,7 @@ func _init_armies() -> void:
 func _fresh_men(t: int, i: int) -> Array:
 	var men := []
 	for k in COMPANY_MEN:
-		men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], ARMY_NAMES[i], k + 1], "seed": randi(), "kills": 0, "rounds": 0})
+		men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], ARMY_NAMES[i % ARMY_NAMES.size()], k + 1], "seed": randi(), "kills": 0, "rounds": 0})
 	return men
 
 
@@ -1163,6 +1246,18 @@ func _ui_walk() -> void:
 	print("setup in campaign: %s" % hud._setup_camp_btn.text)
 	hud.campaign_abandoned.emit()
 	print("abandoned; men %d" % (armies[0][0]["men"] as Array).size())
+	hud.epic_requested.emit()
+	await get_tree().create_timer(0.5).timeout
+	hud.show_pick()
+	toggle_army_pick(0, 20)   # an eleventh is refused
+	await _shot("epic_pick")
+	print("epic: %d companies a side, %d v %d picked; title %s" % [(armies[0] as Array).size(), _fielded(0), _fielded(1), hud._pick_title.text])
+	hud.next_round_requested.emit()
+	print("epic battle 1: %d v %d companies, %d v %d men" % [(manager.companies[0] as Array).size(), (manager.companies[1] as Array).size(), manager.side_total(0), manager.side_total(1)])
+	await get_tree().create_timer(3.0).timeout
+	await _shot("epic_battle")
+	hud.campaign_abandoned.emit()
+	print("epic abandoned; army back to %d companies" % (armies[0] as Array).size())
 	get_tree().quit()
 
 

@@ -10,6 +10,7 @@ signal fit_requested
 signal campaign_requested
 signal next_round_requested
 signal campaign_abandoned
+signal epic_requested
 signal field_chosen(layout: String)
 signal army_pick(t: int, i: int)
 signal fall_back_to(no: int)
@@ -66,6 +67,9 @@ var _type_controls := [[], []]   # chips and sliders locked while a campaign run
 var _campaign_btn: Button
 var _fight_btn: Button
 var _top_campaign_btn: Button
+var _top_epic_btn: Button
+var _setup_epic_btn: Button
+var epic_on := false
 var _fight_btn0: Button
 var _setup_note: Label
 var _top_fight_btn: Button
@@ -127,6 +131,12 @@ func setup(m: MatchManager) -> void:
 		else:
 			campaign_requested.emit())
 	row.add_child(_top_campaign_btn)
+	_top_epic_btn = _button("» Start an epic")
+	_accent(_top_epic_btn)
+	_top_epic_btn.pressed.connect(func():
+		_close_overlays()
+		epic_requested.emit())
+	row.add_child(_top_epic_btn)
 	var teams_btn := _button("Armies")
 	teams_btn.pressed.connect(func(): open_setup(""))
 	row.add_child(teams_btn)
@@ -301,6 +311,8 @@ const TIPS := {
 	"» Another battle": "Fight again with the same companies",
 	"» Sim ×": "Run the same battle that many times again, fast, and see the numbers",
 	"» New campaign": "Start a new war with the armies as they are set up",
+	"» Start an epic": "One field for the whole war. Each side has 50 companies (the twelve on the Armies screen, repeated); before each battle you send in up to 10, the computer chooses its own. What is left of a company fights again later. The war ends when a side has nobody left.",
+	"» New epic": "Start a new epic war on the field on the map",
 	"» Choose companies for battle": "On to the next battle: choose the companies",
 	"View": "Show or hide the view controls",
 }
@@ -493,6 +505,13 @@ func _build_teams_overlay() -> void:
 		else:
 			campaign_requested.emit())
 	foot.add_child(_setup_camp_btn)
+	_setup_epic_btn = _button("» Start an epic")
+	_setup_epic_btn.custom_minimum_size = Vector2(0, 46)
+	_accent(_setup_epic_btn)
+	_setup_epic_btn.pressed.connect(func():
+		_close_overlays()
+		epic_requested.emit())
+	foot.add_child(_setup_epic_btn)
 	_setup_single_btn = _button("» Single battle")
 	_setup_single_btn.custom_minimum_size = Vector2(0, 46)
 	_style(_setup_single_btn, "go")
@@ -537,10 +556,11 @@ func refresh_setup() -> void:
 	_men_note.text = "  (%d a side with four companies in; fixed once a campaign starts)" % (int(game.COMPANY_MEN) * 4)
 	for t in 2:
 		_fill_side(t)
+	_setup_epic_btn.visible = not campaign_on
 	if campaign_on:
 		_setup_camp_btn.text = "» Back to choosing companies"
 		_style(_setup_camp_btn, "go")
-		_setup_single_btn.text = "× Abandon campaign"
+		_setup_single_btn.text = "× Abandon epic" if epic_on else "× Abandon campaign"
 		_style(_setup_single_btn, "stop")
 	else:
 		_setup_camp_btn.text = "» Start a campaign"
@@ -892,6 +912,8 @@ func show_pick() -> void:
 		var rno: int = int(game.campaign_round) + 1
 		var fno: int = int(game.campaign_field)
 		_pick_title.text = "Battle %d - field %d of %d, %s" % [rno, fno, front.size(), front[fno - 1]]
+		if epic_on:
+			_pick_title.text = "Epic battle %d on %s - up to %d companies a side" % [rno, front[fno - 1], int(game.EPIC_PICK)]
 		var rl := _small(_pick_box, _round_text + "  (point here for the field)")
 		_hover(rl, "%s: %s  (It is on the map behind this panel.)" % [front[fno - 1], Field.LAYOUT_HELP.get(front[fno - 1], "")])
 		var fb: Dictionary = game._fall_back
@@ -935,17 +957,27 @@ func show_pick() -> void:
 				men += (a["men"] as Array).size()
 		if secret:
 			_section(_pick_box, "%s - the computer chooses in secret" % MatchManager.TEAM_NAMES[t])
+		elif camp and epic_on:
+			var left := 0
+			var standing := 0
+			for a in ar:
+				left += (a["men"] as Array).size()
+				if (a["men"] as Array).size() > 0:
+					standing += 1
+			_section(_pick_box, "%s - %d of up to %d companies going in, %d men  (army: %d companies, %d men left)" % [
+				MatchManager.TEAM_NAMES[t], n, int(game.EPIC_PICK), men, standing, left])
 		else:
 			_section(_pick_box, "%s - %d companies, %d men going in" % [MatchManager.TEAM_NAMES[t], n, men])
 		var qrow := HFlowContainer.new()
 		_pick_box.add_child(qrow)
 		if not secret:
-			var fresh := _chip("Freshest four", false)
+			var fresh := _chip("Freshest ten" if camp and epic_on else "Freshest four", false)
 			fresh.pressed.connect(func(): game.pick_freshest(t))
 			qrow.add_child(fresh)
-			var all := _chip("Everyone", false)
-			all.pressed.connect(func(): game.pick_all(t))
-			qrow.add_child(all)
+			if not (camp and epic_on):
+				var all := _chip("Everyone", false)
+				all.pressed.connect(func(): game.pick_all(t))
+				qrow.add_child(all)
 			var hint := Label.new()
 			hint.text = "  or tap companies in and out (they line up left to right, A first)"
 			hint.add_theme_font_size_override("font_size", 12)
@@ -1374,6 +1406,11 @@ func batch_progress(i: int, n: int) -> void:
 func set_round(r: int, layout: String, men: Array, field_no: int = 0) -> void:
 	var n := front.size()
 	_round_text = "Battle %d - field %d of %d, %s · armies: Red %d men, Blue %d men" % [r, field_no, n, layout, men[0], men[1]]
+	if epic_on:
+		_round_text = "Epic battle %d on %s · men left in the armies: Red %d, Blue %d" % [r, layout, men[0], men[1]]
+		round_label.text = _round_text
+		round_label.visible = true
+		return
 	if field_no >= n:
 		_round_text += " · a Red win here takes Blue's country"
 	elif field_no > 0:
@@ -1404,14 +1441,17 @@ func _set_commander(t: int, who: String) -> void:
 	commanders[t] = who
 
 
-func campaign_started() -> void:
+func campaign_started(epic := false) -> void:
 	campaign_on = true
-	_top_campaign_btn.text = "× Abandon campaign"
+	epic_on = epic
+	_top_epic_btn.visible = false
+	_top_campaign_btn.text = "× Abandon epic" if epic else "× Abandon campaign"
 	_style(_top_campaign_btn, "stop")
 
 
 func campaign_ended() -> void:
 	campaign_on = false
+	_top_epic_btn.visible = true
 	round_label.visible = false
 	_top_campaign_btn.text = "» Start a campaign"
 	_accent(_top_campaign_btn)
@@ -1430,7 +1470,11 @@ func show_round(sm: Dictionary) -> void:
 	else:
 		results_title.text = "Battle %d on %d. %s - %s" % [sm["round"], sm["field_no"], sm["field"],
 			("%s wins" % res["winner_name"]) if res["winner"] >= 0 else "drawn, the front holds"]
+		if sm.get("epic", false):
+			results_title.text = "Epic battle %d on %s - %s" % [sm["round"], sm["field"],
+				("%s wins" % res["winner_name"]) if res["winner"] >= 0 else "drawn"]
 	# the front, animated: where the fight was, where it goes, what each army has left
+	var is_epic: bool = sm.get("epic", false)
 	var fm := FrontMap.new()
 	fm.fields = sm["front"]
 	fm.from_no = int(sm["field_no"])
@@ -1441,8 +1485,9 @@ func show_round(sm: Dictionary) -> void:
 	fm.men_full = [sm["men_full"], sm["men_full"]]
 	fm.over = over
 	fm.campaign_winner = cw
-	results_box.add_child(fm)
-	fm.play()
+	if not is_epic:   # an epic has no front, only what each army has left
+		results_box.add_child(fm)
+		fm.play()
 	if over:
 		var why := Label.new()
 		why.text = String(sm.get("why", ""))
@@ -1473,7 +1518,9 @@ func show_round(sm: Dictionary) -> void:
 		ml.add_theme_font_size_override("font_size", 12)
 		ml.add_theme_color_override("font_color", Color(0.8, 0.78, 0.65))
 		results_box.add_child(ml)
-	if not over:
+	if not over and is_epic:
+		_section(results_box, "Next: battle %d on %s - the same field" % [int(sm["round"]) + 1, sm["next_field"]])
+	elif not over:
 		_section(results_box, "Next: field %d of %d, %s" % [int(sm["next_field_no"]), (sm["front"] as Array).size(), sm["next_field"]])
 		_next_head = results_box.get_child(results_box.get_child_count() - 1) as Label
 		var fl := Label.new()
@@ -1503,9 +1550,16 @@ func show_round(sm: Dictionary) -> void:
 	_war_over = over
 	_results_close().visible = not over   # the war is over: the only way on is a new one
 	if over:
-		var again := _button("» New campaign")
+		var again := _button("» New epic" if is_epic else "» New campaign")
 		_accent(again)
-		again.pressed.connect(func(): _war_over = false; _results_close().visible = true; _close_overlays(); campaign_requested.emit())
+		again.pressed.connect(func():
+			_war_over = false
+			_results_close().visible = true
+			_close_overlays()
+			if is_epic:
+				epic_requested.emit()
+			else:
+				campaign_requested.emit())
 		row.add_child(again)
 	else:
 		var nxt := _button("» Choose companies for battle %d" % (int(sm["round"]) + 1))
