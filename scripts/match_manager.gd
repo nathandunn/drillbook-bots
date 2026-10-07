@@ -112,6 +112,8 @@ var _exch := {}            # ck -> [hits given, hits taken] lately (decays)
 var _last_harm_t := 0.0    # when anyone last hit anyone
 const PURSUIT := 30.0       # seconds the winners may chase a broken enemy off the field
 var pursuit_since := -1.0  # when one side broke (the pursuit), -1 before
+var retreat_side := -1     # a side that has been ordered off the field
+var retreat_since := 0.0
 var _press_since := {}
 var _fallback_since := {}
 var _captain_tick := 0.0
@@ -291,6 +293,7 @@ func start_match(seed_value: int = -1) -> void:
 	field.clear_smoke(rng)
 	elapsed = 0.0
 	pursuit_since = -1.0
+	retreat_side = -1
 	stats = _fresh_stats()
 	for t in 2:
 		store_company(t)
@@ -914,6 +917,9 @@ func _physics_process(delta: float) -> void:
 	# the fight is over when one side has nobody left standing on the field
 	var f0 := fighting(0).size()
 	var f1 := fighting(1).size()
+	if retreat_side >= 0 and (alive_count(retreat_side) == 0 or elapsed - retreat_since >= PURSUIT):
+		end_match("%s retreats from the field" % TEAM_NAMES[retreat_side], 1 - retreat_side)
+		return
 	if f0 > 0 and f1 > 0:
 		pursuit_since = -1.0   # (the broken side has rallied: the battle is on again)
 	if f0 == 0 and f1 == 0:
@@ -1144,7 +1150,15 @@ func _run_sergeant(t: int, c: int) -> void:
 			empty += 1
 	order["shot_out"] = empty * 2 >= men.size()
 	order["withdraw"] = false
-	if empty * 2 >= men.size() and not enemies.is_empty() and mode != "charge":
+	if retreat_side == t:
+		# the retreat is ordered: off the back of the field, every company
+		if mode != "fallback":
+			_fallback_since[k] = elapsed
+		mode = "fallback"
+		order["withdraw"] = true
+		order["shot_out"] = true   # (no play overrides it)
+		order["rally_z"] = home_z(t) * 1.15
+	elif empty * 2 >= men.size() and not enemies.is_empty() and mode != "charge":
 		# assault only when it can carry: close and not outnumbered, or bayonet men still strong,
 		# or the enemy breaking; otherwise a company with nothing to shoot leaves the field
 		var ratio := strength_ratio(t)
@@ -1789,11 +1803,14 @@ func _company_summary() -> Array:
 	return out
 
 
-## A side gives up the field in good order: the battle (and the ground) is the enemy's, but the
-## men still standing march off with their companies - no rout, no pursuit.
+## A side gives up the field: every company marches off the back of it, and the enemy has
+## PURSUIT seconds to do what damage he can before the battle (and the ground) is his.
 func retreat(t: int) -> void:
-	if running:
-		end_match("%s retreats in good order" % TEAM_NAMES[t], 1 - t)
+	if running and retreat_side < 0:
+		retreat_side = t
+		retreat_since = elapsed
+		if fx != null:
+			fx.bugle()
 
 
 func end_match(reason: String, forced_winner: int = -1) -> void:

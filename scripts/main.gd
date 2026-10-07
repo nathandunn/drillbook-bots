@@ -1385,7 +1385,9 @@ func _ui_walk() -> void:
 	print("campaign battle 1: %d v %d companies" % [(manager.companies[0] as Array).size(), (manager.companies[1] as Array).size()])
 	await get_tree().create_timer(4.0).timeout
 	hud.retreat_requested.emit()   # Red gives up the field
-	print("retreat: running %s" % manager.running)
+	print("retreat: side %d" % manager.retreat_side)
+	await manager.match_ended
+	print("retreat ended at %d s" % int(manager.elapsed))
 	await get_tree().create_timer(2.5).timeout
 	print("round panel: %s" % hud.results_title.text)
 	await _shot("round")

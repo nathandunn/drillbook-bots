@@ -168,7 +168,7 @@ func setup(m: MatchManager) -> void:
 	row.add_child(_sim_rest_btn)
 	_retreat_btn = _button("Retreat")
 	_style(_retreat_btn, "stop")
-	_retreat_btn.tooltip_text = "Give up the field: your men march off in good order (no rout, no pursuit). The battle is lost and the enemy takes the ground."
+	_retreat_btn.tooltip_text = "Give up the field: every company marches off the back of it. The enemy has 30 seconds to do what damage he can; then the battle is lost and he takes the ground."
 	_retreat_btn.pressed.connect(func(): retreat_requested.emit())
 	row.add_child(_retreat_btn)
 	var fit := _button("Fit view")
@@ -1286,7 +1286,11 @@ func _process(delta: float) -> void:
 		_retreat_btn.visible = manager.running
 	if manager.running:
 		var clock := "%d:%02d" % [int(manager.elapsed) / 60, int(manager.elapsed) % 60]
-		if manager.pursuit_since >= 0.0:
+		if manager.retreat_side >= 0:
+			var rs: int = manager.retreat_side
+			clock += "  ·  %s retreating - %d still on the field (%d s)" % [MatchManager.TEAM_NAMES[rs], manager.alive_count(rs),
+				int(MatchManager.PURSUIT - (manager.elapsed - manager.retreat_since))]
+		elif manager.pursuit_since >= 0.0:
 			var lost := 0 if manager.fighting(0).is_empty() else 1
 			clock += "  ·  %s has broken - %d running for the rear, %s in pursuit (%d s)" % [MatchManager.TEAM_NAMES[lost],
 				manager.alive_count(lost), MatchManager.TEAM_NAMES[1 - lost], int(MatchManager.PURSUIT - (manager.elapsed - manager.pursuit_since))]
