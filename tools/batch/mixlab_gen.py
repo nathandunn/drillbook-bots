@@ -6,7 +6,8 @@ fixed panel of opponents, on five fields, from both sides.
 import shlex, os, sys
 D = {"Sn": "Sniper/Marksman", "Fa": "Fabian Screen/Marksman", "An": "Anvil/Marksman", "Ha": "Hammer/Brawler",
      "Sh": "Shock/Grenadier", "Ni": "Ninjas/Shinobi", "Sk": "Skirmishers/Marksman", "Li": "Line/Even",
-     "Lb": "Linebreaker/Grenadier", "Pl": "Patient Line/Even"}
+     "Lb": "Linebreaker/Grenadier", "Pl": "Patient Line/Even",
+     "Ar": "Artillery/Gunner", "Cv": "Cavalry/Cavalry", "Re": "Regulars/Even"}
 
 
 def army(spec):
