@@ -331,8 +331,8 @@ func _rethink(m: MatchManager) -> void:
 
 ## Called for each company after its drill has chosen a mode: the play's say. Returns the mode.
 func mode_for(m: MatchManager, c: int, mode: String, order: Dictionary) -> String:
-	if play == "Drill book":
-		return mode
+	if play == "Drill book" or order.get("shot_out", false):
+		return mode   # (a company shot out decides for itself: bayonets or back out of range)
 	var reach := float(order.get("reach_d", INF))
 	var losses := m.company_losses(t, c)
 	var ty := String(m.companies[t][c].get("type_name", ""))

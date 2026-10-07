@@ -1094,6 +1094,24 @@ func _run_sergeant(t: int, c: int) -> void:
 				mode = "hold"
 			else:
 				mode = "advance"
+	# --- the cartridge boxes: a company mostly shot out cannot stand and trade fire - it fixes
+	# bayonets and goes in while it is still strong enough, or goes back out of range
+	var empty := 0
+	for m in men:
+		if m.ammo <= 0 and not m.loaded:
+			empty += 1
+	order["shot_out"] = empty * 2 >= men.size()
+	if empty * 2 >= men.size() and not enemies.is_empty() and mode != "charge":
+		if strength_ratio(t) >= 0.75 and reach_d < 160.0:
+			mode = "charge"
+			_charge_since[k] = elapsed
+			stats["charges"][t] += 1
+			if fx != null:
+				fx.charge(centre)
+		elif mode != "fallback":
+			mode = "fallback"
+			order["rally_z"] = clampf(centre.z - toward * 40.0, -Field.HALF_Z + 4.0, Field.HALF_Z - 4.0)
+			_fallback_since[k] = elapsed
 	# --- the captain's eye: a whole company standing about - not firing, not hit, nobody near -
 	# for forty seconds is sent forward, whatever its drill had it doing
 	var fired := 0
