@@ -430,7 +430,7 @@ func clear() -> void:
 
 func _fresh_stats() -> Dictionary:
 	return {
-		"shots": [0, 0], "hits": [0, 0], "kills": [[0, 0], [0, 0]],   # kills[t] = [rifle, bayonet]
+		"shots": [0, 0], "hits": [0, 0], "kills": [[0, 0, 0], [0, 0, 0]],   # kills[t] = [rifle, bayonet, grenade]
 		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "rallied": [0, 0], "own_kills": [0, 0], "grenade_kills": [0, 0], "fled": [0, 0],
 		"friendly": [0, 0], "thrusts": [0, 0], "thrust_hits": [0, 0], "wounds": [0, 0],
 	}
@@ -646,6 +646,8 @@ func grenade_burst(at: Vector3, thrower: Soldier) -> void:
 		elif d < 9.0:
 			o.fear = minf(o.fear + 0.25 * (1.0 - d / 9.0) + 0.05, 0.6)
 			o.under_fire = true
+			if d < 5.0:
+				o.stun(rng.randf_range(2.0, 4.0) * (1.0 - d / 6.0))   # knocked flat, ears ringing
 	for i in 6:
 		var dir := Vector3.FORWARD.rotated(Vector3.UP, TAU * i / 6.0)
 		field.add_smoke(at + Vector3(0, 0.5, 0) - dir * 2.5 + dir * rng.randf_range(0.0, 2.0), dir, 2.5)
@@ -1141,17 +1143,26 @@ func _run_sergeant(t: int, c: int) -> void:
 		if m.ammo <= 0 and not m.loaded:
 			empty += 1
 	order["shot_out"] = empty * 2 >= men.size()
+	order["withdraw"] = false
 	if empty * 2 >= men.size() and not enemies.is_empty() and mode != "charge":
-		if strength_ratio(t) >= 0.75 and reach_d < 160.0:
+		# assault only when it can carry: close and not outnumbered, or bayonet men still strong,
+		# or the enemy breaking; otherwise a company with nothing to shoot leaves the field
+		var ratio := strength_ratio(t)
+		var steel := General._bayonet(String(companies[t][c].get("type_name", "")))
+		var breaking := enemy_broken_near(t, c, 60.0)
+		if breaking or (reach_d < 60.0 and ratio >= 0.75) or (steel and reach_d < 120.0 and ratio >= 0.6):
 			mode = "charge"
 			_charge_since[k] = elapsed
 			stats["charges"][t] += 1
 			if fx != null:
 				fx.charge(centre)
-		elif mode != "fallback":
+		else:
+			if mode != "fallback":
+				_fallback_since[k] = elapsed
+				stats["fallbacks"][t] += 1
 			mode = "fallback"
-			order["rally_z"] = clampf(centre.z - toward * 40.0, -Field.HALF_Z + 4.0, Field.HALF_Z - 4.0)
-			_fallback_since[k] = elapsed
+			order["withdraw"] = true
+			order["rally_z"] = home_z(t) * 1.15   # off the back of the field
 	# --- the captain's eye: a whole company standing about - not firing, not hit, nobody near -
 	# for forty seconds is sent forward, whatever its drill had it doing
 	var fired := 0
@@ -1660,7 +1671,7 @@ func _on_damaged(s: Soldier, amount: float, _source: String, _attacker: Soldier)
 
 func _on_died(s: Soldier, source: String, attacker: Soldier) -> void:
 	if attacker != null and attacker.team != s.team:
-		stats["kills"][attacker.team][1 if source == "bayonet" else 0] += 1
+		stats["kills"][attacker.team][1 if source == "bayonet" else (2 if source == "grenade" else 0)] += 1
 		if source == "grenade":
 			stats["grenade_kills"][attacker.team] += 1
 	elif attacker != null:
@@ -1808,8 +1819,8 @@ func end_match(reason: String, forced_winner: int = -1) -> void:
 			for m in men:
 				g[t] += m.global_position.z * signf(-home_z(t))   # metres past the centre line, toward the enemy
 			g[t] = g[t] / maxf(float(men.size()), 1.0)
-		var s0: int = stats["kills"][0][0] + stats["kills"][0][1]
-		var s1: int = stats["kills"][1][0] + stats["kills"][1][1]
+		var s0: int = stats["kills"][0][0] + stats["kills"][0][1] + stats["kills"][0][2]
+		var s1: int = stats["kills"][1][0] + stats["kills"][1][1] + stats["kills"][1][2]
 		if absf(g[0] - g[1]) > 4.0:
 			winner = 0 if g[0] > g[1] else 1
 			reason += ", " + ("Red" if winner == 0 else "Blue") + " holds the ground"
@@ -1819,7 +1830,7 @@ func end_match(reason: String, forced_winner: int = -1) -> void:
 	for s in soldiers:
 		per.append({"name": s.soldier_name, "team": s.team, "alive": s.alive, "routed": s.is_routed, "gone": s.gone,
 			"seed": s.record_seed, "rounds": s.rounds, "career_kills": s.kills,
-			"shots": s.shots, "hits": s.hits, "kills": s.kills - s.kills_before, "bayonet_kills": s.bayonet_kills,
+			"shots": s.shots, "hits": s.hits, "kills": s.kills - s.kills_before, "bayonet_kills": s.bayonet_kills, "grenade_kills": s.grenade_kills,
 			"thrusts": s.thrusts, "thrust_hits": s.thrust_hits, "dmg": s.dmg_done, "hp": s.hp,
 			"persona": s.personality.label(), "type": s.soldier_type.label(), "company": s.company})
 	var result := {"match": match_index, "winner": winner, "winner_name": TEAM_NAMES[winner] if winner >= 0 else "Draw",

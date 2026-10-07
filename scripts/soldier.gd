@@ -18,7 +18,7 @@ const WALK := 1.7
 const RUN := 4.6
 const RELOAD := 20.0           # seconds: the fastest a man can shoot, one round every 20 s (owner, 2026-09-30)
 const GRENADES := 1             # a Grenadier's hand grenades
-const AMMO := 15               # rounds in the cartridge box, the loaded one included
+const AMMO := 20               # rounds in the cartridge box, the loaded one included
 const MAX_RANGE := 100.0
 const POINT_BLANK := 12.0
 const STEEL_RANGE := 3.0        # an enemy this close is a bayonet matter; no one shoots with a blade coming in
@@ -127,6 +127,8 @@ var shots := 0
 var hits := 0
 var kills := 0
 var bayonet_kills := 0
+var grenade_kills := 0
+var _stunned := 0.0             # knocked down by a burst: this long before he is up and doing again
 var thrusts := 0
 var thrust_hits := 0
 var dmg_done := 0.0
@@ -209,6 +211,14 @@ func _physics_process(delta: float) -> void:
 		if _bleed_t <= 0.0:
 			_bleed_t = rng.randf_range(0.5, 1.4)
 			manager.fx.drip(global_position)
+	if _stunned > 0.0:
+		# knocked flat by a burst: down on the ground, doing nothing, an easy mark
+		_stunned -= delta
+		velocity = Vector3.ZERO
+		kneeling = true
+		action = "stunned"
+		_animate(delta)
+		return
 	decide_timer -= delta
 	if decide_timer <= 0.0:
 		decide_timer = DECISION_INTERVAL + rng.randf_range(0.0, 0.05)
@@ -432,6 +442,9 @@ func _decide() -> void:
 	if order["mode"] == "fallback" and (p("discipline") > 0.3 or courage < 0.5):
 		goal = _slot_position(order, order["rally_z"])
 		action = "fallback"
+		if order.get("withdraw", false) and absf(global_position.z) > Field.HALF_Z - 1.5:
+			_flee()   # shot out: off the field, back to the waggons
+			return
 		want_run = p("nerve") < 0.5
 		# with the enemy well off he turns about and marches back; close to them he backs away
 		# facing them, rifle ready - and that is slow (see _move)
@@ -926,6 +939,12 @@ func _can_fire_at(enemy: Soldier) -> bool:
 
 ## A hand grenade: thrown (a second and a half to land and burn down the fuse), then a burst -
 ## the men right by it go down, the ones near are shaken, and the smoke hangs thick.
+func stun(t: float) -> void:
+	if t > 0.2:
+		_stunned = maxf(_stunned, t)
+		charging = false
+
+
 func _throw_grenade(at: Vector3) -> void:
 	grenades -= 1
 	_grenade_cd = 6.0
@@ -1083,7 +1102,9 @@ func _try_thrust(enemy: Soldier) -> void:
 	if not enemy.loaded and enemy.action != "melee" and enemy.action != "charge":
 		p_hit *= 1.25  # caught with the ramrod in the barrel
 	if enemy.kneeling:
-		p_hit *= 1.2   # a man on his knee behind a wall has no room to parry
+		p_hit *= 1.2
+	if enemy._stunned > 0.0:
+		p_hit *= 2.0   # down and dazed   # a man on his knee behind a wall has no room to parry
 	if enemy.is_routed or enemy.action == "rout":
 		p_hit *= 1.5
 	if tired():
@@ -1151,6 +1172,8 @@ func _die(source: String, attacker: Soldier) -> void:
 		attacker.kills += 1
 		if source == "bayonet":
 			attacker.bayonet_kills += 1
+		elif source == "grenade":
+			attacker.grenade_kills += 1
 	died.emit(self, source, attacker)
 	_spawn_ragdoll(attacker)
 	if manager.fx != null:

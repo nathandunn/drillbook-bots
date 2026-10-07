@@ -478,7 +478,7 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 	var tot := {}
 	for k in keys:
 		tot[k] = [0, 0]
-	var kills := [[0, 0], [0, 0]]
+	var kills := [[0, 0, 0], [0, 0, 0]]
 	for r in results:
 		if r["winner"] >= 0:
 			wins[r["winner"]] += 1
@@ -491,6 +491,7 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 				tot[k][t] += s[k][t]
 			kills[t][0] += s["kills"][t][0]
 			kills[t][1] += s["kills"][t][1]
+			kills[t][2] += s["kills"][t][2] if (s["kills"][t] as Array).size() > 2 else 0
 	# which rules decided, summed over the batch: per side, drill name -> {line -> ticks}
 	var tally := [{}, {}]
 	for r in results:
@@ -507,11 +508,11 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 		manager.battalion_label(1), manager._types_label(1), wins[1], draws, int(dur / n)]
 	for t in 2:
 		var acc := float(tot["hits"][t]) / maxf(float(tot["shots"][t]), 1.0) * 100.0
-		var kt: float = float(kills[t][0] + kills[t][1])
-		var dt: float = float(kills[1 - t][0] + kills[1 - t][1])
-		txt += "%s per battle: %d shots at %d%%, %d volleys, %d charges, %d fall-backs, %d ran; killed %d by ball, %d by bayonet; %d friendly hits; kills %.1f, deaths %.1f, K/D %.2f.  " % [
+		var kt: float = float(kills[t][0] + kills[t][1] + kills[t][2])
+		var dt: float = float(kills[1 - t][0] + kills[1 - t][1] + kills[1 - t][2])
+		txt += "%s per battle: %d shots at %d%%, %d volleys, %d charges, %d fall-backs, %d ran; killed %d by ball, %d by bayonet, %d by grenade; %d friendly hits; kills %.1f, deaths %.1f, K/D %.2f.  " % [
 			MatchManager.TEAM_NAMES[t], tot["shots"][t] / n, int(acc), tot["volleys"][t] / n, tot["charges"][t] / n,
-			tot["fallbacks"][t] / n, tot["routed"][t] / n, kills[t][0] / n, kills[t][1] / n, tot["friendly"][t] / n,
+			tot["fallbacks"][t] / n, tot["routed"][t] / n, kills[t][0] / n, kills[t][1] / n, kills[t][2] / n, tot["friendly"][t] / n,
 			kt / n, dt / n, kt / maxf(dt, 1.0)]
 	var battles := []
 	for r in results:
@@ -1100,7 +1101,7 @@ func _on_round_ended(result: Dictionary) -> void:
 		for ai in back[t]:
 			armies[t][ai]["men"] = back[t][ai]
 		merges.append_array(_merge_army(t))
-		campaign_kills[t] += st["kills"][t][0] + st["kills"][t][1]
+		campaign_kills[t] += st["kills"][t][0] + st["kills"][t][1] + st["kills"][t][2]
 	var men_after := [_army_men(0), _army_men(1)]
 	var layout: String = front[campaign_field - 1]
 	var fought_on := campaign_field
@@ -1455,6 +1456,7 @@ func _add_war_units(result: Dictionary) -> void:
 		u["thrust_hits"] += int(m.get("thrust_hits", 0))
 		u["kills"] += int(m["kills"])
 		u["bkills"] += int(m["bayonet_kills"])
+		u["gkills"] = int(u.get("gkills", 0)) + int(m.get("grenade_kills", 0))
 
 
 func war_unit_rows() -> Array:

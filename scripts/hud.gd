@@ -1305,10 +1305,10 @@ func show_result(res: Dictionary) -> void:
 		var l := Label.new()
 		var acc := float(st["hits"][t]) / maxf(float(st["shots"][t]), 1.0) * 100.0
 		var tacc := float(st["thrust_hits"][t]) / maxf(float(st["thrusts"][t]), 1.0) * 100.0
-		l.text = "%s (%s, %s): %d of %d standing, %d ran. Shots %d, hits %d (%d%%), friendly hits %d. Volleys %d, charges %d, fall-backs %d. Killed by ball %d, by bayonet %d (%d thrusts, %d%% landed)." % [
+		l.text = "%s (%s, %s): %d of %d standing, %d ran. Shots %d, hits %d (%d%%), friendly hits %d. Volleys %d, charges %d, fall-backs %d. Killed by ball %d, by bayonet %d (%d thrusts, %d%% landed), by grenade %d." % [
 			MatchManager.TEAM_NAMES[t], res["presets"][t], res["types"][t], res["alive"][t], res["sizes"][t], st["routed"][t],
 			st["shots"][t], st["hits"][t], int(acc), st["friendly"][t], st["volleys"][t], st["charges"][t], st["fallbacks"][t],
-			st["kills"][t][0], st["kills"][t][1], st["thrusts"][t], int(tacc)]
+			st["kills"][t][0], st["kills"][t][1], st["thrusts"][t], int(tacc), st["kills"][t][2] if (st["kills"][t] as Array).size() > 2 else 0]
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[t].lightened(0.4))
 		results_box.add_child(l)
@@ -1326,7 +1326,7 @@ func show_result(res: Dictionary) -> void:
 		if m["kills"] == 0 and m["hits"] == 0:
 			continue
 		var l := Label.new()
-		l.text = "  %s: %d kills (%d bayonet), %d/%d shots hit%s" % [m["name"], m["kills"], m["bayonet_kills"], m["hits"], m["shots"],
+		l.text = "  %s: %d kills (%d bayonet, %d grenade), %d/%d shots hit%s" % [m["name"], m["kills"], m["bayonet_kills"], int(m.get("grenade_kills", 0)), m["hits"], m["shots"],
 			"" if m["alive"] else " - fell", ]
 		l.add_theme_font_size_override("font_size", 13)
 		l.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[m["team"]].lightened(0.5))
@@ -1370,7 +1370,7 @@ func show_batch(summary: Dictionary) -> void:
 		["Wins", ["%d of %d" % [wins[0], n], "%d of %d" % [wins[1], n]]],
 	]
 	# the butcher's bill: what each side did and what it cost, per battle
-	var kd := [float(kills[0][0] + kills[0][1]), float(kills[1][0] + kills[1][1])]
+	var kd := [float(kills[0][0] + kills[0][1] + kills[0][2]), float(kills[1][0] + kills[1][1] + kills[1][2])]
 	rows.append(["Kills per battle", ["%.1f" % (kd[0] / n), "%.1f" % (kd[1] / n)]])
 	rows.append(["Deaths per battle", ["%.1f" % (kd[1] / n), "%.1f" % (kd[0] / n)]])
 	rows.append(["Kill / death", ["%.2f" % (kd[0] / maxf(kd[1], 1.0)), "%.2f" % (kd[1] / maxf(kd[0], 1.0))]])
@@ -1391,11 +1391,12 @@ func show_batch(summary: Dictionary) -> void:
 	_stat_row(g3, "Thrusts", [tot["thrusts"][0] / n, tot["thrusts"][1] / n])
 	_stat_row(g3, "Thrusts landed", ["%d%%" % int(float(tot["thrust_hits"][0]) / maxf(float(tot["thrusts"][0]), 1.0) * 100.0), "%d%%" % int(float(tot["thrust_hits"][1]) / maxf(float(tot["thrusts"][1]), 1.0) * 100.0)])
 	_stat_row(g3, "Killed by bayonet", [kills[0][1] / n, kills[1][1] / n])
+	_stat_row(g3, "Killed by grenade", [kills[0][2] / n, kills[1][2] / n])
 	_section(results_box, "Nerve, per battle")
 	var g4 := _stat_grid()
 	_stat_row(g4, "Fall-backs ordered", [tot["fallbacks"][0] / n, tot["fallbacks"][1] / n])
 	_stat_row(g4, "Men who ran", [tot["routed"][0] / n, tot["routed"][1] / n])
-	_stat_row(g4, "Killed, all told", [(kills[1][0] + kills[1][1]) / n, (kills[0][0] + kills[0][1]) / n])
+	_stat_row(g4, "Killed, all told", [(kills[1][0] + kills[1][1] + kills[1][2]) / n, (kills[0][0] + kills[0][1] + kills[0][2]) / n])
 	# company by company, per battle
 	var cst: Array = d.get("co_stats", [{}, {}])
 	var ccos: Array = d.get("companies", [[], []])
@@ -1571,7 +1572,9 @@ func show_round(sm: Dictionary) -> void:
 	_stat_row(g2, "Ran (and live)", [c[0]["ran"], c[1]["ran"]])
 	_stat_row(g2, "Fell - gone for good", [c[0]["fell"], c[1]["fell"]])
 	var st: Dictionary = res["stats"]
-	_stat_row(g2, "Killed by ball / bayonet", ["%d / %d" % [st["kills"][0][0], st["kills"][0][1]], "%d / %d" % [st["kills"][1][0], st["kills"][1][1]]])
+	var kk: Array = st["kills"]
+	_stat_row(g2, "Killed by ball / bayonet / grenade", ["%d / %d / %d" % [kk[0][0], kk[0][1], kk[0][2] if (kk[0] as Array).size() > 2 else 0],
+		"%d / %d / %d" % [kk[1][0], kk[1][1], kk[1][2] if (kk[1] as Array).size() > 2 else 0]])
 	var own: Array = st.get("own_kills", [0, 0])
 	if int(own[0]) + int(own[1]) > 0:
 		_stat_row(g2, "Fell to their own side's stray balls", [own[0], own[1]])
@@ -1852,6 +1855,7 @@ func battle_unit_rows(res: Dictionary) -> Array:
 		u["thrust_hits"] += int(m.get("thrust_hits", 0))
 		u["kills"] += int(m["kills"])
 		u["bkills"] += int(m["bayonet_kills"])
+		u["gkills"] = int(u.get("gkills", 0)) + int(m.get("grenade_kills", 0))
 	var out := []
 	for t in 2:
 		for c in 64:
@@ -1873,7 +1877,12 @@ func _book_row(g: GridContainer, label: String, u: Dictionary, col: Color, extra
 	_bcell(g, str(u["shots"]))
 	_bcell(g, ("%d%%" % int(round(acc))) if int(u["shots"]) > 0 else "-")
 	_bcell(g, ("%d (%d%%)" % [int(u["thrusts"]), int(round(tacc))]) if int(u["thrusts"]) > 0 else "-")
-	_bcell(g, "%d (%d bay.)" % [int(u["kills"]), int(u["bkills"])] if int(u["bkills"]) > 0 else str(u["kills"]))
+	var how := []
+	if int(u["bkills"]) > 0:
+		how.append("%d bay." % int(u["bkills"]))
+	if int(u.get("gkills", 0)) > 0:
+		how.append("%d gren." % int(u["gkills"]))
+	_bcell(g, ("%d (%s)" % [int(u["kills"]), ", ".join(how)]) if not how.is_empty() else str(u["kills"]))
 	_bcell(g, "%.1f" % (float(u["kills"]) / float(u["fell"])) if int(u["fell"]) > 0 else ("%d / 0" % int(u["kills"])))
 
 
