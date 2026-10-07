@@ -159,6 +159,11 @@ const LAYOUT_HELP := {
 }
 
 var layout_name := "Walled Farm"
+var fort_side := -1          # a fort for this side (0 Red, 1 Blue) at its end of the field, -1 none
+const FORT_HALF_W := 40.0    # the fort: a redoubt across most of the front ...
+const FORT_FRONT := 38.0     # ... its front wall this far out from the side's edge
+const FORT_BACK := 10.0      # ... its rear wall this far out (a gate in it)
+const FORT_WALL_HP := 4      # cannon balls to breach one stretch of wall
 var _terrain_mi: MeshInstance3D = null
 
 var pieces: Array[Dictionary] = []   # {rect: Rect2 (x,z), h: float, kind: String, tall: bool}
@@ -258,11 +263,20 @@ func _ready() -> void:
 
 	# ruins become their four walls (with a door in each flank) before anything is built
 	var pieces_src: Array = []
+	var fort_rect := fort_area()
 	for p in scaled_pieces(layout_name):
+		if fort_side >= 0:
+			var pr := Rect2(float(p[0]) - float(p[2]) * 0.5, float(p[1]) - float(p[3]) * 0.5, float(p[2]), float(p[3]))
+			if pr.intersects(fort_rect.grow(4.0)):
+				continue   # cleared for the fort
 		if p[5] == "ruin":
 			pieces_src.append_array(_ruin_walls(p))
 		else:
 			pieces_src.append(p)
+	if fort_side >= 0:
+		pieces_src.append_array(_fort_walls())
+	var fort_mat := StandardMaterial3D.new()
+	fort_mat.albedo_color = Color(0.5, 0.45, 0.36)
 	for i in pieces_src.size():
 		var p: Array = pieces_src[i]
 		var kind: String = p[5]
@@ -274,6 +288,12 @@ func _ready() -> void:
 				_static_box(Vector3(pos.x, pos.y - 0.3, pos.z), Vector3(size.x, size.y + 0.6, size.z), wall_mat)   # sunk a little so it meets a slope
 			"ruinwall":
 				_static_box(Vector3(pos.x, pos.y - 0.3, pos.z), Vector3(size.x, size.y + 0.6, size.z), ruin_mat)
+			"fortwall":
+				# kept out of the baked field mesh, so a breach can take it away
+				var fb := _static_box(Vector3(pos.x, pos.y - 0.3, pos.z), Vector3(size.x, size.y + 0.6, size.z), fort_mat)
+				fb.set_meta("nobake", true)
+				fort_nodes[pieces.size()] = fb
+				_fort_mat = fort_mat
 			"fence":
 				# two rails and posts, one collider
 				var body := _static_box(pos, size, fence_mat, false)
@@ -344,7 +364,8 @@ func _ready() -> void:
 				continue
 		var rect := Rect2(p[0] - p[2] * 0.5, p[1] - p[3] * 0.5, p[2], p[3])
 		var tall: bool = kind == "tree" or (kind != "water" and p[4] >= 1.4)
-		pieces.append({"rect": rect, "h": float(p[4]), "kind": kind, "tall": tall})
+		pieces.append({"rect": rect, "h": float(p[4]), "kind": kind, "tall": tall, "hp": FORT_WALL_HP if kind == "fortwall" else 0,
+			"fort": kind == "fortwall", "orig": rect, "box": [Vector3(pos.x, pos.y - 0.3, pos.z), Vector3(size.x, size.y + 0.6, size.z)]})
 	for i in pieces.size():
 		if pieces[i]["kind"] != "water":
 			_make_spots(i, pieces[i]["rect"], pieces[i]["kind"])
@@ -414,6 +435,120 @@ static func scaled_pieces(layout: String) -> Array:
 					out.append(q)
 					break
 	return out
+
+
+var fort_nodes := {}   # piece index -> its StaticBody3D (fort walls only)
+var _fort_mat: Material = null
+
+
+## A new battle on the same field: the fort's walls stand whole again.
+func restore_fort() -> void:
+	for i in pieces.size():
+		var pc: Dictionary = pieces[i]
+		if not pc.get("fort", false):
+			continue
+		if pc["kind"] == "fortwall" and int(pc["hp"]) == FORT_WALL_HP:
+			continue
+		pc["hp"] = FORT_WALL_HP
+		if pc["kind"] == "breach":
+			pc["kind"] = "fortwall"
+			pc["rect"] = pc["orig"]
+			var b: Array = pc["box"]
+			var fb := _static_box(b[0], b[1], _fort_mat)
+			fb.set_meta("nobake", true)
+			fort_nodes[i] = fb
+			_make_spots(i, pc["rect"], "fortwall")
+			if _nav != null:
+				var rr := (pc["rect"] as Rect2).grow(0.3)
+				var c0 := _nav_cell(rr.position)
+				var c1 := _nav_cell(rr.end)
+				for a in range(c0.x, c1.x + 1):
+					for bb in range(c0.y, c1.y + 1):
+						_nav.set_point_solid(Vector2i(a, bb), true)
+		elif fort_nodes.has(i):
+			(fort_nodes[i] as Node3D).scale.y = 1.0
+
+
+## The ground the fort stands on (x, z), or an empty rect.
+func fort_area() -> Rect2:
+	if fort_side < 0:
+		return Rect2()
+	var edge := -HALF_Z if fort_side == 0 else HALF_Z
+	var inward := 1.0 if fort_side == 0 else -1.0
+	var z_front := edge + inward * FORT_FRONT
+	var z_back := edge + inward * FORT_BACK
+	return Rect2(-FORT_HALF_W, minf(z_front, z_back), FORT_HALF_W * 2.0, absf(z_front - z_back))
+
+
+## The fort's walls: a breastwork 1.3 m high and a metre thick (men fire over it, kneeling behind
+## it), the front in four stretches, a side wall each end, the rear with a gate in the middle.
+## Each stretch takes FORT_WALL_HP cannon balls to breach.
+func _fort_walls() -> Array:
+	var r := fort_area()
+	var h := 1.3
+	var t := 1.0
+	var out := []
+	var front_z := r.position.y if fort_side == 1 else r.end.y
+	var back_z := r.end.y if fort_side == 1 else r.position.y
+	var seg := r.size.x / 4.0
+	for k in 4:
+		out.append([r.position.x + seg * (k + 0.5), front_z, seg - 0.2, t, h, "fortwall"])
+	for side in [-1.0, 1.0]:
+		out.append([side * (FORT_HALF_W - t * 0.5), r.get_center().y, t, r.size.y, h, "fortwall"])
+	var gate := 6.0
+	var half := (r.size.x - gate) * 0.5
+	out.append([r.position.x + half * 0.5, back_z, half, t, h, "fortwall"])
+	out.append([r.end.x - half * 0.5, back_z, half, t, h, "fortwall"])
+	return out
+
+
+## A cannon ball has struck piece i. A fort wall loses a little; on the last hit it is breached -
+## gone, and the ground behind it open.
+func strike_piece(i: int) -> bool:
+	if i < 0 or i >= pieces.size() or pieces[i]["kind"] != "fortwall":
+		return false
+	pieces[i]["hp"] = int(pieces[i]["hp"]) - 1
+	if int(pieces[i]["hp"]) > 0:
+		var nd: Node3D = fort_nodes.get(i)
+		if nd != null:
+			nd.scale.y = 0.6 + 0.4 * float(pieces[i]["hp"]) / FORT_WALL_HP   # knocked lower each time
+		return false
+	var old: Rect2 = pieces[i]["rect"]
+	pieces[i]["rect"] = Rect2(9999.0, 9999.0, 0.0, 0.0)
+	pieces[i]["kind"] = "breach"
+	var keep: Array[Dictionary] = []
+	for sp in spots:
+		if int(sp["piece"]) != i:
+			keep.append(sp)
+	spots = keep
+	if _nav != null:
+		var rr := old.grow(0.3)
+		var c0 := _nav_cell(rr.position)
+		var c1 := _nav_cell(rr.end)
+		for a in range(c0.x, c1.x + 1):
+			for b in range(c0.y, c1.y + 1):
+				_nav.set_point_solid(Vector2i(a, b), false)
+	var nd2: Node = fort_nodes.get(i)
+	if nd2 != null:
+		nd2.queue_free()
+		fort_nodes.erase(i)
+	return true
+
+
+## The nearest piece of fort wall on the segment a-b (x, z), or -1.
+func fort_wall_on(a: Vector2, b: Vector2) -> int:
+	var best := -1
+	var best_d := INF
+	for i in _pieces_on_segment(a, b):
+		if pieces[i]["kind"] != "fortwall":
+			continue
+		var r: Rect2 = pieces[i]["rect"]
+		if _segment_hits_rect(a, b, r):
+			var d := a.distance_to(r.get_center())
+			if d < best_d:
+				best_d = d
+				best = i
+	return best
 
 
 ## A ruin: four walls 0.5 m thick, no roof, and a 1.8 m doorway in the middle of each flank
@@ -1162,7 +1297,7 @@ func _bake_field() -> void:
 
 func _field_meshes(n: Node, out: Array) -> void:
 	for c in n.get_children():
-		if c == _terrain_mi:
+		if c == _terrain_mi or c.has_meta("nobake"):
 			continue
 		_field_meshes(c, out)
 		if c is MeshInstance3D and (c as MeshInstance3D).material_override is StandardMaterial3D:

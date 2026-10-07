@@ -176,6 +176,13 @@ func _first_choice(m: MatchManager) -> Array:
 	var us := _make_up(m, t)
 	var them := _make_up(m, 1 - t)
 	var ratio := float(us["men"]) / maxf(float(them["men"]), 1.0)
+	# a fort changes everything: hold it if it is ours; if it is theirs, batter it with guns first
+	if m.field.fort_side == t:
+		return ["Hold and receive", "we hold the fort - let them come at the walls"]
+	if m.field.fort_side == 1 - t:
+		if _has_guns(m):
+			return ["Hold and receive", "they are behind walls - the guns must breach them first"]
+		return ["Hammer and anvil", "they are behind walls - pin them from the front and go round the ends"]
 	# (from the play lab, 2026-10-05: an army all of marksmen does best pressing in together and
 	# finishing with the bayonet, and one all of bayonets going forward as one line; standing to
 	# receive lost for both. Mixed armies did best with this general choosing and changing.)
@@ -287,6 +294,21 @@ func _watch_moment(m: MatchManager) -> void:
 			thought = go
 
 
+func _has_guns(m: MatchManager) -> bool:
+	for c in (m.companies[t] as Array).size():
+		if Artillery.is_gun_company(m.companies[t][c]) and not m.fighting_company(t, c).is_empty():
+			return true
+	return false
+
+
+func _breaches(m: MatchManager) -> int:
+	var n := 0
+	for pc in m.field.pieces:
+		if pc["kind"] == "breach":
+			n += 1
+	return n
+
+
 ## An auto general weighs the battle every few seconds and changes the play when it no longer fits
 ## (not more often than every 15 seconds).
 func _rethink(m: MatchManager) -> void:
@@ -314,7 +336,10 @@ func _rethink(m: MatchManager) -> void:
 	elif ratio < 0.6 and play != "Hold and receive" and _make_up(m, t)["shoot"] > 0.2 and _make_up(m, t)["shoot"] < 0.8:
 		want = "Hold and receive"
 		why = "too few of us left to attack - hold what we have"
-	elif play == "Hold and receive" and quiet > 25.0 and m.elapsed > 40.0:
+	elif play == "Hold and receive" and m.field.fort_side == 1 - t and (_breaches(m) >= 2 or m.elapsed - since > 150.0):
+		want = "All-out charge"
+		why = "the wall is breached - storm the fort" if _breaches(m) > 0 else "the guns have done what they can - storm the fort"
+	elif play == "Hold and receive" and quiet > 25.0 and m.elapsed > 40.0 and m.field.fort_side != t:
 		want = "General advance"
 		why = "they won't come to us - go and get them"
 	elif play == "Feint and draw" and strike_t > since:

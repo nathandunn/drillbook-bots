@@ -1,0 +1,15 @@
+# Field guns (2026-10-06, owner): a company of gunners - a gun for every five men - hauled forward
+# until something is in range (about 400 m), then roundshot: at the enemy's fort walls first,
+# else into the thickest of his companies. The gunners stand by their guns.
+drill "Artillery"
+about "Field guns, a gun for every five men: hauled forward until something is in range (about 400 m), then roundshot - at the enemy's fort walls first, else into the thickest of his companies. The gunners stand by their guns."
+type Gunner
+dials aggression 0.20 discipline 0.85 cohesion 0.80 cover 0.20 patience 0.90 nerve 0.70
+
+sergeant:
+  when enemy within 380                                -> hold; hold fire
+  otherwise                                            -> advance slow; hold fire
+
+man:
+  when enemy within 6                                  -> bayonet
+  otherwise                                            -> follow sergeant

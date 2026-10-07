@@ -12,3 +12,5 @@ Line|Even
 Anvil|Marksman
 Hammer|Brawler
 Patient Line|Even
+Artillery|Gunner
+Cavalry|Cavalry

@@ -128,6 +128,9 @@ var hits := 0
 var kills := 0
 var bayonet_kills := 0
 var grenade_kills := 0
+var cannon_kills := 0
+var mounted := false            # a horseman (the Cavalry type)
+var _horse_legs: Array = []
 var suppression := 0.0         # balls coming close: 0 none .. 1 can't lift his head
 var prone := false
 var _keep_low := false           # under fire: kneels when he stops, and moves crouched              # pinned flat: crawls, does not fire, a small target
@@ -181,8 +184,14 @@ func apply_type() -> void:
 	var run_m := 0.6 + 0.8 * st.skill("run")
 	walk_speed = WALK * (0.8 + 0.4 * st.skill("run"))
 	run_speed = RUN * run_m
+	mounted = st.label() == "Cavalry"
+	if mounted:
+		walk_speed *= 1.6   # a horse at the walk and the trot ...
+		run_speed *= 1.9    # ... and at the gallop
 	# a trained marksman reloads in the 20 s floor; an even man ~24 s, a raw hand ~30 s
-	reload_time = RELOAD * 1.2 / (0.8 + 0.4 * st.skill("accuracy"))
+	# the accurate arm is the slow one: a rifle's ball has to be rammed down the grooves, so a
+	# marksman shoots further and truer but less often (Even ~22 s a round, Marksman ~27 s)
+	reload_time = RELOAD * (1.0 + 0.5 * st.skill("accuracy"))
 	ammo = AMMO
 	grenades = GRENADES if soldier_type != null and soldier_type.label() == "Grenadier" else 0
 	melee_mult = 0.55 + 0.9 * st.skill("melee")
@@ -226,6 +235,9 @@ func _physics_process(delta: float) -> void:
 	if decide_timer <= 0.0:
 		decide_timer = DECISION_INTERVAL + rng.randf_range(0.0, 0.05)
 		_decide()
+		if mounted:
+			kneeling = false   # a horseman cannot kneel or lie down
+			prone = false
 	_move(delta)
 	_animate(delta)
 
@@ -343,12 +355,24 @@ func _decide() -> void:
 		_try_thrust(enemy)
 		return
 
+	# a gunner serves his gun: his place is beside it, facing the enemy, whatever else is going on
+	if manager.artillery != null and Artillery.is_gun_company(manager.companies[team][company]):
+		var post := manager.artillery.crew_post(team, company, slot)
+		if post != Vector3.INF:
+			goal = post
+			action = "form"
+			want_run = global_position.distance_to(post) > 6.0
+			if enemy != null:
+				face_point = enemy.global_position
+			kneeling = false
+			return
+
 	# pinned: the balls are coming so thick he cannot lift his head. Flat on his belly he does not
 	# shoot; he can crawl a little - to the nearest wall if there is one - and he is a small mark.
 	# An order to charge gets him up unless it is truly murderous.
 	var pin_at := 0.45 + 0.4 * p("nerve")
 	var ordered_charge: bool = order["mode"] == "charge" and suppression < 0.9
-	if suppression > pin_at and not ordered_charge and not in_melee:
+	if suppression > pin_at and not ordered_charge and not in_melee and not mounted:
 		prone = true
 		kneeling = false
 		charging = false
@@ -918,6 +942,8 @@ func _slot_position(order: Dictionary, line_z: float) -> Vector3:
 
 ## A cover spot near the slot, if this man values cover more than his place in the line.
 func _pick_cover(slot_pos: Vector3, enemy: Soldier) -> Dictionary:
+	if mounted:
+		return {}   # no wall hides a horse
 	var want := p("cover") - 0.35 * p("discipline")
 	if manager.orders[team][company].get("seek_cover", false):
 		want = maxf(want, 0.5)   # the sergeant has seen the exchange; any wall will do
@@ -1021,6 +1047,9 @@ func _fire(enemy: Soldier) -> void:
 	if enemy.prone:
 		top = 0.45     # flat on his belly: a hand's breadth above the grass
 		aim_h = 0.25
+	elif enemy.mounted:
+		top = 2.6      # man and horse: a big mark
+		aim_h = 1.5
 	# every ball aimed at a man, and every one fired at the men about him, keeps heads down
 	manager.suppress(enemy.global_position, enemy.team, enemy)
 	var feet := enemy.global_position
@@ -1143,7 +1172,11 @@ func _try_thrust(enemy: Soldier) -> void:
 	if enemy._stunned > 0.0:
 		p_hit *= 2.0   # down and dazed
 	if enemy.prone:
-		p_hit *= 1.3   # flat on his face, he cannot parry well   # a man on his knee behind a wall has no room to parry
+		p_hit *= 1.3   # flat on his face, he cannot parry well
+	if mounted and running:
+		p_hit *= 1.5   # the weight of a horse at the gallop behind the sabre
+	if enemy.mounted and not mounted:
+		p_hit *= 0.8   # reaching up at a man on a horse   # a man on his knee behind a wall has no room to parry
 	if enemy.is_routed or enemy.action == "rout":
 		p_hit *= 1.5
 	if tired():
@@ -1178,7 +1211,7 @@ func take_damage(amount: float, source: String, attacker: Soldier) -> void:
 	if not alive:
 		return
 	# a musket ball or a bayonet puts a man down: nobody fights on with one in him
-	if source == "rifle" or source == "bayonet" or source == "grenade":
+	if source == "rifle" or source == "bayonet" or source == "grenade" or source == "cannon":
 		amount = maxf(amount, hp)
 	hp -= amount
 	under_fire = true
@@ -1213,6 +1246,8 @@ func _die(source: String, attacker: Soldier) -> void:
 			attacker.bayonet_kills += 1
 		elif source == "grenade":
 			attacker.grenade_kills += 1
+		elif source == "cannon":
+			attacker.cannon_kills += 1
 	died.emit(self, source, attacker)
 	_spawn_ragdoll(attacker)
 	if manager.fx != null:
@@ -1317,6 +1352,33 @@ func _move(delta: float) -> void:
 
 # ---------------------------------------------------------------- body
 
+## The horse under a cavalryman: a body, a neck and head toward the front (-z), four legs.
+func _build_horse() -> void:
+	var hm := StandardMaterial3D.new()
+	hm.albedo_color = [Color(0.36, 0.22, 0.12), Color(0.2, 0.14, 0.1), Color(0.5, 0.38, 0.26)][rng.randi() % 3] if rng != null else Color(0.36, 0.22, 0.12)
+	var horse := Node3D.new()
+	add_child(horse)
+	var parts := [[Vector3(0.55, 0.65, 1.7), Vector3(0, 1.15, 0.05)], [Vector3(0.32, 0.75, 0.35), Vector3(0, 1.6, -0.85)],
+		[Vector3(0.28, 0.3, 0.62), Vector3(0, 1.95, -1.15)], [Vector3(0.1, 0.55, 0.1), Vector3(0, 1.15, 0.95)]]
+	for pr in parts:
+		var mi := MeshInstance3D.new()
+		mi.mesh = _box(pr[0])
+		mi.material_override = hm
+		mi.position = pr[1]
+		horse.add_child(mi)
+	for lx in [-0.2, 0.2]:
+		for lz in [-0.65, 0.7]:
+			var pivot := Node3D.new()
+			pivot.position = Vector3(lx, 0.9, lz)
+			var leg := MeshInstance3D.new()
+			leg.mesh = _box(Vector3(0.13, 0.9, 0.13))
+			leg.material_override = hm
+			leg.position = Vector3(0, -0.45, 0)
+			pivot.add_child(leg)
+			horse.add_child(pivot)
+			_horse_legs.append(pivot)
+
+
 func _build_body() -> void:
 	body_root = Node3D.new()
 	add_child(body_root)
@@ -1332,6 +1394,8 @@ func _build_body() -> void:
 	var trouser := StandardMaterial3D.new()
 	trouser.albedo_color = Color(0.35, 0.36, 0.45) if team == 1 else Color(0.5, 0.5, 0.52)
 
+	if soldier_type != null and soldier_type.label() == "Cavalry":
+		_build_horse()
 	var torso := MeshInstance3D.new()
 	torso.mesh = _box(Vector3(0.5, 0.65, 0.3))
 	torso.material_override = _mat
@@ -1565,6 +1629,12 @@ func _animate(delta: float) -> void:
 	body_root.rotation.x = lerpf(body_root.rotation.x, lie, delta * 5.0)
 	# kneel: drop the body, fold the legs
 	var kneel_y := -0.55 if kneeling else (-0.75 if prone else 0.0)
+	if mounted:
+		kneel_y = 0.85   # in the saddle
+		for i in _horse_legs.size():
+			var hl: Node3D = _horse_legs[i]
+			var ph := 0.0 if i % 2 == 0 else PI
+			hl.rotation.x = (0.7 if running else 0.35) * sin(_gait * 0.8 + ph) if v > 0.2 else lerpf(hl.rotation.x, 0.0, delta * 6.0)
 	body_root.position.y = lerpf(body_root.position.y, kneel_y, delta * 6.0)
 	if kneeling:
 		leg_r.rotation.x = lerpf(leg_r.rotation.x, -1.4, delta * 6.0)
@@ -1731,6 +1801,8 @@ func _aimed() -> bool:
 func notice_range() -> float:
 	var s := soldier_type.skill("stealth")
 	var r := 220.0 * (1.3 - s)
+	if mounted:
+		r *= 1.4   # a horseman is seen a long way off
 	if kneeling or action == "cover" or _sneak_t > 0.0:
 		r *= 0.55
 	if running:

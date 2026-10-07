@@ -30,6 +30,7 @@ const EPIC_COMPANIES := 50
 const EPIC_PICK := 10
 const EPIC_ROUND_CAP := 40
 var epic := false
+var fort_side := -1      # a fort for this side at its end of the field (every battle until changed), -1 none
 var _designs := [[], []]   # the twelve companies of the Armies screen, kept while an epic war is on
 const ARMY_NAMES := ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 var front: Array[String] = []
@@ -96,8 +97,11 @@ func _ready() -> void:
 		return
 	headless = (DisplayServer.get_name() == "headless" or args.has("sim")) and not args.has("ui")
 	manager.headless = headless
+	fort_side = int(args.get("fort", "-1"))   # --fort=0 (Red holds one) / 1 (Blue)
 	if args.has("field") and Field.LAYOUTS.has(args["field"]):
 		_rebuild_field(args["field"])
+	elif fort_side >= 0:
+		_rebuild_field(field.layout_name)
 	# the battalions: --companies=4 --csize=10, --redbat="Light battalion"; --red / --redtype /
 	# --redtraits apply to every company of that side; --size is men per company
 	var per: int = clampi(int(args.get("csize", args.get("size", "10"))), 1, MatchManager.MAX_SIZE)
@@ -239,6 +243,19 @@ func _ready() -> void:
 		# --ui --uitest: walk the Armies and Choose Companies screens the way a player would
 		_ui_walk()
 		return
+	if args.has("shotat"):
+		# --shotat=40,80 --shots=dir: pictures of the field at those battle seconds (a look at it)
+		for sec in String(args["shotat"]).split(","):
+			var at := float(sec)
+			get_tree().create_timer(at * Engine.time_scale / maxf(Engine.time_scale, 0.001), true, false, true).timeout.connect(func():
+				if cam != null and args.has("zoom"):
+					cam.zoom_view(float(args["zoom"]))
+				if cam != null and args.has("look"):
+					# --look=x,z: centre the view there
+					var lk := String(args["look"]).split(",")
+					cam._focus = Vector3(float(lk[0]), 0, float(lk[1]))
+					cam.fit_all = false
+				_shot("t%d" % int(at)))
 	if args.has("batch"):
 		# --ui --batch=N: the Sim button's path, HUD and all, for a headless check of the panel
 		_run_batch(maxi(int(args["batch"]), 1))
@@ -454,7 +471,7 @@ func _co_stats(results: Array[Dictionary]) -> Array:
 			var t: int = m["team"]
 			var c: int = int(m.get("company", 0))
 			if not out[t].has(c):
-				out[t][c] = {"men": 0, "stood": 0, "ran": 0, "fell": 0, "shots": 0, "hits": 0, "kills": 0, "bayonet": 0}
+				out[t][c] = {"men": 0, "stood": 0, "ran": 0, "fell": 0, "shots": 0, "hits": 0, "kills": 0, "bayonet": 0, "grenade": 0, "cannon": 0}
 			var st: Dictionary = out[t][c]
 			st["men"] += 1
 			if not m["alive"]:
@@ -467,6 +484,8 @@ func _co_stats(results: Array[Dictionary]) -> Array:
 			st["hits"] += int(m["hits"])
 			st["kills"] += int(m["kills"])
 			st["bayonet"] += int(m["bayonet_kills"])
+			st["grenade"] += int(m.get("grenade_kills", 0))
+			st["cannon"] += int(m.get("cannon_kills", 0))
 	return out
 
 
@@ -474,11 +493,11 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 	var wins := [0, 0]
 	var draws := 0
 	var dur := 0.0
-	var keys := ["shots", "hits", "volleys", "charges", "fallbacks", "routed", "rallied", "own_kills", "grenade_kills", "friendly", "thrusts", "thrust_hits"]
+	var keys := ["shots", "hits", "volleys", "charges", "fallbacks", "routed", "rallied", "own_kills", "grenade_kills", "cannon_kills", "wall_hits", "friendly", "thrusts", "thrust_hits"]
 	var tot := {}
 	for k in keys:
 		tot[k] = [0, 0]
-	var kills := [[0, 0, 0], [0, 0, 0]]
+	var kills := [[0, 0, 0, 0], [0, 0, 0, 0]]
 	for r in results:
 		if r["winner"] >= 0:
 			wins[r["winner"]] += 1
@@ -492,6 +511,7 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 			kills[t][0] += s["kills"][t][0]
 			kills[t][1] += s["kills"][t][1]
 			kills[t][2] += s["kills"][t][2] if (s["kills"][t] as Array).size() > 2 else 0
+			kills[t][3] += s["kills"][t][3] if (s["kills"][t] as Array).size() > 3 else 0
 	# which rules decided, summed over the batch: per side, drill name -> {line -> ticks}
 	var tally := [{}, {}]
 	for r in results:
@@ -508,11 +528,11 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 		manager.battalion_label(1), manager._types_label(1), wins[1], draws, int(dur / n)]
 	for t in 2:
 		var acc := float(tot["hits"][t]) / maxf(float(tot["shots"][t]), 1.0) * 100.0
-		var kt: float = float(kills[t][0] + kills[t][1] + kills[t][2])
-		var dt: float = float(kills[1 - t][0] + kills[1 - t][1] + kills[1 - t][2])
-		txt += "%s per battle: %d shots at %d%%, %d volleys, %d charges, %d fall-backs, %d ran; killed %d by ball, %d by bayonet, %d by grenade; %d friendly hits; kills %.1f, deaths %.1f, K/D %.2f.  " % [
+		var kt: float = float(kills[t][0] + kills[t][1] + kills[t][2] + kills[t][3])
+		var dt: float = float(kills[1 - t][0] + kills[1 - t][1] + kills[1 - t][2] + kills[1 - t][3])
+		txt += "%s per battle: %d shots at %d%%, %d volleys, %d charges, %d fall-backs, %d ran; killed %d by ball, %d by bayonet, %d by grenade, %d by cannon; %d friendly hits; kills %.1f, deaths %.1f, K/D %.2f.  " % [
 			MatchManager.TEAM_NAMES[t], tot["shots"][t] / n, int(acc), tot["volleys"][t] / n, tot["charges"][t] / n,
-			tot["fallbacks"][t] / n, tot["routed"][t] / n, kills[t][0] / n, kills[t][1] / n, kills[t][2] / n, tot["friendly"][t] / n,
+			tot["fallbacks"][t] / n, tot["routed"][t] / n, kills[t][0] / n, kills[t][1] / n, kills[t][2] / n, kills[t][3] / n, tot["friendly"][t] / n,
 			kt / n, dt / n, kt / maxf(dt, 1.0)]
 	var battles := []
 	for r in results:
@@ -531,6 +551,7 @@ func _rebuild_field(layout: String) -> void:
 		field.queue_free()
 	field = Field.new()
 	field.layout_name = layout
+	field.fort_side = fort_side
 	add_child(field)
 	manager.field = field
 	if cam != null:
@@ -634,6 +655,16 @@ func _end_epic_armies() -> void:
 			armies[t] = _designs[t]
 			_designs[t] = []
 	epic = false
+
+
+## The fort: for Red, for Blue, or none (the field is rebuilt with it).
+func set_fort(side: int) -> void:
+	fort_side = side
+	_rebuild_field(field.layout_name)
+	if cam != null:
+		cam.refit()
+	if hud != null:
+		hud.show_pick()
 
 
 func pick_limit() -> int:
@@ -1101,7 +1132,8 @@ func _on_round_ended(result: Dictionary) -> void:
 		for ai in back[t]:
 			armies[t][ai]["men"] = back[t][ai]
 		merges.append_array(_merge_army(t))
-		campaign_kills[t] += st["kills"][t][0] + st["kills"][t][1] + st["kills"][t][2]
+		for kv in st["kills"][t]:
+			campaign_kills[t] += int(kv)
 	var men_after := [_army_men(0), _army_men(1)]
 	var layout: String = front[campaign_field - 1]
 	var fought_on := campaign_field
@@ -1467,6 +1499,7 @@ func _add_war_units(result: Dictionary) -> void:
 		u["kills"] += int(m["kills"])
 		u["bkills"] += int(m["bayonet_kills"])
 		u["gkills"] = int(u.get("gkills", 0)) + int(m.get("grenade_kills", 0))
+		u["ckills"] = int(u.get("ckills", 0)) + int(m.get("cannon_kills", 0))
 
 
 func war_unit_rows() -> Array:

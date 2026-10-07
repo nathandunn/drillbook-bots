@@ -19,7 +19,7 @@ signal simulate_rest_requested
 signal retreat_requested
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
-const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Scout", "Shinobi", "Random"]
+const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Scout", "Shinobi", "Gunner", "Cavalry", "Random"]
 const BATCH_N := 10
 
 var manager: MatchManager
@@ -1097,6 +1097,20 @@ func show_pick() -> void:
 					manager.adapt[side2] = not bool(manager.adapt[side2])
 					show_pick())
 				prow.add_child(ad)
+	# the fort
+	var frt := HFlowContainer.new()
+	frt.add_theme_constant_override("h_separation", 6)
+	_pick_box.add_child(frt)
+	var fl := Label.new()
+	fl.text = "Fort:"
+	fl.add_theme_font_size_override("font_size", 13)
+	_hover(fl, "A fort - a breastwork across the front with a gate at the back - at one side's end of the field. Its walls are cover to fire over; field guns (Gunner companies) can breach them, four balls to a stretch.")
+	frt.add_child(fl)
+	for fo in [[-1, "No fort"], [0, "Red holds a fort"], [1, "Blue holds a fort"]]:
+		var fc := _chip(String(fo[1]), int(game.fort_side) == int(fo[0]))
+		var fsd: int = fo[0]
+		fc.pressed.connect(func(): game.set_fort(fsd))
+		frt.add_child(fc)
 	var row := HFlowContainer.new()
 	_pick_box.add_child(row)
 	var fight := _button("» Fight")
@@ -1312,10 +1326,10 @@ func show_result(res: Dictionary) -> void:
 		var l := Label.new()
 		var acc := float(st["hits"][t]) / maxf(float(st["shots"][t]), 1.0) * 100.0
 		var tacc := float(st["thrust_hits"][t]) / maxf(float(st["thrusts"][t]), 1.0) * 100.0
-		l.text = "%s (%s, %s): %d of %d standing, %d ran. Shots %d, hits %d (%d%%), friendly hits %d. Volleys %d, charges %d, fall-backs %d. Killed by ball %d, by bayonet %d (%d thrusts, %d%% landed), by grenade %d." % [
+		l.text = "%s (%s, %s): %d of %d standing, %d ran. Shots %d, hits %d (%d%%), friendly hits %d. Volleys %d, charges %d, fall-backs %d. Killed by ball %d, by bayonet %d (%d thrusts, %d%% landed), by grenade %d, by cannon %d." % [
 			MatchManager.TEAM_NAMES[t], res["presets"][t], res["types"][t], res["alive"][t], res["sizes"][t], st["routed"][t],
 			st["shots"][t], st["hits"][t], int(acc), st["friendly"][t], st["volleys"][t], st["charges"][t], st["fallbacks"][t],
-			st["kills"][t][0], st["kills"][t][1], st["thrusts"][t], int(tacc), st["kills"][t][2] if (st["kills"][t] as Array).size() > 2 else 0]
+			st["kills"][t][0], st["kills"][t][1], st["thrusts"][t], int(tacc), st["kills"][t][2] if (st["kills"][t] as Array).size() > 2 else 0, st["kills"][t][3] if (st["kills"][t] as Array).size() > 3 else 0]
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.add_theme_color_override("font_color", MatchManager.TEAM_COLORS[t].lightened(0.4))
 		results_box.add_child(l)
@@ -1377,7 +1391,7 @@ func show_batch(summary: Dictionary) -> void:
 		["Wins", ["%d of %d" % [wins[0], n], "%d of %d" % [wins[1], n]]],
 	]
 	# the butcher's bill: what each side did and what it cost, per battle
-	var kd := [float(kills[0][0] + kills[0][1] + kills[0][2]), float(kills[1][0] + kills[1][1] + kills[1][2])]
+	var kd := [float(kills[0][0] + kills[0][1] + kills[0][2] + kills[0][3]), float(kills[1][0] + kills[1][1] + kills[1][2] + kills[1][3])]
 	rows.append(["Kills per battle", ["%.1f" % (kd[0] / n), "%.1f" % (kd[1] / n)]])
 	rows.append(["Deaths per battle", ["%.1f" % (kd[1] / n), "%.1f" % (kd[0] / n)]])
 	rows.append(["Kill / death", ["%.2f" % (kd[0] / maxf(kd[1], 1.0)), "%.2f" % (kd[1] / maxf(kd[0], 1.0))]])
@@ -1399,11 +1413,12 @@ func show_batch(summary: Dictionary) -> void:
 	_stat_row(g3, "Thrusts landed", ["%d%%" % int(float(tot["thrust_hits"][0]) / maxf(float(tot["thrusts"][0]), 1.0) * 100.0), "%d%%" % int(float(tot["thrust_hits"][1]) / maxf(float(tot["thrusts"][1]), 1.0) * 100.0)])
 	_stat_row(g3, "Killed by bayonet", [kills[0][1] / n, kills[1][1] / n])
 	_stat_row(g3, "Killed by grenade", [kills[0][2] / n, kills[1][2] / n])
+	_stat_row(g3, "Killed by cannon", [kills[0][3] / n, kills[1][3] / n])
 	_section(results_box, "Nerve, per battle")
 	var g4 := _stat_grid()
 	_stat_row(g4, "Fall-backs ordered", [tot["fallbacks"][0] / n, tot["fallbacks"][1] / n])
 	_stat_row(g4, "Men who ran", [tot["routed"][0] / n, tot["routed"][1] / n])
-	_stat_row(g4, "Killed, all told", [(kills[1][0] + kills[1][1] + kills[1][2]) / n, (kills[0][0] + kills[0][1] + kills[0][2]) / n])
+	_stat_row(g4, "Killed, all told", [(kills[1][0] + kills[1][1] + kills[1][2] + kills[1][3]) / n, (kills[0][0] + kills[0][1] + kills[0][2] + kills[0][3]) / n])
 	# company by company, per battle
 	var cst: Array = d.get("co_stats", [{}, {}])
 	var ccos: Array = d.get("companies", [[], []])
@@ -1412,7 +1427,7 @@ func show_batch(summary: Dictionary) -> void:
 	cg.columns = 6
 	cg.add_theme_constant_override("h_separation", 10)
 	results_box.add_child(cg)
-	for h in ["Company", "Fielded as", "Stood / ran / fell", "Shots", "Hits", "Kills (bayonet)"]:
+	for h in ["Company", "Fielded as", "Stood / ran / fell", "Shots", "Hits", "Kills (bayonet, grenade, cannon)"]:
 		_cell(cg, h, true)
 	for t in 2:
 		for c in (ccos[t] as Array).size():
@@ -1426,7 +1441,7 @@ func show_batch(summary: Dictionary) -> void:
 			_cell(cg, "%.1f / %.1f / %.1f" % [float(st["stood"]) / n, float(st["ran"]) / n, float(st["fell"]) / n], false)
 			_cell(cg, "%.1f" % (float(st["shots"]) / n), false)
 			_cell(cg, "%d%%" % int(100.0 * float(st["hits"]) / maxf(float(st["shots"]), 1.0)), false)
-			_cell(cg, "%.1f (%.1f)" % [float(st["kills"]) / n, float(st["bayonet"]) / n], false)
+			_cell(cg, "%.1f (%.1f, %.1f, %.1f)" % [float(st["kills"]) / n, float(st["bayonet"]) / n, float(st.get("grenade", 0)) / n, float(st.get("cannon", 0)) / n], false)
 	# the drills: which rule decided how often - the way to see whether a drill does what was meant
 	var tally: Array = d.get("tally", [{}, {}])
 	for t in 2:
@@ -1580,8 +1595,12 @@ func show_round(sm: Dictionary) -> void:
 	_stat_row(g2, "Fell - gone for good", [c[0]["fell"], c[1]["fell"]])
 	var st: Dictionary = res["stats"]
 	var kk: Array = st["kills"]
-	_stat_row(g2, "Killed by ball / bayonet / grenade", ["%d / %d / %d" % [kk[0][0], kk[0][1], kk[0][2] if (kk[0] as Array).size() > 2 else 0],
-		"%d / %d / %d" % [kk[1][0], kk[1][1], kk[1][2] if (kk[1] as Array).size() > 2 else 0]])
+	var kline := func(a: Array) -> String:
+		return "%d / %d / %d / %d" % [a[0], a[1], a[2] if a.size() > 2 else 0, a[3] if a.size() > 3 else 0]
+	_stat_row(g2, "Killed by ball / bayonet / grenade / cannon", [kline.call(kk[0]), kline.call(kk[1])])
+	var wh: Array = st.get("wall_hits", [0, 0])
+	if int(wh[0]) + int(wh[1]) > 0:
+		_stat_row(g2, "Cannon balls into the fort's walls", [wh[0], wh[1]])
 	var own: Array = st.get("own_kills", [0, 0])
 	if int(own[0]) + int(own[1]) > 0:
 		_stat_row(g2, "Fell to their own side's stray balls", [own[0], own[1]])
@@ -1863,6 +1882,7 @@ func battle_unit_rows(res: Dictionary) -> Array:
 		u["kills"] += int(m["kills"])
 		u["bkills"] += int(m["bayonet_kills"])
 		u["gkills"] = int(u.get("gkills", 0)) + int(m.get("grenade_kills", 0))
+		u["ckills"] = int(u.get("ckills", 0)) + int(m.get("cannon_kills", 0))
 	var out := []
 	for t in 2:
 		for c in 64:
@@ -1871,7 +1891,7 @@ func battle_unit_rows(res: Dictionary) -> Array:
 	return out
 
 
-const BOOK_HEAD := ["Company", "Men", "Fell", "Ran", "Shots", "Hit %", "Bayonet", "Kills", "K/D"]
+const BOOK_HEAD := ["Company", "Men", "Fell", "Ran", "Shots", "Hit %", "Thrusts", "Kills", "by ball", "by bayonet", "by grenade", "by cannon", "K/D"]
 
 
 func _book_row(g: GridContainer, label: String, u: Dictionary, col: Color, extra := "") -> void:
@@ -1884,12 +1904,14 @@ func _book_row(g: GridContainer, label: String, u: Dictionary, col: Color, extra
 	_bcell(g, str(u["shots"]))
 	_bcell(g, ("%d%%" % int(round(acc))) if int(u["shots"]) > 0 else "-")
 	_bcell(g, ("%d (%d%%)" % [int(u["thrusts"]), int(round(tacc))]) if int(u["thrusts"]) > 0 else "-")
-	var how := []
-	if int(u["bkills"]) > 0:
-		how.append("%d bay." % int(u["bkills"]))
-	if int(u.get("gkills", 0)) > 0:
-		how.append("%d gren." % int(u["gkills"]))
-	_bcell(g, ("%d (%s)" % [int(u["kills"]), ", ".join(how)]) if not how.is_empty() else str(u["kills"]))
+	var bk := int(u["bkills"])
+	var gk := int(u.get("gkills", 0))
+	var ckk := int(u.get("ckills", 0))
+	_bcell(g, str(u["kills"]))
+	_bcell(g, str(maxi(int(u["kills"]) - bk - gk - ckk, 0)))
+	_bcell(g, str(bk))
+	_bcell(g, str(gk))
+	_bcell(g, str(ckk))
 	_bcell(g, "%.1f" % (float(u["kills"]) / float(u["fell"])) if int(u["fell"]) > 0 else ("%d / 0" % int(u["kills"])))
 
 
@@ -1922,7 +1944,7 @@ func _book_grid(parent: Control, first: String) -> GridContainer:
 ## Company by company: who went in, what they shot, what they hit, what it cost.
 func unit_table(parent: Control, title: String, rows: Array, show_battles := false) -> void:
 	_section(parent, title)
-	_hover(parent.get_child(parent.get_child_count() - 1), "Men = men who went in%s. Hit %% = shots that struck someone. Bayonet = thrusts (how many landed). K/D = kills for each man lost." % (" (over all the battles)" if show_battles else ""))
+	_hover(parent.get_child(parent.get_child_count() - 1), "Men = men who went in%s. Hit %% = shots that struck someone. Thrusts = bayonet thrusts (how many landed). Kills, then how: by ball, by bayonet, by grenade, by cannon. K/D = kills for each man lost." % (" (over all the battles)" if show_battles else ""))
 	var g := _book_grid(parent, "Company")
 	for u in rows:
 		var col: Color = MatchManager.TEAM_COLORS[int(u["team"])].lightened(0.45)
@@ -1942,12 +1964,12 @@ func type_table(parent: Control, title: String, rows: Array) -> void:
 				continue
 			var ty: String = u["type"]
 			if not by.has(ty):
-				by[ty] = {"team": t, "companies": 0, "men": 0, "fell": 0, "ran": 0, "shots": 0, "hits": 0, "thrusts": 0, "thrust_hits": 0, "kills": 0, "bkills": 0}
+				by[ty] = {"team": t, "companies": 0, "men": 0, "fell": 0, "ran": 0, "shots": 0, "hits": 0, "thrusts": 0, "thrust_hits": 0, "kills": 0, "bkills": 0, "gkills": 0, "ckills": 0}
 				order.append(ty)
 			var b: Dictionary = by[ty]
 			b["companies"] += 1
-			for f in ["men", "fell", "ran", "shots", "hits", "thrusts", "thrust_hits", "kills", "bkills"]:
-				b[f] += int(u[f])
+			for f in ["men", "fell", "ran", "shots", "hits", "thrusts", "thrust_hits", "kills", "bkills", "gkills", "ckills"]:
+				b[f] += int(u.get(f, 0))
 		for ty in order:
 			var b: Dictionary = by[ty]
 			_book_row(g, "%s %s" % [MatchManager.TEAM_NAMES[t], ty], b, MatchManager.TEAM_COLORS[t].lightened(0.45), "  (%d co.)" % int(b["companies"]))

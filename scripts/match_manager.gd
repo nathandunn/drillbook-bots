@@ -59,6 +59,7 @@ static var TEAM_SIZE := 20
 
 var world: Node3D
 var fx: BattleFx = null      # sound and blood; null in a headless run
+var artillery: Artillery = null   # the guns
 var field: Field
 var headless := false
 var team_personalities: Array[Personality] = [Personality.preset("Regulars"), Personality.preset("Skirmishers")]
@@ -291,6 +292,7 @@ func start_match(seed_value: int = -1) -> void:
 	else:
 		rng.randomize()
 	field.clear_smoke(rng)
+	field.restore_fort()
 	elapsed = 0.0
 	pursuit_since = -1.0
 	retreat_side = -1
@@ -386,6 +388,18 @@ func start_match(seed_value: int = -1) -> void:
 				var fill := _bar_quad(lab, Color(0.1, 0.1, 0.1, 0.75), BAR_W + 0.002, BAR_H + 0.002, 0.0, 0)
 				fill = _bar_quad(lab, TEAM_COLORS[t].lightened(0.35), BAR_W, BAR_H, 0.0, 1)
 				co_bars[k] = [fill, maxi(int(co.get("full", n)), n)]   # against full strength, not today's
+	# the guns of the Gunner companies, where their companies stand
+	if artillery == null:
+		artillery = Artillery.new()
+		world.add_child(artillery)
+	artillery.manager = self
+	artillery.field = field
+	artillery.clear()
+	for t in 2:
+		for c in (companies[t] as Array).size():
+			if Artillery.is_gun_company(companies[t][c]) and int(co_n.get(ck(t, c), 0)) > 0:
+				var z0: float = float(orders[t][c]["line_z"])
+				artillery.place(t, c, Vector3(band_x(t, c), 0, z0), int(co_n[ck(t, c)]))
 	running = true
 	for t in 2:
 		generals[t] = General.new(t, String(plays[t]), bool(adapt[t]))
@@ -399,6 +413,8 @@ func _blank_order(t: int, n: int) -> Dictionary:
 
 
 func clear() -> void:
+	if artillery != null:
+		artillery.clear()
 	for k in co_labels:
 		if is_instance_valid(co_labels[k]):
 			co_labels[k].queue_free()
@@ -433,8 +449,8 @@ func clear() -> void:
 
 func _fresh_stats() -> Dictionary:
 	return {
-		"shots": [0, 0], "hits": [0, 0], "kills": [[0, 0, 0], [0, 0, 0]],   # kills[t] = [rifle, bayonet, grenade]
-		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "rallied": [0, 0], "own_kills": [0, 0], "grenade_kills": [0, 0], "fled": [0, 0],
+		"shots": [0, 0], "hits": [0, 0], "kills": [[0, 0, 0, 0], [0, 0, 0, 0]],   # kills[t] = [rifle, bayonet, grenade, cannon]
+		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "rallied": [0, 0], "own_kills": [0, 0], "grenade_kills": [0, 0], "cannon_kills": [0, 0], "wall_hits": [0, 0], "fled": [0, 0],
 		"friendly": [0, 0], "thrusts": [0, 0], "thrust_hits": [0, 0], "wounds": [0, 0],
 	}
 
@@ -911,6 +927,8 @@ func _physics_process(delta: float) -> void:
 		return
 	elapsed += delta
 	field.tick_smoke(delta)
+	if artillery != null:
+		artillery.tick(delta)
 	for t in 2:
 		for c in (orders[t] as Array).size():
 			orders[t][c]["volley_age"] = elapsed - float(_last_volley_t.get(ck(t, c), -100.0))
@@ -1217,6 +1235,8 @@ func _run_sergeant(t: int, c: int) -> void:
 		elif mode == "fallback" and before != "fallback" and String(order["mode"]) != "fallback":
 			_fallback_since[k] = elapsed
 			stats["fallbacks"][t] += 1
+	if Artillery.is_gun_company(companies[t][c]) and mode == "charge" and nearest_d > 12.0:
+		mode = "hold"   # the gunners stand by their guns
 	order["mode"] = mode
 	order["press"] = pressing and mode == "advance"
 	# the rush: the enemy is close (inside 90 m) and the companies facing us have not fired a shot yet
@@ -1696,7 +1716,9 @@ func _on_damaged(s: Soldier, amount: float, _source: String, _attacker: Soldier)
 
 func _on_died(s: Soldier, source: String, attacker: Soldier) -> void:
 	if attacker != null and attacker.team != s.team:
-		stats["kills"][attacker.team][1 if source == "bayonet" else (2 if source == "grenade" else 0)] += 1
+		stats["kills"][attacker.team][{"bayonet": 1, "grenade": 2, "cannon": 3}.get(source, 0)] += 1
+		if source == "cannon":
+			stats["cannon_kills"][attacker.team] += 1
 		if source == "grenade":
 			stats["grenade_kills"][attacker.team] += 1
 	elif attacker != null:
@@ -1847,8 +1869,8 @@ func end_match(reason: String, forced_winner: int = -1) -> void:
 			for m in men:
 				g[t] += m.global_position.z * signf(-home_z(t))   # metres past the centre line, toward the enemy
 			g[t] = g[t] / maxf(float(men.size()), 1.0)
-		var s0: int = stats["kills"][0][0] + stats["kills"][0][1] + stats["kills"][0][2]
-		var s1: int = stats["kills"][1][0] + stats["kills"][1][1] + stats["kills"][1][2]
+		var s0: int = stats["kills"][0][0] + stats["kills"][0][1] + stats["kills"][0][2] + stats["kills"][0][3]
+		var s1: int = stats["kills"][1][0] + stats["kills"][1][1] + stats["kills"][1][2] + stats["kills"][1][3]
 		if absf(g[0] - g[1]) > 4.0:
 			winner = 0 if g[0] > g[1] else 1
 			reason += ", " + ("Red" if winner == 0 else "Blue") + " holds the ground"
@@ -1858,7 +1880,7 @@ func end_match(reason: String, forced_winner: int = -1) -> void:
 	for s in soldiers:
 		per.append({"name": s.soldier_name, "team": s.team, "alive": s.alive, "routed": s.is_routed, "gone": s.gone,
 			"seed": s.record_seed, "rounds": s.rounds, "career_kills": s.kills,
-			"shots": s.shots, "hits": s.hits, "kills": s.kills - s.kills_before, "bayonet_kills": s.bayonet_kills, "grenade_kills": s.grenade_kills,
+			"shots": s.shots, "hits": s.hits, "kills": s.kills - s.kills_before, "bayonet_kills": s.bayonet_kills, "grenade_kills": s.grenade_kills, "cannon_kills": s.cannon_kills,
 			"thrusts": s.thrusts, "thrust_hits": s.thrust_hits, "dmg": s.dmg_done, "hp": s.hp,
 			"persona": s.personality.label(), "type": s.soldier_type.label(), "company": s.company})
 	var result := {"match": match_index, "winner": winner, "winner_name": TEAM_NAMES[winner] if winner >= 0 else "Draw",

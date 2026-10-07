@@ -250,6 +250,34 @@ func volley(pos: Vector3) -> void:
 	_play("volley", pos + Vector3(0, 1.5, 0), 2.0, 0.05, 0.5)
 
 
+## A gun fires: a deep boom heard across the field, a flash, and the ball flying flat to where it lands.
+func cannon(from: Vector3, to: Vector3) -> void:
+	if not muted and not muted_sim:
+		var arr: Array = _streams.get("volley", [])
+		if not arr.is_empty():
+			var p := _players[_next_player]
+			_next_player = (_next_player + 1) % _players.size()
+			p.stream = arr[0]
+			p.global_position = from
+			p.volume_db = 12.0
+			p.pitch_scale = randf_range(0.42, 0.5)
+			p.play()
+	blast(from + Vector3(0, -0.4, 0))
+	var ball := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.12
+	sm.height = 0.24
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.05, 0.05, 0.05)
+	sm.material = m
+	ball.mesh = sm
+	add_child(ball)
+	ball.global_position = from
+	var tw := create_tween()
+	tw.tween_property(ball, "global_position", to + Vector3(0, 0.3, 0), clampf(from.distance_to(to) / 300.0, 0.15, 1.4))
+	tw.tween_callback(ball.queue_free)
+
+
 ## A grenade in the air: a small black ball with a sputtering fuse, lobbed in an arc.
 func grenade_flight(from: Vector3, to: Vector3, dur: float) -> void:
 	var ball := MeshInstance3D.new()

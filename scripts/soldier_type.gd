@@ -24,6 +24,8 @@ const PRESETS := {
 	"Brawler":   {"run": 0.35, "melee": 0.50, "accuracy": 0.00, "stamina": 0.15, "stealth": 0.25},
 	"Scout":     {"run": 0.32, "melee": 0.20, "accuracy": 0.15, "stamina": 0.13, "stealth": 0.45},
 	"Shinobi":   {"run": 0.38, "melee": 0.45, "accuracy": 0.02, "stamina": 0.06, "stealth": 0.34},
+	"Gunner":    {"run": 0.20, "melee": 0.20, "accuracy": 0.30, "stamina": 0.40, "stealth": 0.15},
+	"Cavalry":   {"run": 0.55, "melee": 0.50, "accuracy": 0.05, "stamina": 0.15, "stealth": 0.00},
 }
 
 const TYPE_HELP := {
@@ -35,6 +37,8 @@ const TYPE_HELP := {
 	"Brawler": "All bayonet and legs: the best in a melee and quick to get there; can barely shoot",
 	"Scout": "Hard to see and quick: noticed late, above all creeping or in cover; little else",
 	"Shinobi": "Fast and hard to see, deadly with the blade; tires fast and can barely shoot",
+	"Gunner": "Serves the guns (a field gun for every five men): roundshot out to 400 m that skips through ranks and breaches fort walls",
+	"Cavalry": "On horseback: twice as fast as a running man, a fearful charge with the sabre - but a big target that cannot take cover or kneel",
 }
 
 const CURVE := 0.8

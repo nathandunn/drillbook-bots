@@ -1,0 +1,22 @@
+# Cavalry (2026-10-06, owner): horsemen kept back out of musket range, waiting for the moment -
+# an enemy busy with someone else, an enemy with empty muskets, an enemy breaking - then the
+# charge at the gallop, and back out to re-form if the charge fails. Ride down the running.
+drill "Cavalry"
+about "Horsemen kept out of musket range, waiting for the moment: an enemy busy with someone else, caught with empty muskets, or breaking - then the charge at the gallop. Rides down the running; pulls back to re-form when losing."
+type Cavalry
+dials aggression 0.80 discipline 0.60 cohesion 0.70 cover 0.00 patience 0.60 nerve 0.75
+
+sergeant:
+  when enemy breaking or enemy broken                  -> charge
+  when enemy engaged elsewhere and enemy within 120    -> charge; form open
+  when enemy reloading and enemy within 70             -> charge; form open
+  when losing the exchange                             -> fall back 50
+  when enemy within 110                                -> fall back 20; hold fire
+  when enemy within 150                                -> hold; hold fire
+  otherwise                                            -> advance; hold fire
+
+man:
+  when enemy running nearby and enemy within 60        -> charge
+  when charging                                        -> charge
+  when enemy within 6                                  -> charge
+  otherwise                                            -> follow sergeant
