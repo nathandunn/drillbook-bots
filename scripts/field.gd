@@ -250,8 +250,9 @@ func _ready() -> void:
 	var leaf_mat := StandardMaterial3D.new()
 	leaf_mat.albedo_color = Color(0.2, 0.4, 0.16)
 	var water_mat := StandardMaterial3D.new()
-	water_mat.albedo_color = Color(0.22, 0.4, 0.62)
-	water_mat.roughness = 0.2
+	water_mat.albedo_color = Color(0.12, 0.33, 0.78)   # plainly blue, whatever the sky
+	water_mat.roughness = 0.45
+	water_mat.metallic_specular = 0.25
 	var deck_mat := StandardMaterial3D.new()
 	deck_mat.albedo_color = Color(0.5, 0.38, 0.24)
 

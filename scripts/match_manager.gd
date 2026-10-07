@@ -626,6 +626,18 @@ func nearest_enemy(s: Soldier) -> Soldier:
 	return best
 
 
+## The nearest enemy still in the fight, noticed or not (where the company knows them to be).
+func nearest_enemy_any(s: Soldier) -> Soldier:
+	var best: Soldier = null
+	var best_d := INF
+	for o in fighting(1 - s.team):
+		var d := o.global_position.distance_squared_to(s.global_position)
+		if d < best_d:
+			best_d = d
+			best = o
+	return best
+
+
 ## The nearest enemy within rifle range who is not locked in a melee.
 func nearest_clear_enemy(s: Soldier) -> Soldier:
 	var best: Soldier = null
@@ -1001,6 +1013,7 @@ func _run_sergeant(t: int, c: int) -> void:
 	var losses := loss_fraction(t)
 	# what the neighbours read of this company: where it is and how close the enemy is
 	order["centre"] = centre
+	order["seen"] = seen
 	order["nearest_d"] = nearest_d
 	order["reach_d"] = reach_d
 
@@ -1181,6 +1194,9 @@ func _run_sergeant(t: int, c: int) -> void:
 			# keep the range: if the enemy pulls back out of reach, follow at the walk
 			if _plan.get("rally", false):
 				pass   # stand exactly here
+			elif not seen and not enemies.is_empty():
+				# a hill between us and them: holding behind it is hiding, not holding - up to the crest
+				order["line_z"] += toward * 1.2 * SERGEANT_TICK
 			elif not enemies.is_empty() and (nearest_d > engage + 8.0 or pressing) and not _plan.has("mode"):
 				order["line_z"] += toward * 1.0 * SERGEANT_TICK
 			# ... and a hot-blooded sergeant still edges in
@@ -1720,14 +1736,23 @@ func _company_summary() -> Array:
 	return out
 
 
-func end_match(reason: String) -> void:
+## A side gives up the field in good order: the battle (and the ground) is the enemy's, but the
+## men still standing march off with their companies - no rout, no pursuit.
+func retreat(t: int) -> void:
+	if running:
+		end_match("%s retreats in good order" % TEAM_NAMES[t], 1 - t)
+
+
+func end_match(reason: String, forced_winner: int = -1) -> void:
 	if not running:
 		return
 	running = false
 	var f := [fighting(0).size(), fighting(1).size()]
 	var a := [alive_count(0), alive_count(1)]
 	var winner := -1
-	if f[0] > 0 and f[1] == 0:
+	if forced_winner >= 0:
+		winner = forced_winner
+	elif f[0] > 0 and f[1] == 0:
 		winner = 0
 	elif f[1] > 0 and f[0] == 0:
 		winner = 1

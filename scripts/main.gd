@@ -196,6 +196,12 @@ func _ready() -> void:
 	hud.next_round_requested.connect(_next_round)
 	hud.simulate_requested.connect(_simulate)
 	hud.simulate_rest_requested.connect(_simulate_rest)
+	hud.retreat_requested.connect(func():
+		# the player's side (the first not run by the computer) leaves the field
+		for t in 2:
+			if hud.commanders[t] != "computer":
+				manager.retreat(t)
+				return)
 	hud.campaign_abandoned.connect(_abandon_campaign)
 	hud.army_pick.connect(toggle_army_pick)
 	hud.fall_back_to.connect(fall_back_to)
@@ -1374,7 +1380,9 @@ func _ui_walk() -> void:
 	print("campaign pick open %s, title %s" % [hud._pick_overlay.visible, hud._pick_title.text])
 	hud.next_round_requested.emit()
 	print("campaign battle 1: %d v %d companies" % [(manager.companies[0] as Array).size(), (manager.companies[1] as Array).size()])
-	await manager.match_ended
+	await get_tree().create_timer(4.0).timeout
+	hud.retreat_requested.emit()   # Red gives up the field
+	print("retreat: running %s" % manager.running)
 	await get_tree().create_timer(2.5).timeout
 	print("round panel: %s" % hud.results_title.text)
 	await _shot("round")

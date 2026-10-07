@@ -16,6 +16,7 @@ signal army_pick(t: int, i: int)
 signal fall_back_to(no: int)
 signal simulate_requested
 signal simulate_rest_requested
+signal retreat_requested
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
 const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Scout", "Shinobi", "Random"]
@@ -70,6 +71,7 @@ var _fight_btn: Button
 var _top_campaign_btn: Button
 var _top_epic_btn: Button
 var _sim_rest_btn: Button
+var _retreat_btn: Button
 var _setup_epic_btn: Button
 var epic_on := false
 var _fight_btn0: Button
@@ -164,6 +166,11 @@ func setup(m: MatchManager) -> void:
 	_sim_rest_btn.tooltip_text = "Finish this battle unseen, at full speed, and go straight to the result"
 	_sim_rest_btn.pressed.connect(func(): simulate_rest_requested.emit())
 	row.add_child(_sim_rest_btn)
+	_retreat_btn = _button("Retreat")
+	_style(_retreat_btn, "stop")
+	_retreat_btn.tooltip_text = "Give up the field: your men march off in good order (no rout, no pursuit). The battle is lost and the enemy takes the ground."
+	_retreat_btn.pressed.connect(func(): retreat_requested.emit())
+	row.add_child(_retreat_btn)
 	var fit := _button("Fit view")
 	fit.pressed.connect(func(): fit_requested.emit())
 	row.add_child(fit)
@@ -1220,6 +1227,8 @@ func _process(delta: float) -> void:
 		team_labels[t].text = txt
 	if _sim_rest_btn != null:
 		_sim_rest_btn.visible = manager.running
+	if _retreat_btn != null:
+		_retreat_btn.visible = manager.running
 	if manager.running:
 		var clock := "%d:%02d" % [int(manager.elapsed) / 60, int(manager.elapsed) % 60]
 		if manager.pursuit_since >= 0.0:

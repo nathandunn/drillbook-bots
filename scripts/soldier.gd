@@ -104,6 +104,9 @@ var _cover_spot: Dictionary = {}
 var _cover_hold := 0.0
 var _bleed_t := 0.0
 var _still_t := 0.0
+var _round_co := []            # going round: [team, company] he set out to get behind
+var _round_side := 0.0         # ... and which end of their line he goes round (-1 / +1)
+var _round_wide := false       # ... and whether he is out wide yet
 var _kite_lock := 0.0          # after running back: this long standing his ground before he may run back again
 var _about_face := false       # falling back with his back to the enemy (full walking pace, no shooting)
 var _last_fire_t := -100.0       # a shot gives a man away: flash and a puff of smoke
@@ -323,7 +326,10 @@ func _decide() -> void:
 
 	# the drill first: the first rule that holds and can be done decides; "follow sergeant"
 	# (or no rule at all) hands the tick to the engine below
-	if drill != null and not drill.man_rules.is_empty():
+	# (when the company has been ordered in with the bayonet, the order stands over a man's own
+	# drill - nobody stays behind to load and fire, or kneel, while his company charges)
+	var ordered_in: bool = order["mode"] == "charge" and not is_routed
+	if drill != null and not drill.man_rules.is_empty() and not ordered_in:
 		_d_enemy = enemy
 		_d_enemy_d = enemy_d
 		_d_order = order
@@ -332,14 +338,18 @@ func _decide() -> void:
 			return
 
 	# the charge: the sergeant's, or my own blood up
-	var charge_order: bool = order["mode"] == "charge"
-	if charge_order and (p("aggression") > 0.3 or p("discipline") > 0.6 or charging):
+	var charge_order: bool = ordered_in
+	if charge_order:
 		charging = true
 	elif enemy != null and enemy_d < 10.0 and p("aggression") > 0.8:
 		charging = true
 	elif enemy != null and enemy_d < 7.0 and not loaded and p("aggression") > 0.25:
 		charging = true   # empty rifle, enemy on top of me: the bayonet is what's left
-	if charging and (enemy == null or enemy_d > 45.0 or (not charge_order and enemy_d > 14.0 and p("aggression") < 0.8)):
+	if charge_order and charging and enemy == null:
+		# ordered in but nobody in sight of his own: go for the nearest of theirs the company knows of
+		enemy = manager.nearest_enemy_any(self)
+		enemy_d = global_position.distance_to(enemy.global_position) if enemy != null else INF
+	if charging and (enemy == null or (enemy_d > 45.0 and not charge_order) or (not charge_order and enemy_d > 14.0 and p("aggression") < 0.8)):
 		charging = false
 	if charging and enemy != null:
 		action = "charge"
@@ -675,24 +685,38 @@ func _drill_act(id: String, args: Array) -> bool:
 		"go_round":
 			# Out round the end of the enemy's line - wide, walking, keeping low - and in behind it,
 			# where the men are all looking the other way. Then the drill's "behind the enemy" rule
-			# sends him in.
+			# sends him in. He keeps to the company he set out for and the side he chose, and does not
+			# turn back once he is out wide (no going back and forth).
 			if e == null:
 				return false
+			if _round_co.size() == 2 and not manager.fighting_company(int(_round_co[0]), int(_round_co[1])).is_empty():
+				e = manager.fighting_company(int(_round_co[0]), int(_round_co[1]))[0]
+			else:
+				_round_co = [e.team, e.company]
+				_round_side = 0.0
+				_round_wide = false
 			var ord: Dictionary = manager.orders[e.team][e.company]
 			var cen: Vector3 = ord.get("centre", e.global_position)
 			var back := signf(manager.home_z(e.team))            # the way to the enemy's rear
 			var half_w := maxf(8.0, float(ord.get("count", 10)) * float(ord.get("spacing", 1.0)) * 0.7)
-			var side := signf(global_position.x - cen.x)
-			if side == 0.0:
-				side = 1.0 if slot % 2 == 0 else -1.0
+			if _round_side == 0.0:
+				_round_side = signf(global_position.x - cen.x)
+				if _round_side == 0.0:
+					_round_side = 1.0 if slot % 2 == 0 else -1.0
+			var side := _round_side
 			var dist: float = float(args[0]) if not args.is_empty() else 15.0
+			var dx := (global_position.x - cen.x) * side
+			if dx > half_w + 24.0:
+				_round_wide = true
+			elif dx < half_w * 0.5 and not _behind_line_of(e):
+				_round_wide = false   # pushed back in somehow: out again
 			var g: Vector3
 			if _behind_line_of(e):
 				g = Vector3(cen.x, 0, cen.z + back * dist)        # in behind: close on the middle of their back
-			elif absf(global_position.x - cen.x) < half_w + 22.0:
+			elif not _round_wide:
 				g = Vector3(cen.x + side * (half_w + 30.0), 0, global_position.z)   # out wide first
 			else:
-				g = Vector3(cen.x + side * (half_w + 22.0), 0, cen.z + back * dist)  # past the end, round behind
+				g = Vector3(cen.x + side * (half_w + 28.0), 0, cen.z + back * dist)  # past the end, round behind
 			g += Vector3(float(slot % 5) * 2.5 - 5.0, 0, float(slot / 5) * 2.5)   # spread out, not a knot
 			g.x = clampf(g.x, -Field.HALF_X + 2.0, Field.HALF_X - 2.0)
 			g.z = clampf(g.z, -Field.HALF_Z + 3.0, Field.HALF_Z - 3.0)
@@ -1179,6 +1203,9 @@ func _build_body() -> void:
 	add_child(body_root)
 	_mat = StandardMaterial3D.new()
 	_mat.albedo_color = team_color
+	if soldier_type != null and soldier_type.label() == "Shinobi":
+		# dressed to hide: a dark green, with only a touch of his side's colour to tell friend from foe
+		_mat.albedo_color = Color(0.16, 0.3, 0.14).lerp(team_color, 0.22)
 	_dark_mat = StandardMaterial3D.new()
 	_dark_mat.albedo_color = Color(0.22, 0.2, 0.2)
 	_eye_mat = StandardMaterial3D.new()

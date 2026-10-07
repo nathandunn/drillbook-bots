@@ -414,12 +414,12 @@ func place(m: MatchManager, c: int, order: Dictionary) -> void:
 				order["line_z"] = (slowest + 8.0 - depth) * tw
 		"Hold and receive":
 			var s0 := float(start_line.get(c, order["line_z"])) * tw
-			if z - depth > s0 + 4.0:
+			if order.get("seen", true) and z - depth > s0 + 4.0:   # (but not behind a hill: up to where they can be seen)
 				order["line_z"] = (s0 + 4.0) * tw
 		"Feint and draw":
 			if not lure.has(c):
 				var s0 := float(start_line.get(c, order["line_z"])) * tw
-				if z - depth > s0 + 4.0:
+				if order.get("seen", true) and z - depth > s0 + 4.0:
 					order["line_z"] = (s0 + 4.0) * tw
 		"All-out charge":
 			order["line_z"] = clampf(float(order["line_z"]) + tw * 0.7, -Field.HALF_Z + 3.0, Field.HALF_Z - 3.0)
