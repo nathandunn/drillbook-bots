@@ -14,6 +14,7 @@ var men_after := [0, 0]
 var men_full := [240, 240]
 var over := false
 var campaign_winner := -1
+var forts: Dictionary = {}     # field no -> the side whose fort stands there
 
 const ANIM := 1.8               # seconds
 var _t := 0.0
@@ -82,6 +83,9 @@ func _draw() -> void:
 		var label := String(fields[i])
 		var short := label.substr(0, 4) if cell < 60.0 else label.substr(0, 9)
 		draw_string(font, Vector2(x + 3, top + 16), str(no), HORIZONTAL_ALIGNMENT_LEFT, cell - 4, 11, Color(1, 1, 1, 0.7))
+		if forts.has(no):
+			var fcol: Color = (RED if int(forts[no]) == 0 else BLUE).lightened(0.55)
+			draw_string(font, Vector2(x + 3, top + 30), "fort", HORIZONTAL_ALIGNMENT_LEFT, cell - 4, 10, fcol)
 		draw_string(font, Vector2(x + 3, top + h - 8), short, HORIZONTAL_ALIGNMENT_LEFT, cell - 4, 10, Color(1, 1, 1, 0.85))
 	# the fight marker: crossed swords over the contested field
 	var mx := pad + (mpos - 0.5) * cell

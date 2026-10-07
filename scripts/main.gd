@@ -19,6 +19,8 @@ var _sun: DirectionalLight3D = null
 # four fighting at a time, no recruits; won by carrying the enemy's last field or by the enemy
 # having nobody left
 const FRONT_LEN := 11
+## In an epic the last field of each country and the one three back are forts, held by their own side.
+const EPIC_FORTS := {1: 0, 4: 0, 8: 1, 11: 1}
 const ARMY_COMPANIES := 12
 var COMPANY_MEN := 10   # men a company in the campaign: 10 (40 a side) or 20 (80 a side), set at its start
 const FIGHTING := 4
@@ -551,7 +553,7 @@ func _rebuild_field(layout: String) -> void:
 		field.queue_free()
 	field = Field.new()
 	field.layout_name = layout
-	field.fort_side = fort_side
+	field.fort_side = field_fort()
 	add_child(field)
 	manager.field = field
 	if cam != null:
@@ -561,6 +563,14 @@ func _rebuild_field(layout: String) -> void:
 		manager.fx.clear()
 	if hud != null:
 		hud.mark_field(layout)
+
+
+## Whose fort stands on the field now: in an epic, the front's own forts; otherwise the choice
+## on the Choose Companies screen.
+func field_fort() -> int:
+	if epic and campaign_active:
+		return int(EPIC_FORTS.get(campaign_field, -1))
+	return fort_side
 
 
 func _start_epic() -> void:
@@ -1218,7 +1228,7 @@ func _on_round_ended(result: Dictionary) -> void:
 		"kills": campaign_kills.duplicate(), "history": campaign_rounds.duplicate(true), "counts": counts,
 		"men_before": men_before, "men_after": men_after, "men_full": (EPIC_COMPANIES if epic else ARMY_COMPANIES) * COMPANY_MEN,
 		"armies": [army_view(0), army_view(1)], "merges": merges, "over": over, "campaign_winner": cw, "why": why,
-		"fall_back": _fall_back.duplicate(), "war_units": war_unit_rows(), "result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate(), "epic": epic,
+		"fall_back": _fall_back.duplicate(), "war_units": war_unit_rows(), "result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate(), "epic": epic, "forts": EPIC_FORTS if epic else {},
 		"men_start": EPIC_COMPANIES * COMPANY_MEN if epic else ARMY_COMPANIES * COMPANY_MEN}
 	if not over:
 		# the next battlefield goes up now, so it can be surveyed before the companies are chosen

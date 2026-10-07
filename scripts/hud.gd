@@ -1106,11 +1106,19 @@ func show_pick() -> void:
 	fl.add_theme_font_size_override("font_size", 13)
 	_hover(fl, "A fort - a breastwork across the front with a gate at the back - at one side's end of the field. Its walls are cover to fire over; field guns (Gunner companies) can breach them, four balls to a stretch.")
 	frt.add_child(fl)
-	for fo in [[-1, "No fort"], [0, "Red holds a fort"], [1, "Blue holds a fort"]]:
-		var fc := _chip(String(fo[1]), int(game.fort_side) == int(fo[0]))
-		var fsd: int = fo[0]
-		fc.pressed.connect(func(): game.set_fort(fsd))
-		frt.add_child(fc)
+	if camp and epic_on:
+		# the epic's forts are part of the front: fields 1 and 4 Red's, 8 and 11 Blue's
+		var ff: int = game.field_fort()
+		var ftx := Label.new()
+		ftx.text = ("none on this field" if ff < 0 else "%s holds the fort on this field" % MatchManager.TEAM_NAMES[ff]) + "  (forts on fields 1 and 4 are Red's, 8 and 11 Blue's)"
+		ftx.add_theme_font_size_override("font_size", 13)
+		frt.add_child(ftx)
+	else:
+		for fo in [[-1, "No fort"], [0, "Red holds a fort"], [1, "Blue holds a fort"]]:
+			var fc := _chip(String(fo[1]), int(game.fort_side) == int(fo[0]))
+			var fsd: int = fo[0]
+			fc.pressed.connect(func(): game.set_fort(fsd))
+			frt.add_child(fc)
 	var row := HFlowContainer.new()
 	_pick_box.add_child(row)
 	var fight := _button("» Fight")
@@ -1570,6 +1578,7 @@ func show_round(sm: Dictionary) -> void:
 	var is_epic: bool = sm.get("epic", false)
 	var fm := FrontMap.new()
 	fm.fields = sm["front"]
+	fm.forts = sm.get("forts", {})
 	fm.from_no = int(sm["field_no"])
 	fm.to_no = int(sm["next_field_no"])
 	fm.winner = int(res["winner"])
