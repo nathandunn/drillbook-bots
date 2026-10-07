@@ -1148,6 +1148,9 @@ func _build_results_overlay() -> void:
 
 
 func _close_overlays() -> void:
+	if _start != null and _start.visible:
+		_start.visible = false
+		_top.visible = true
 	teams_overlay.visible = false
 	results_overlay.visible = false
 	if _pick_overlay != null:

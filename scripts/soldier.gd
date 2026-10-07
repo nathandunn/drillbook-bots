@@ -128,6 +128,9 @@ var hits := 0
 var kills := 0
 var bayonet_kills := 0
 var grenade_kills := 0
+var suppression := 0.0         # balls coming close: 0 none .. 1 can't lift his head
+var prone := false
+var _keep_low := false           # under fire: kneels when he stops, and moves crouched              # pinned flat: crawls, does not fire, a small target
 var _stunned := 0.0             # knocked down by a burst: this long before he is up and doing again
 var thrusts := 0
 var thrust_hits := 0
@@ -228,6 +231,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _tick_timers(delta: float) -> void:
+	suppression = maxf(suppression - delta * 0.12, 0.0)
 	if not loaded and ammo > 0:
 		var r := 1.0
 		if tired():
@@ -338,6 +342,30 @@ func _decide() -> void:
 		face_point = enemy.global_position
 		_try_thrust(enemy)
 		return
+
+	# pinned: the balls are coming so thick he cannot lift his head. Flat on his belly he does not
+	# shoot; he can crawl a little - to the nearest wall if there is one - and he is a small mark.
+	# An order to charge gets him up unless it is truly murderous.
+	var pin_at := 0.45 + 0.4 * p("nerve")
+	var ordered_charge: bool = order["mode"] == "charge" and suppression < 0.9
+	if suppression > pin_at and not ordered_charge and not in_melee:
+		prone = true
+		kneeling = false
+		charging = false
+		action = "pinned"
+		goal = global_position
+		var spot := _pick_cover(global_position, enemy)
+		if not spot.is_empty() and global_position.distance_to(spot["pos"]) < 6.0:
+			goal = spot["pos"]
+		if enemy != null:
+			face_point = enemy.global_position
+		return
+	prone = false
+	# under fire but not pinned: down on one knee whenever he is not moving
+	if suppression > 0.25 and order["mode"] != "charge":
+		_keep_low = true
+	else:
+		_keep_low = false
 
 	# a grenade: men behind a wall or bunched together, 8 to 25 m off - light the fuse and throw
 	if grenades > 0 and _grenade_cd <= 0.0 and enemy != null and not in_melee and enemy_d > 8.0 and enemy_d < 25.0:
@@ -916,6 +944,8 @@ func _pick_cover(slot_pos: Vector3, enemy: Soldier) -> Dictionary:
 
 
 func _can_fire_at(enemy: Soldier) -> bool:
+	if prone:
+		return false
 	var from := global_position + Vector3(0, EYE_HEIGHT, 0)
 	var to := enemy.global_position + Vector3(0, 1.0, 0)
 	if field.line_of_fire(from, to) <= 0.0:
@@ -988,6 +1018,11 @@ func _fire(enemy: Soldier) -> void:
 	var from := global_position + Vector3(0, EYE_HEIGHT, 0)
 	var top := Ballistics.KNEEL_H if enemy.kneeling else Ballistics.BODY_H
 	var aim_h := 0.75 if enemy.kneeling else Ballistics.AIM_H
+	if enemy.prone:
+		top = 0.45     # flat on his belly: a hand's breadth above the grass
+		aim_h = 0.25
+	# every ball aimed at a man, and every one fired at the men about him, keeps heads down
+	manager.suppress(enemy.global_position, enemy.team, enemy)
 	var feet := enemy.global_position
 	var aim := feet + Vector3(0, aim_h, 0)
 	var to := enemy.global_position + Vector3(0, 1.0, 0)
@@ -1106,7 +1141,9 @@ func _try_thrust(enemy: Soldier) -> void:
 	if enemy.kneeling:
 		p_hit *= 1.2
 	if enemy._stunned > 0.0:
-		p_hit *= 2.0   # down and dazed   # a man on his knee behind a wall has no room to parry
+		p_hit *= 2.0   # down and dazed
+	if enemy.prone:
+		p_hit *= 1.3   # flat on his face, he cannot parry well   # a man on his knee behind a wall has no room to parry
 	if enemy.is_routed or enemy.action == "rout":
 		p_hit *= 1.5
 	if tired():
@@ -1257,6 +1294,11 @@ func _move(delta: float) -> void:
 			fp.y = 0.0
 			if fp.length() > 0.5 and dir.dot(fp.normalized()) < -0.3:
 				speed *= 0.25
+	if prone:
+		speed = minf(speed, walk_speed * 0.15)   # a crawl
+		running = false
+	elif _keep_low and speed > 0.0 and not running:
+		speed *= 0.6                             # crouched, between shots
 	velocity = dir * speed + push * 1.2
 	velocity.y = 0.0
 	move_and_slide()
@@ -1516,8 +1558,13 @@ func _animate(delta: float) -> void:
 	else:
 		leg_l.rotation.x = lerpf(leg_l.rotation.x, 0.0, delta * 8.0)
 		leg_r.rotation.x = lerpf(leg_r.rotation.x, 0.0, delta * 8.0)
+	if _keep_low and v < 0.2 and not prone:
+		kneeling = true
+	# prone: flat on the ground, face to the enemy
+	var lie := -1.35 if prone else 0.0
+	body_root.rotation.x = lerpf(body_root.rotation.x, lie, delta * 5.0)
 	# kneel: drop the body, fold the legs
-	var kneel_y := -0.55 if kneeling else 0.0
+	var kneel_y := -0.55 if kneeling else (-0.75 if prone else 0.0)
 	body_root.position.y = lerpf(body_root.position.y, kneel_y, delta * 6.0)
 	if kneeling:
 		leg_r.rotation.x = lerpf(leg_r.rotation.x, -1.4, delta * 6.0)

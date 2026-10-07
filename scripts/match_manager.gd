@@ -629,6 +629,17 @@ func nearest_enemy(s: Soldier) -> Soldier:
 	return best
 
 
+## A ball comes at a man: he and the men within 3 m of him feel it (more for him).
+func suppress(at: Vector3, team: int, target: Soldier) -> void:
+	for o in fighting(team):
+		var d := o.global_position.distance_to(at)
+		if d < 3.0:
+			var add := 0.11 if o == target else 0.05 * (1.0 - d / 3.0)
+			if o.kneeling or o.prone or String(o.action) == "cover":
+				add *= 0.7   # behind something, it is easier to bear
+			o.suppression = minf(o.suppression + add, 1.0)
+
+
 ## How many of s's own side stand within r of a point (a grenade thrower checks his own men).
 func friends_near(s: Soldier, at: Vector3, r: float) -> int:
 	var n := 0

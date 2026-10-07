@@ -1368,6 +1368,14 @@ func _ui_walk() -> void:
 	manager.time_limit = 75.0
 	await get_tree().create_timer(55.0).timeout
 	cam.zoom_view(0.45)
+	var pinned := 0
+	var low := 0
+	for sd in manager.alive_soldiers():
+		if sd.prone:
+			pinned += 1
+		elif sd.kneeling:
+			low += 1
+	print("battle at %d s: %d pinned flat, %d kneeling" % [int(manager.elapsed), pinned, low])
 	await _shot("battle2")
 	await manager.match_ended
 	await get_tree().create_timer(2.5).timeout
