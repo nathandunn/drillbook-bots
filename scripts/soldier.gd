@@ -1164,11 +1164,13 @@ func _try_thrust(enemy: Soldier) -> void:
 	_thrust_anim = 0.3
 	var p_hit := 0.6 * melee_mult / (0.5 + 0.6 * enemy.melee_mult)
 	if charging and running:
-		p_hit *= 1.3   # the weight of the charge behind the first thrust
+		p_hit *= 1.15  # the weight of the charge behind the first thrust
 	if not enemy.loaded and enemy.action != "melee" and enemy.action != "charge":
-		p_hit *= 1.25  # caught with the ramrod in the barrel
+		p_hit *= 1.1   # caught with the ramrod in the barrel
 	if enemy.kneeling:
 		p_hit *= 1.2
+	elif not enemy.running and not enemy.charging and enemy.alone < 0.5:
+		p_hit *= 0.8   # a formed rank standing to receive: a hedge of bayonets, shoulder to shoulder
 	if enemy._stunned > 0.0:
 		p_hit *= 2.0   # down and dazed
 	if enemy.prone:

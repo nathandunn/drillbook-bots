@@ -18,7 +18,7 @@ const PROP_HELP := {
 const PRESETS := {
 	"Even":      {"run": 0.25, "melee": 0.25, "accuracy": 0.25, "stamina": 0.25, "stealth": 0.25},
 	"Marksman":  {"run": 0.15, "melee": 0.12, "accuracy": 0.53, "stamina": 0.20, "stealth": 0.25},
-	"Grenadier": {"run": 0.15, "melee": 0.60, "accuracy": 0.15, "stamina": 0.25, "stealth": 0.10},
+	"Grenadier": {"run": 0.15, "melee": 0.40, "accuracy": 0.25, "stamina": 0.35, "stealth": 0.10},
 	"Runner":    {"run": 0.50, "melee": 0.15, "accuracy": 0.15, "stamina": 0.20, "stealth": 0.25},
 	"Ironside":  {"run": 0.18, "melee": 0.22, "accuracy": 0.15, "stamina": 0.45, "stealth": 0.25},
 	"Brawler":   {"run": 0.35, "melee": 0.50, "accuracy": 0.00, "stamina": 0.15, "stealth": 0.25},

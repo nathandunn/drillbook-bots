@@ -671,7 +671,7 @@ func friends_near(s: Soldier, at: Vector3, r: float) -> int:
 func grenade_burst(at: Vector3, thrower: Soldier) -> void:
 	for o in alive_soldiers():
 		var d := o.global_position.distance_to(at)
-		if d < 3.0 and rng.randf() < (0.3 if d < 1.5 else 0.08):
+		if d < 3.0 and rng.randf() < (0.15 if d < 1.5 else 0.04):
 			o.take_damage(999.0, "grenade", thrower)
 		elif d < 9.0:
 			o.fear = minf(o.fear + 0.25 * (1.0 - d / 9.0) + 0.05, 0.6)
