@@ -419,9 +419,9 @@ func _decide() -> void:
 	var charge_order: bool = ordered_in
 	if charge_order:
 		charging = true
-	elif enemy != null and enemy_d < 10.0 and p("aggression") > 0.8:
+	elif enemy != null and enemy_d < 10.0 and p("aggression") > 0.8 and not garrisoned_against(enemy):
 		charging = true
-	elif enemy != null and enemy_d < 7.0 and not loaded and p("aggression") > 0.25:
+	elif enemy != null and enemy_d < 7.0 and not loaded and p("aggression") > 0.25 and not garrisoned_against(enemy):
 		charging = true   # empty rifle, enemy on top of me: the bayonet is what's left
 	if charge_order and charging and enemy == null:
 		# ordered in but nobody in sight of his own: go for the nearest of theirs the company knows of
@@ -693,7 +693,7 @@ func _drill_act(id: String, args: Array) -> bool:
 				face_point = e.global_position
 			return true
 		"charge":
-			if e == null or ed > 60.0:
+			if e == null or ed > 60.0 or garrisoned_against(e):
 				return false
 			charging = true
 			action = "charge"
@@ -1156,6 +1156,18 @@ func order_volley() -> bool:
 	return float(o.get("volley_age", 999.0)) < 0.7
 
 
+## Am I inside our own fort with this enemy still outside it, not yet at the wall? Then I stay
+## behind the wall and shoot rather than go out to him.
+func garrisoned_against(e: Soldier) -> bool:
+	var f: Field = manager.field
+	if f.fort_side != team or e == null:
+		return false
+	var r := f.fort_area()
+	var me := Vector2(global_position.x, global_position.z)
+	var him := Vector2(e.global_position.x, e.global_position.z)
+	return r.grow(1.5).has_point(me) and not r.has_point(him) and me.distance_to(him) > 2.5
+
+
 func _try_thrust(enemy: Soldier) -> void:
 	if thrust_timer > 0.0:
 		return
@@ -1167,13 +1179,17 @@ func _try_thrust(enemy: Soldier) -> void:
 		p_hit *= 1.15  # the weight of the charge behind the first thrust
 	if not enemy.loaded and enemy.action != "melee" and enemy.action != "charge":
 		p_hit *= 1.1   # caught with the ramrod in the barrel
-	if enemy.kneeling:
+	# a fort's wall between us: the man behind it has the better of it - the other is climbing
+	var over_wall := manager.field.fort_side >= 0 and manager.field.fort_wall_on(Vector2(global_position.x, global_position.z), Vector2(enemy.global_position.x, enemy.global_position.z)) >= 0
+	if over_wall:
+		p_hit *= 0.5 if enemy.team == manager.field.fort_side else 1.3
+	elif enemy.kneeling:
 		p_hit *= 1.2
 	elif not enemy.running and not enemy.charging and enemy.alone < 0.5:
 		p_hit *= 0.8   # a formed rank standing to receive: a hedge of bayonets, shoulder to shoulder
 	if enemy._stunned > 0.0:
 		p_hit *= 2.0   # down and dazed
-	if enemy.prone:
+	if enemy.prone and not over_wall:
 		p_hit *= 1.3   # flat on his face, he cannot parry well
 	if mounted and running:
 		p_hit *= 1.5   # the weight of a horse at the gallop behind the sabre

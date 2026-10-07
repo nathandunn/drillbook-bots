@@ -280,6 +280,8 @@ func _watch_moment(m: MatchManager) -> void:
 					if not m.fighting_company(t, c).is_empty() and float(m.orders[t][c].get("reach_d", INF)) < 60.0:
 						go = "in range - charge!"
 						break
+	if go != "" and m.field.fort_side == t and not go.begins_with("they are breaking"):
+		go = ""   # the garrison stays on its walls
 	if go != "":
 		if trace:
 			print("    %5.1fs %s general: STRIKE - %s" % [m.elapsed, MatchManager.TEAM_NAMES[t], go])
@@ -292,6 +294,14 @@ func _watch_moment(m: MatchManager) -> void:
 			thought = go
 		else:
 			thought = go
+
+
+## Is company c the garrison of our fort (its place inside the walls)?
+func _in_fort(m: MatchManager, c: int) -> bool:
+	if m.field.fort_side != t or c >= (m.orders[t] as Array).size():
+		return false
+	var o: Dictionary = m.orders[t][c]
+	return m.field.fort_area().grow(4.0).has_point(Vector2(float(o.get("center_x", 0.0)), float(o.get("line_z", 0.0))))
 
 
 func _has_guns(m: MatchManager) -> bool:
@@ -356,6 +366,15 @@ func _rethink(m: MatchManager) -> void:
 
 ## Called for each company after its drill has chosen a mode: the play's say. Returns the mode.
 func mode_for(m: MatchManager, c: int, mode: String, order: Dictionary) -> String:
+	if _in_fort(m, c):
+		# a garrison holds its walls whatever the play: it shoots from behind them, and meets
+		# with the bayonet only those who reach the wall (or get inside)
+		var reach0 := float(order.get("reach_d", INF))
+		if mode == "charge" and reach0 > 6.0:
+			return "hold"
+		if mode == "advance" or mode == "fallback":
+			return "hold"
+		return mode
 	if play == "Drill book" or order.get("shot_out", false):
 		return mode   # (a company shot out decides for itself: bayonets or back out of range)
 	var reach := float(order.get("reach_d", INF))
@@ -414,6 +433,14 @@ func mode_for(m: MatchManager, c: int, mode: String, order: Dictionary) -> Strin
 
 ## After the line's place has been set: dress it, hold it, or swing it. Changes `order` in place.
 func place(m: MatchManager, c: int, order: Dictionary) -> void:
+	if _in_fort(m, c):
+		var r := m.field.fort_area()
+		var tw0 := m.toward(t)
+		var front := r.end.y if m.field.fort_side == 0 else r.position.y
+		var depth0 := float(m.companies[t][c].get("depth", 0.0))
+		if float(order.get("line_z", 0.0)) * tw0 + depth0 > front * tw0 - 1.2:
+			order["line_z"] = (front * tw0 - 1.2 - depth0) * tw0   # up to the wall, not over it
+		return
 	if play == "Drill book" or strike:
 		return
 	var tw := m.toward(t)

@@ -1871,7 +1871,17 @@ func end_match(reason: String, forced_winner: int = -1) -> void:
 			g[t] = g[t] / maxf(float(men.size()), 1.0)
 		var s0: int = stats["kills"][0][0] + stats["kills"][0][1] + stats["kills"][0][2] + stats["kills"][0][3]
 		var s1: int = stats["kills"][1][0] + stats["kills"][1][1] + stats["kills"][1][2] + stats["kills"][1][3]
-		if absf(g[0] - g[1]) > 4.0:
+		# a fort still held at the end is the garrison's: the attack has failed
+		var held := 0
+		if field.fort_side >= 0:
+			var fr := field.fort_area().grow(4.0)
+			for m in fighting(field.fort_side):
+				if fr.has_point(Vector2(m.global_position.x, m.global_position.z)):
+					held += 1
+		if held >= 3:
+			winner = field.fort_side
+			reason += ", " + ("Red" if winner == 0 else "Blue") + " holds the fort"
+		elif absf(g[0] - g[1]) > 4.0:
 			winner = 0 if g[0] > g[1] else 1
 			reason += ", " + ("Red" if winner == 0 else "Blue") + " holds the ground"
 		elif s0 != s1:
