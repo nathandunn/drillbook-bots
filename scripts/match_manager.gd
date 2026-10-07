@@ -391,7 +391,7 @@ func start_match(seed_value: int = -1) -> void:
 
 
 func _blank_order(t: int, n: int) -> Dictionary:
-	return {"mode": "advance", "line_z": home_z(t), "rally_z": home_z(t), "center_x": 0.0, "spacing": 1.0,
+	return {"rush": false, "mode": "advance", "line_z": home_z(t), "rally_z": home_z(t), "center_x": 0.0, "spacing": 1.0,
 		"count": n, "volley_id": 0, "volley_age": 999.0, "alone": false, "sergeant": "", "press": false, "seek_cover": false}
 
 
@@ -431,7 +431,7 @@ func clear() -> void:
 func _fresh_stats() -> Dictionary:
 	return {
 		"shots": [0, 0], "hits": [0, 0], "kills": [[0, 0], [0, 0]],   # kills[t] = [rifle, bayonet]
-		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "rallied": [0, 0], "own_kills": [0, 0], "fled": [0, 0],
+		"volleys": [0, 0], "charges": [0, 0], "fallbacks": [0, 0], "routed": [0, 0], "rallied": [0, 0], "own_kills": [0, 0], "grenade_kills": [0, 0], "fled": [0, 0],
 		"friendly": [0, 0], "thrusts": [0, 0], "thrust_hits": [0, 0], "wounds": [0, 0],
 	}
 
@@ -624,6 +624,33 @@ func nearest_enemy(s: Soldier) -> Soldier:
 		best_d = d
 		best = o
 	return best
+
+
+## How many of s's own side stand within r of a point (a grenade thrower checks his own men).
+func friends_near(s: Soldier, at: Vector3, r: float) -> int:
+	var n := 0
+	for o in fighting(s.team):
+		if o != s and o.global_position.distance_to(at) < r:
+			n += 1
+	return n
+
+
+## A grenade bursts (a black-powder bomb: more noise and fright than slaughter): within 1.5 m
+## some go down, out to 3 m a few; everyone within 9 m is shaken;
+## a thick cloud of smoke; one loud bang.
+func grenade_burst(at: Vector3, thrower: Soldier) -> void:
+	for o in alive_soldiers():
+		var d := o.global_position.distance_to(at)
+		if d < 3.0 and rng.randf() < (0.3 if d < 1.5 else 0.08):
+			o.take_damage(999.0, "grenade", thrower)
+		elif d < 9.0:
+			o.fear = minf(o.fear + 0.25 * (1.0 - d / 9.0) + 0.05, 0.6)
+			o.under_fire = true
+	for i in 6:
+		var dir := Vector3.FORWARD.rotated(Vector3.UP, TAU * i / 6.0)
+		field.add_smoke(at + Vector3(0, 0.5, 0) - dir * 2.5 + dir * rng.randf_range(0.0, 2.0), dir, 2.5)
+	if fx != null:
+		fx.blast(at)
 
 
 ## The nearest enemy still in the fight, noticed or not (where the company knows them to be).
@@ -1156,6 +1183,15 @@ func _run_sergeant(t: int, c: int) -> void:
 			stats["fallbacks"][t] += 1
 	order["mode"] = mode
 	order["press"] = pressing and mode == "advance"
+	# the rush: the enemy is close (inside 90 m) and the companies facing us have not fired a shot yet
+	var rush := false
+	if mode == "advance" and nearest_d < 90.0 and nearest_d > 15.0:
+		rush = true
+		for e in near_e:
+			if _fired_at.has(ck((e as Soldier).team, (e as Soldier).company)):
+				rush = false
+				break
+	order["rush"] = rush
 	order["seek_cover"] = losing_fire or _plan.get("seek_cover", false)
 	order["hold_fire"] = _plan.get("hold_fire", false)
 	if _plan.has("spacing"):
@@ -1182,10 +1218,14 @@ func _run_sergeant(t: int, c: int) -> void:
 			var step: float = 1.4 * SERGEANT_TICK * (0.6 + 0.8 * float(mix["aggression"]))
 			if _plan.has("speed"):
 				step = 1.4 * SERGEANT_TICK * float(_plan["speed"])
+			# close and they have not fired yet: run the last of the ground before their first volley
+			if order["rush"]:
+				step *= 2.5
 			var target_z: float = order["line_z"] + toward * step
-			# a cover-minded sergeant halts the line on a wall he can reach before the enemy does
+			# a sergeant halts the line on a wall he can reach before the enemy does, once it is
+			# a wall to fire from (any sergeant, near the enemy; a cover-minded one sooner)
 			# - unless the line is pressing in, when walls are for after the volley at twenty paces
-			if mix["cover"] > 0.45 and not pressing:
+			if (mix["cover"] > 0.45 or nearest_d < engage + 60.0) and not pressing:
 				var wall_z := _cover_row_ahead(t, order["line_z"], engage, enemy_centre)
 				if not is_nan(wall_z) and (target_z - wall_z) * toward > 0.0:
 					target_z = wall_z
@@ -1621,6 +1661,8 @@ func _on_damaged(s: Soldier, amount: float, _source: String, _attacker: Soldier)
 func _on_died(s: Soldier, source: String, attacker: Soldier) -> void:
 	if attacker != null and attacker.team != s.team:
 		stats["kills"][attacker.team][1 if source == "bayonet" else 0] += 1
+		if source == "grenade":
+			stats["grenade_kills"][attacker.team] += 1
 	elif attacker != null:
 		stats["own_kills"][s.team] += 1   # a stray ball from his own side
 	for o in alive_soldiers():

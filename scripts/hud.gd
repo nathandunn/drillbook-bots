@@ -451,7 +451,62 @@ var _pick_scroll: ScrollContainer
 
 func _any_overlay() -> bool:
 	return (teams_overlay != null and teams_overlay.visible) or (results_overlay != null and results_overlay.visible) \
-		or (_pick_overlay != null and _pick_overlay.visible)
+		or (_pick_overlay != null and _pick_overlay.visible) or (_start != null and _start.visible)
+
+
+var _start: Control = null
+
+
+## The first screen: nothing but the three ways in.
+func show_start() -> void:
+	if _start == null:
+		_start = Control.new()
+		_start.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_start.mouse_filter = Control.MOUSE_FILTER_STOP
+		_root.add_child(_start)
+		var dim := ColorRect.new()
+		dim.color = Color(0.05, 0.06, 0.07, 0.72)
+		dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+		dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_start.add_child(dim)
+		var cc := CenterContainer.new()
+		cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_start.add_child(cc)
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 14)
+		cc.add_child(vb)
+		var title := Label.new()
+		title.text = "Drillbook Bots"
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.add_theme_font_size_override("font_size", 34)
+		vb.add_child(title)
+		var choices := [
+			["» New epic", "A long war along a front of eleven fields: fifty companies a side, up to ten in each battle", func(): epic_requested.emit()],
+			["» New campaign", "A war along a front of eleven fields: twelve companies a side, as many as you like in each battle", func(): campaign_requested.emit()],
+			["» New fight", "One battle on a field of your choosing", func(): show_pick()],
+		]
+		for ch in choices:
+			var b := _button(ch[0])
+			b.custom_minimum_size = Vector2(300, 56)
+			b.add_theme_font_size_override("font_size", 20)
+			_accent(b)
+			b.tooltip_text = ch[1]
+			var f: Callable = ch[2]
+			b.pressed.connect(func():
+				_start.visible = false
+				_top.visible = true
+				f.call())
+			vb.add_child(b)
+		var armies := _button("Armies")
+		armies.tooltip_text = "Set up both armies first"
+		armies.pressed.connect(func():
+			_start.visible = false
+			_top.visible = true
+			open_setup(""))
+		vb.add_child(armies)
+	_close_overlays()
+	_top.visible = false
+	_start.visible = true
 
 
 func _build_teams_overlay() -> void:

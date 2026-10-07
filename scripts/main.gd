@@ -243,8 +243,8 @@ func _ready() -> void:
 		# --ui --batch=N: the Sim button's path, HUD and all, for a headless check of the panel
 		_run_batch(maxi(int(args["batch"]), 1))
 		return
-	# nothing starts by itself: the setup panel asks what we are running
-	hud.open_setup("Set up both armies, then start a campaign or fight a single battle.")
+	# nothing starts by itself: the first screen asks what we are running
+	hud.show_start()
 
 
 func _setup_ui_scale() -> void:
@@ -474,7 +474,7 @@ func _summarize(results: Array[Dictionary]) -> Dictionary:
 	var wins := [0, 0]
 	var draws := 0
 	var dur := 0.0
-	var keys := ["shots", "hits", "volleys", "charges", "fallbacks", "routed", "rallied", "own_kills", "friendly", "thrusts", "thrust_hits"]
+	var keys := ["shots", "hits", "volleys", "charges", "fallbacks", "routed", "rallied", "own_kills", "grenade_kills", "friendly", "thrusts", "thrust_hits"]
 	var tot := {}
 	for k in keys:
 		tot[k] = [0, 0]
@@ -1336,6 +1336,8 @@ func _close_pick() -> void:
 
 
 func _ui_walk() -> void:
+	hud.show_start()
+	await _shot("start")
 	hud.open_setup("test")
 	hud.refresh_setup()
 	fill_army(0, "Your drills")

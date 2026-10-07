@@ -250,6 +250,20 @@ func volley(pos: Vector3) -> void:
 	_play("volley", pos + Vector3(0, 1.5, 0), 2.0, 0.05, 0.5)
 
 
+## A grenade: a deep bang where it bursts, and a spray of blood if it found anyone (done by the hits).
+func blast(pos: Vector3) -> void:
+	var arr: Array = _streams.get("volley", [])
+	if arr.is_empty() or muted or muted_sim:
+		return
+	var p := _players[_next_player]
+	_next_player = (_next_player + 1) % _players.size()
+	p.stream = arr[0]
+	p.global_position = pos + Vector3(0, 1.0, 0)
+	p.volume_db = 4.0
+	p.pitch_scale = randf_range(0.55, 0.65)   # the volley, slowed down: one deep thump
+	p.play()
+
+
 ## The general's order: a short bugle call (not more than one every 3 seconds).
 func bugle() -> void:
 	if muted or muted_sim or _bugle_quiet > 0.0:

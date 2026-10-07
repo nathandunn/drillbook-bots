@@ -17,6 +17,7 @@ const MAX_HP := 100.0
 const WALK := 1.7
 const RUN := 4.6
 const RELOAD := 20.0           # seconds: the fastest a man can shoot, one round every 20 s (owner, 2026-09-30)
+const GRENADES := 1             # a Grenadier's hand grenades
 const AMMO := 15               # rounds in the cartridge box, the loaded one included
 const MAX_RANGE := 100.0
 const POINT_BLANK := 12.0
@@ -107,6 +108,8 @@ var _still_t := 0.0
 var _round_co := []            # going round: [team, company] he set out to get behind
 var _round_side := 0.0         # ... and which end of their line he goes round (-1 / +1)
 var _round_wide := false       # ... and whether he is out wide yet
+var grenades := 0               # Grenadiers carry a few (GRENADES)
+var _grenade_cd := 0.0
 var _kite_lock := 0.0          # after running back: this long standing his ground before he may run back again
 var _about_face := false       # falling back with his back to the enemy (full walking pace, no shooting)
 var _last_fire_t := -100.0       # a shot gives a man away: flash and a puff of smoke
@@ -176,6 +179,7 @@ func apply_type() -> void:
 	# a trained marksman reloads in the 20 s floor; an even man ~24 s, a raw hand ~30 s
 	reload_time = RELOAD * 1.2 / (0.8 + 0.4 * st.skill("accuracy"))
 	ammo = AMMO
+	grenades = GRENADES if soldier_type != null and soldier_type.label() == "Grenadier" else 0
 	melee_mult = 0.55 + 0.9 * st.skill("melee")
 	stamina_max = STAMINA_MAX * (0.6 + 0.8 * st.skill("stamina"))
 	regen_mult = 0.6 + 0.8 * st.skill("stamina")
@@ -231,6 +235,7 @@ func _tick_timers(delta: float) -> void:
 	_sneak_t = maxf(_sneak_t - delta, 0.0)
 	thrust_timer = maxf(thrust_timer - delta, 0.0)
 	kiting = maxf(kiting - delta, 0.0)
+	_grenade_cd = maxf(_grenade_cd - delta, 0.0)
 	_kite_lock = maxf(_kite_lock - delta, 0.0)
 	_halt = maxf(_halt - delta, 0.0)
 	_cover_hold = maxf(_cover_hold - delta, 0.0)
@@ -323,6 +328,17 @@ func _decide() -> void:
 		face_point = enemy.global_position
 		_try_thrust(enemy)
 		return
+
+	# a grenade: men behind a wall or bunched together, 8 to 25 m off - light the fuse and throw
+	if grenades > 0 and _grenade_cd <= 0.0 and enemy != null and not in_melee and enemy_d > 8.0 and enemy_d < 25.0:
+		var bunch := 0
+		for o in manager.fighting(1 - team):
+			if o.global_position.distance_to(enemy.global_position) < 3.0:
+				bunch += 1
+		var walled := enemy.kneeling or String(enemy.action) == "cover"
+		if (bunch >= 4 or walled) and manager.friends_near(self, enemy.global_position, 4.0) == 0:
+			_throw_grenade(enemy.global_position)
+			return
 
 	# the drill first: the first rule that holds and can be done decides; "follow sergeant"
 	# (or no rule at all) hands the tick to the engine below
@@ -442,6 +458,8 @@ func _decide() -> void:
 	# a standing man far from his place hurries; a disciplined one keeps the walk of the line
 	var dist_to_goal := global_position.distance_to(goal)
 	want_run = dist_to_goal > 6.0 and (p("discipline") < 0.5 or order["mode"] == "fallback") and not tired()
+	if order.get("rush", false) and dist_to_goal > 2.0 and not tired():
+		want_run = true   # the rush: run in before their first volley
 
 
 # ---------------------------------------------------------------- the drill's words, for a man
@@ -516,6 +534,13 @@ func _drill_sense(id: String, args: Array) -> bool:
 	return false
 
 
+## The enemy is beyond my rifle (or not seen at all) while my company goes forward.
+func _out_of_reach(e: Soldier, ed: float) -> bool:
+	if String(manager.orders[team][company].get("mode", "")) != "advance":
+		return false
+	return e == null or ed > fire_range_to(e) + 10.0
+
+
 ## Am I behind the line of e's company - on the side of it toward their own rear?
 func _behind_line_of(e: Soldier) -> bool:
 	var ord: Dictionary = manager.orders[e.team][e.company]
@@ -576,6 +601,10 @@ static func _mode_word(w: String) -> String:
 func _drill_act(id: String, args: Array) -> bool:
 	var e := _d_enemy
 	var ed := _d_enemy_d
+	# out of range with the company going forward, a man does not stop to kneel, load or tuck in
+	# behind the nearest rock - he goes with the line until there is something to shoot at
+	if id in ["hold", "hold_kneel", "reload_kneel", "cover", "high_ground"] and _out_of_reach(e, ed):
+		return false
 	var order := _d_order
 	if id != "charge" and not MODIFIERS_MAN.has(id):
 		charging = false
@@ -851,6 +880,10 @@ func _pick_cover(slot_pos: Vector3, enemy: Soldier) -> Dictionary:
 	var want := p("cover") - 0.35 * p("discipline")
 	if manager.orders[team][company].get("seek_cover", false):
 		want = maxf(want, 0.5)   # the sergeant has seen the exchange; any wall will do
+	elif enemy != null and global_position.distance_to(enemy.global_position) < fire_range_to(enemy) + 20.0:
+		# in reach of their rifles: a wall or a rock within a few steps of his place is taken,
+		# by anyone - standing in the open beside cover is no plan
+		want = maxf(want, 0.25)
 	if want < 0.2:
 		return {}
 	if not _cover_spot.is_empty() and _cover_hold > 0.0:
@@ -889,6 +922,23 @@ func _can_fire_at(enemy: Soldier) -> bool:
 	if p("discipline") > 0.3 and manager.friend_beyond(self, enemy, 90.0) != null:
 		return false
 	return true
+
+
+## A hand grenade: thrown (a second and a half to land and burn down the fuse), then a burst -
+## the men right by it go down, the ones near are shaken, and the smoke hangs thick.
+func _throw_grenade(at: Vector3) -> void:
+	grenades -= 1
+	_grenade_cd = 6.0
+	_halt = 1.2
+	_fire_anim = 0.35
+	face_point = at
+	var err := Vector3(rng.randf_range(-2.5, 2.5), 0, rng.randf_range(-2.5, 2.5)) * (at.distance_to(global_position) / 20.0)
+	var land := at + err
+	land.y = field.height_at(land.x, land.z)
+	var thrower := self
+	get_tree().create_timer(1.5, false).timeout.connect(func():
+		if is_instance_valid(manager) and manager.running:
+			manager.grenade_burst(land, thrower if is_instance_valid(thrower) else null))
 
 
 func _fire(enemy: Soldier) -> void:
@@ -938,6 +988,8 @@ func _fire(enemy: Soldier) -> void:
 	if wounded:
 		sig *= 1.25
 	sig *= 1.0 + 0.8 * fear               # balls going past his ear
+	if d < 5.0:
+		sig *= 4.0                        # too close: no room to bring the musket up and lay it
 	if order_volley():
 		sig *= 1.1                        # on the word, not on his own time
 	sig *= clampf(1.0 - (from.y - aim.y) * 0.04, 0.8, 1.15)   # looking down on them steadies the aim
@@ -1066,7 +1118,7 @@ func take_damage(amount: float, source: String, attacker: Soldier) -> void:
 	if not alive:
 		return
 	# a musket ball or a bayonet puts a man down: nobody fights on with one in him
-	if source == "rifle" or source == "bayonet":
+	if source == "rifle" or source == "bayonet" or source == "grenade":
 		amount = maxf(amount, hp)
 	hp -= amount
 	under_fire = true
