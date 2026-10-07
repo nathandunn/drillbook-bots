@@ -250,8 +250,65 @@ func volley(pos: Vector3) -> void:
 	_play("volley", pos + Vector3(0, 1.5, 0), 2.0, 0.05, 0.5)
 
 
-## A grenade: a deep bang where it bursts, and a spray of blood if it found anyone (done by the hits).
+## A grenade in the air: a small black ball with a sputtering fuse, lobbed in an arc.
+func grenade_flight(from: Vector3, to: Vector3, dur: float) -> void:
+	var ball := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.11
+	sm.height = 0.22
+	sm.radial_segments = 8
+	sm.rings = 4
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.08, 0.08, 0.08)
+	sm.material = m
+	ball.mesh = sm
+	ball.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var fuse := MeshInstance3D.new()
+	var fm := SphereMesh.new()
+	fm.radius = 0.06
+	fm.height = 0.12
+	var fmat := StandardMaterial3D.new()
+	fmat.albedo_color = Color(1.0, 0.75, 0.2)
+	fmat.emission_enabled = true
+	fmat.emission = Color(1.0, 0.6, 0.1)
+	fmat.emission_energy_multiplier = 3.0
+	fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.material = fmat
+	fuse.mesh = fm
+	fuse.position = Vector3(0, 0.13, 0)
+	ball.add_child(fuse)
+	add_child(ball)
+	ball.global_position = from
+	var peak := 2.5 + from.distance_to(to) * 0.2
+	var arc := func(f: float) -> void:
+		if is_instance_valid(ball):
+			ball.global_position = from.lerp(to, f) + Vector3(0, 4.0 * peak * f * (1.0 - f), 0)
+			fuse.visible = int(f * 30.0) % 2 == 0
+	var tw := create_tween()
+	tw.tween_method(arc, 0.0, 1.0, dur * 0.85)
+	tw.tween_callback(ball.queue_free)
+
+
+## A grenade: a flash and a deep bang where it bursts (blood comes from the hits).
 func blast(pos: Vector3) -> void:
+	var flash := MeshInstance3D.new()
+	var fsm := SphereMesh.new()
+	fsm.radius = 1.0
+	fsm.height = 2.0
+	var fmt := StandardMaterial3D.new()
+	fmt.albedo_color = Color(1.0, 0.7, 0.3, 0.85)
+	fmt.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fmt.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fsm.material = fmt
+	flash.mesh = fsm
+	flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(flash)
+	flash.global_position = pos + Vector3(0, 0.6, 0)
+	flash.scale = Vector3.ONE * 0.3
+	var tw := create_tween()
+	tw.tween_property(flash, "scale", Vector3.ONE * 1.8, 0.12)
+	tw.tween_property(fmt, "albedo_color:a", 0.0, 0.25)
+	tw.tween_callback(flash.queue_free)
 	var arr: Array = _streams.get("volley", [])
 	if arr.is_empty() or muted or muted_sim:
 		return

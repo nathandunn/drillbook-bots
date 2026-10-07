@@ -955,6 +955,8 @@ func _throw_grenade(at: Vector3) -> void:
 	var land := at + err
 	land.y = field.height_at(land.x, land.z)
 	var thrower := self
+	if manager.fx != null:
+		manager.fx.grenade_flight(global_position + Vector3(0, 1.7, 0), land + Vector3(0, 0.1, 0), 1.5)
 	get_tree().create_timer(1.5, false).timeout.connect(func():
 		if is_instance_valid(manager) and manager.running:
 			manager.grenade_burst(land, thrower if is_instance_valid(thrower) else null))
