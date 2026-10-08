@@ -245,7 +245,7 @@
 },
 "Linebreaker": {
 "Churchyard": [
-0,
+1,
 1
 ],
 "Ridge": [
@@ -403,7 +403,7 @@
 1
 ],
 "River Crossing": [
-0,
+1,
 1
 ],
 "Sunken Road": [
@@ -841,7 +841,7 @@
 1
 ],
 "Hedgerows": [
-0,
+1,
 1
 ],
 "Open Plain": [
@@ -977,7 +977,7 @@
 1
 ],
 "Hedgerows": [
-0,
+1,
 1
 ],
 "Open Plain": [
@@ -1063,7 +1063,7 @@
 1
 ],
 "Crossroads": [
-0,
+1,
 1
 ],
 "Hedgerows": [
@@ -1217,7 +1217,7 @@
 1
 ],
 "Orchard": [
-1,
+0,
 1
 ],
 "River Crossing": [
@@ -1291,7 +1291,7 @@
 1
 ],
 "Hedgerows": [
-0,
+1,
 1
 ],
 "Open Plain": [
@@ -1483,7 +1483,7 @@
 1
 ],
 "Crossroads": [
-0,
+1,
 1
 ],
 "Hedgerows": [
@@ -1495,7 +1495,7 @@
 1
 ],
 "Orchard": [
-0,
+1,
 1
 ],
 "River Crossing": [
@@ -1529,7 +1529,7 @@
 1
 ],
 "River Crossing": [
-1,
+0,
 1
 ],
 "Sunken Road": [
@@ -1555,21 +1555,21 @@
 1
 ],
 "Walled Farm": [
-0,
+1,
 1
 ],
 "Woodland": [
-1,
+0,
 1
 ]
 },
 "Line": {
 "City": [
-1,
+0,
 1
 ],
 "Crossroads": [
-0,
+1,
 1
 ],
 "Hedgerows": [
@@ -1581,7 +1581,7 @@
 1
 ],
 "Orchard": [
-0,
+1,
 1
 ],
 "River Crossing": [
@@ -1589,13 +1589,13 @@
 1
 ],
 "Sunken Road": [
-0,
+1,
 1
 ]
 },
 "Linebreaker": {
 "Churchyard": [
-0,
+1,
 1
 ],
 "Ridge": [
@@ -1603,15 +1603,15 @@
 1
 ],
 "Suburb": [
-0,
-1
-],
-"Village": [
 1,
 1
 ],
-"Walled Farm": [
+"Village": [
 0,
+1
+],
+"Walled Farm": [
+1,
 1
 ],
 "Woodland": [
@@ -1629,7 +1629,7 @@
 1
 ],
 "Hedgerows": [
-0,
+1,
 1
 ],
 "Open Plain": [
@@ -1655,7 +1655,7 @@
 1
 ],
 "Crossroads": [
-0,
+1,
 1
 ],
 "Hedgerows": [
@@ -1685,8 +1685,8 @@
 1
 ],
 "Ridge": [
-1,
-1
+0,
+0
 ],
 "Suburb": [
 1,
@@ -1707,7 +1707,7 @@
 },
 "Regulars": {
 "Churchyard": [
-1,
+0,
 1
 ],
 "Ridge": [
@@ -1719,7 +1719,7 @@
 1
 ],
 "Village": [
-0,
+1,
 1
 ],
 "Walled Farm": [
@@ -1749,7 +1749,7 @@
 1
 ],
 "Orchard": [
-0,
+1,
 1
 ],
 "River Crossing": [
@@ -1757,7 +1757,7 @@
 1
 ],
 "Sunken Road": [
-0,
+1,
 1
 ]
 },
@@ -1783,7 +1783,7 @@
 1
 ],
 "Woodland": [
-0,
+1,
 1
 ]
 },
@@ -1815,7 +1815,7 @@
 },
 "Thin Red Line": {
 "Churchyard": [
-0,
+1,
 1
 ],
 "Ridge": [
@@ -1841,7 +1841,7 @@
 },
 "Veterans": {
 "Churchyard": [
-0,
+1,
 1
 ],
 "Ridge": [
@@ -1849,11 +1849,11 @@
 1
 ],
 "Suburb": [
-0,
+1,
 1
 ],
 "Village": [
-1,
+0,
 1
 ],
 "Walled Farm": [
@@ -1861,8 +1861,8 @@
 1
 ],
 "Woodland": [
-0,
-0
+1,
+1
 ]
 }
 },
@@ -2065,7 +2065,7 @@
 1
 ],
 "Woodland": [
-0,
+1,
 1
 ]
 },
@@ -2191,7 +2191,7 @@
 1
 ],
 "Hedgerows": [
-1,
+0,
 1
 ],
 "Open Plain": [
@@ -2633,7 +2633,7 @@
 },
 "Shock": {
 "City": [
-0,
+1,
 1
 ],
 "Crossroads": [
@@ -3223,7 +3223,7 @@
 1
 ],
 "Crossroads": [
-1,
+0,
 1
 ],
 "Hedgerows": [
@@ -3243,7 +3243,7 @@
 1
 ],
 "Sunken Road": [
-1,
+0,
 1
 ]
 },
@@ -3481,7 +3481,7 @@
 },
 "Patient Line": {
 "Churchyard": [
-1,
+0,
 1
 ],
 "Ridge": [
@@ -3593,7 +3593,7 @@
 1
 ],
 "Ridge": [
-1,
+0,
 1
 ],
 "Suburb": [
@@ -5065,7 +5065,7 @@
 1
 ],
 "Orchard": [
-0,
+1,
 1
 ],
 "River Crossing": [
@@ -5079,23 +5079,23 @@
 },
 "Cavalry": {
 "City": [
-1,
+0,
 1
 ],
 "Crossroads": [
-0,
+1,
 1
 ],
 "Hedgerows": [
-1,
+0,
 1
 ],
 "Open Plain": [
-1,
+0,
 1
 ],
 "Orchard": [
-0,
+1,
 1
 ],
 "River Crossing": [
@@ -5169,7 +5169,7 @@
 1
 ],
 "Crossroads": [
-0,
+1,
 1
 ],
 "Hedgerows": [
@@ -5177,7 +5177,7 @@
 1
 ],
 "Open Plain": [
-0,
+1,
 1
 ],
 "Orchard": [
@@ -5185,7 +5185,7 @@
 1
 ],
 "River Crossing": [
-0,
+1,
 1
 ],
 "Sunken Road": [
@@ -5251,7 +5251,7 @@
 },
 "Ninjas": {
 "City": [
-0,
+1,
 1
 ],
 "Crossroads": [
@@ -5263,15 +5263,15 @@
 1
 ],
 "Open Plain": [
-0,
-1
-],
-"Orchard": [
 1,
 1
 ],
-"River Crossing": [
+"Orchard": [
 0,
+1
+],
+"River Crossing": [
+1,
 1
 ],
 "Sunken Road": [
@@ -5289,11 +5289,11 @@
 1
 ],
 "Suburb": [
-1,
+0,
 1
 ],
 "Village": [
-0,
+1,
 1
 ],
 "Walled Farm": [
@@ -5311,7 +5311,7 @@
 1
 ],
 "Ridge": [
-1,
+0,
 1
 ],
 "Suburb": [
@@ -5327,7 +5327,7 @@
 1
 ],
 "Woodland": [
-0,
+1,
 1
 ]
 },
@@ -5363,7 +5363,7 @@
 },
 "Skirmishers": {
 "Churchyard": [
-0,
+1,
 1
 ],
 "Ridge": [
@@ -5379,11 +5379,11 @@
 1
 ],
 "Walled Farm": [
-1,
+0,
 1
 ],
 "Woodland": [
-0,
+1,
 1
 ]
 },
@@ -5445,11 +5445,11 @@
 1
 ],
 "Ridge": [
-0,
+1,
 1
 ],
 "Suburb": [
-1,
+0,
 1
 ],
 "Village": [
@@ -5469,7 +5469,7 @@
 "Sh4 An2 Cv2": {
 "Anvil": {
 "City": [
-1,
+0,
 1
 ],
 "Crossroads": [
@@ -5489,7 +5489,7 @@
 1
 ],
 "River Crossing": [
-1,
+0,
 1
 ],
 "Sunken Road": [
@@ -5859,7 +5859,7 @@
 1
 ],
 "Woodland": [
-1,
+0,
 1
 ]
 },
@@ -5919,7 +5919,7 @@
 "Sh4 Sk4": {
 "Anvil": {
 "City": [
-1,
+0,
 1
 ],
 "Crossroads": [
@@ -5943,7 +5943,7 @@
 1
 ],
 "Sunken Road": [
-1,
+0,
 1
 ]
 },
@@ -6013,7 +6013,7 @@
 1
 ],
 "Crossroads": [
-1,
+0,
 1
 ],
 "Hedgerows": [
@@ -6151,7 +6151,7 @@
 },
 "Ninjas": {
 "City": [
-1,
+0,
 1
 ],
 "Crossroads": [
@@ -6305,11 +6305,11 @@
 1
 ],
 "Walled Farm": [
-0,
+1,
 1
 ],
 "Woodland": [
-0,
+1,
 1
 ]
 },
@@ -6369,7 +6369,7 @@
 "Sh6 Ar2": {
 "Anvil": {
 "City": [
-1,
+0,
 1
 ],
 "Crossroads": [
@@ -6407,7 +6407,7 @@
 1
 ],
 "Hedgerows": [
-0,
+1,
 1
 ],
 "Open Plain": [
@@ -6441,7 +6441,7 @@
 1
 ],
 "Open Plain": [
-0,
+1,
 1
 ],
 "Orchard": [
@@ -6459,11 +6459,11 @@
 },
 "Fabian Screen": {
 "City": [
-0,
+1,
 1
 ],
 "Crossroads": [
-1,
+0,
 1
 ],
 "Hedgerows": [
@@ -6475,15 +6475,15 @@
 1
 ],
 "Orchard": [
-0,
-1
-],
-"River Crossing": [
 1,
 1
 ],
-"Sunken Road": [
+"River Crossing": [
 0,
+1
+],
+"Sunken Road": [
+1,
 1
 ]
 },
@@ -6501,7 +6501,7 @@
 1
 ],
 "Village": [
-1,
+0,
 1
 ],
 "Walled Farm": [
@@ -6519,7 +6519,7 @@
 1
 ],
 "Crossroads": [
-1,
+0,
 1
 ],
 "Hedgerows": [
@@ -6527,11 +6527,11 @@
 1
 ],
 "Open Plain": [
-0,
+1,
 1
 ],
 "Orchard": [
-1,
+0,
 1
 ],
 "River Crossing": [
@@ -6561,7 +6561,7 @@
 1
 ],
 "Walled Farm": [
-0,
+1,
 1
 ],
 "Woodland": [
@@ -6651,7 +6651,7 @@
 1
 ],
 "Woodland": [
-0,
+1,
 1
 ]
 },
@@ -6703,7 +6703,7 @@
 1
 ],
 "River Crossing": [
-0,
+1,
 1
 ],
 "Sunken Road": [
@@ -6717,7 +6717,7 @@
 1
 ],
 "Ridge": [
-0,
+1,
 1
 ],
 "Suburb": [
@@ -6765,7 +6765,7 @@
 },
 "Thin Red Line": {
 "Churchyard": [
-0,
+1,
 1
 ],
 "Ridge": [
@@ -6781,17 +6781,17 @@
 1
 ],
 "Walled Farm": [
-0,
+1,
 1
 ],
 "Woodland": [
-1,
+0,
 1
 ]
 },
 "Veterans": {
 "Churchyard": [
-0,
+1,
 1
 ],
 "Ridge": [
@@ -6803,11 +6803,11 @@
 1
 ],
 "Village": [
-0,
+1,
 1
 ],
 "Walled Farm": [
-0,
+1,
 1
 ],
 "Woodland": [
@@ -7101,8 +7101,8 @@
 1
 ],
 "Woodland": [
-1,
-1
+0,
+0
 ]
 },
 "Regulars": {
