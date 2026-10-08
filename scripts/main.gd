@@ -209,6 +209,9 @@ func _ready() -> void:
 	hud.next_round_requested.connect(_next_round)
 	hud.simulate_requested.connect(_simulate)
 	hud.simulate_rest_requested.connect(_simulate_rest)
+	hud.order_requested.connect(func(side: int, p: String):
+		if manager.running and manager.generals[side] != null:
+			(manager.generals[side] as General).order(manager, p))
 	hud.retreat_requested.connect(func():
 		# the player's side (the first not run by the computer) leaves the field
 		for t in 2:
@@ -1448,6 +1451,13 @@ func _ui_walk() -> void:
 		elif sd.kneeling:
 			low += 1
 	print("battle at %d s: %d pinned flat, %d kneeling" % [int(manager.elapsed), pinned, low])
+	# orders in the middle of the battle: the menu, then a new plan
+	hud._fill_orders()
+	print("orders menu: %d items, visible %s" % [hud._orders_btn.get_popup().item_count, hud._orders_btn.visible])
+	hud.order_requested.emit(0, "Hold and receive")
+	print("after orders: %s" % (manager.generals[0] as General).label())
+	hud.order_requested.emit(0, General.CHOICE)
+	print("handed back: %s" % (manager.generals[0] as General).label())
 	await _shot("battle2")
 	await manager.match_ended
 	await get_tree().create_timer(2.5).timeout

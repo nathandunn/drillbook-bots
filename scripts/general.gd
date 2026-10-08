@@ -102,6 +102,31 @@ func begin(m: MatchManager) -> void:
 	_assign_roles(m)
 
 
+## The commander's new orders in the middle of a battle: the line takes them up at once (with
+## the bugle), holding where it stands now. "General's choice" hands it back to the general;
+## any other play is kept until the commander changes it again.
+func order(m: MatchManager, p: String) -> void:
+	strike = false
+	strike_t = -100.0
+	phase = ""
+	lure_back.clear()
+	in_range_since.clear()
+	for c in (m.orders[t] as Array).size():
+		start_line[c] = float(m.orders[t][c].get("line_z", m.home_z(t)))
+	if p == CHOICE or not PLAYS.has(p):
+		chosen = CHOICE
+		adapt = false
+		_last_check = -100.0
+		_take(m, play, "your orders: the general decides")
+		since = m.elapsed - 15.0   # free to change it at once
+	else:
+		chosen = p
+		adapt = false
+		_take(m, p, "your orders")
+		since = m.elapsed
+	_assign_roles(m)
+
+
 func _take(m: MatchManager, p: String, why: String) -> void:
 	if p != play or since == 0.0:
 		since = m.elapsed

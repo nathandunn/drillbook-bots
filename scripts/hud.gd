@@ -17,6 +17,7 @@ signal fall_back_to(no: int)
 signal simulate_requested
 signal simulate_rest_requested
 signal retreat_requested
+signal order_requested(side: int, play: String)
 
 const PRESET_LIST := ["Regulars", "Skirmishers", "Shock", "Militia", "Veterans", "Balanced", "Random"]
 const TYPE_LIST := ["Even", "Marksman", "Grenadier", "Runner", "Ironside", "Brawler", "Scout", "Shinobi", "Gunner", "Cavalry", "Random"]
@@ -72,6 +73,7 @@ var _top_campaign_btn: Button
 var _top_epic_btn: Button
 var _sim_rest_btn: Button
 var _retreat_btn: Button
+var _orders_btn: MenuButton
 var _setup_epic_btn: Button
 var epic_on := false
 var _fight_btn0: Button
@@ -166,6 +168,19 @@ func setup(m: MatchManager) -> void:
 	_sim_rest_btn.tooltip_text = "Finish this battle unseen, at full speed, and go straight to the result"
 	_sim_rest_btn.pressed.connect(func(): simulate_rest_requested.emit())
 	row.add_child(_sim_rest_btn)
+	_orders_btn = MenuButton.new()
+	_orders_btn.text = "Orders"
+	_orders_btn.flat = false
+	_orders_btn.add_theme_font_size_override("font_size", 15)
+	_orders_btn.custom_minimum_size = Vector2(0, 40)
+	_orders_btn.tooltip_text = "Change your army's plan now, in the middle of the battle (the bugle sounds and the line takes it up from where it stands)"
+	_orders_btn.about_to_popup.connect(_fill_orders)
+	_orders_btn.get_popup().id_pressed.connect(func(id: int):
+		var side := id / 100
+		var k := id % 100
+		if k < General.PLAYS.size():
+			order_requested.emit(side, String(General.PLAYS[k])))
+	row.add_child(_orders_btn)
 	_retreat_btn = _button("Retreat")
 	_style(_retreat_btn, "stop")
 	_retreat_btn.tooltip_text = "Give up the field: every company marches off the back of it. The enemy has 30 seconds to do what damage he can; then the battle is lost and he takes the ground."
@@ -1309,6 +1324,8 @@ func _process(delta: float) -> void:
 		_sim_rest_btn.visible = manager.running
 	if _retreat_btn != null:
 		_retreat_btn.visible = manager.running
+	if _orders_btn != null:
+		_orders_btn.visible = manager.running and (commanders[0] == "you" or commanders[1] == "you")
 	if manager.running:
 		var clock := "%d:%02d" % [int(manager.elapsed) / 60, int(manager.elapsed) % 60]
 		if manager.retreat_side >= 0:
@@ -2028,3 +2045,21 @@ func _hover(n: Node, text: String) -> void:
 	c.mouse_default_cursor_shape = Control.CURSOR_HELP
 	if text != "":
 		c.tooltip_text = text
+
+
+## The Orders menu: every play, for each side you command, the one in force ticked.
+func _fill_orders() -> void:
+	var pm := _orders_btn.get_popup()
+	pm.clear()
+	for t in 2:
+		if commanders[t] != "you" or manager.generals[t] == null:
+			continue
+		var g: General = manager.generals[t]
+		pm.add_separator("%s: now %s" % [MatchManager.TEAM_NAMES[t], g.play])
+		for k in General.PLAYS.size():
+			var pn: String = General.PLAYS[k]
+			pm.add_radio_check_item(pn, t * 100 + k)
+			var idx := pm.get_item_index(t * 100 + k)
+			pm.set_item_checked(idx, (pn == g.chosen) if g.chosen != General.CHOICE else pn == General.CHOICE)
+			pm.set_item_tooltip(idx, String(General.HELP.get(pn, "")))
+
