@@ -1362,6 +1362,8 @@ func fill_army(t: int, bname: String) -> void:
 		return
 	for i in (armies[t] as Array).size():
 		var e: Array = spec[i % spec.size()]
+		if (armies[t] as Array).size() == ARMY_COMPANIES and i >= ARMY_COMPANIES - 2:
+			e = ["Cavalry", "Cavalry"] if i == ARMY_COMPANIES - 2 else ["Artillery", "Gunner"]   # the horse and the guns stay
 		set_company(t, i, String(e[0]), String(e[1]))
 
 
