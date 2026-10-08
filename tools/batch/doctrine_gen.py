@@ -8,7 +8,8 @@ import shlex, os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from mixlab_gen import army  # noqa: E402
 TEMPLATES = ["An8", "Ha8", "Sh8", "Fa8", "An4 Ha4", "Ha4 Sn4", "Sh4 Sk4", "An4 Sh4", "An3 Ha3 Sn2", "Ha3 Sh3 Ni2",
-             "An6 Ar2", "Re6 Ar2", "Ha4 An2 Cv2"]   # guns and horse (2026-10-07)
+             "An6 Ar2", "Re6 Ar2", "Ha4 An2 Cv2",   # guns and horse (2026-10-07)
+             "Sh4 An2 Cv2", "Fa6 Cv2", "Sh6 Ar2"]    # (2026-10-08: companies sized by worth)
 HERE = os.path.dirname(__file__)
 DRILLS = [l.strip().split("|") for l in open(os.path.join(HERE, "drill_types.txt")) if "|" in l]
 FIELDS = ["Hedgerows", "Churchyard", "Sunken Road", "Woodland", "Open Plain", "Walled Farm", "Orchard", "Village",
