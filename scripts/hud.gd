@@ -349,7 +349,7 @@ func _tip_for(b: BaseButton) -> void:
 ## The hover text of a company card: its drill and type in words.
 func _card_tip(a: Dictionary) -> String:
 	var d: Drill = Drill.named(String(a["drill"]))
-	return "Company %s - %s: %s\nType %s: %s" % [a["name"], a["drill"], d.about if d != null else "", a["type"], SoldierType.TYPE_HELP.get(String(a["type"]), "a build of your own")]
+	return "Company %s - %s: %s\nType %s: %s" % [a["name"], a["drill"], d.about if d != null else "", a["type"], SoldierType.help(String(a["type"]), "a build of your own")]
 
 
 func _cursor_for(n: Node) -> void:
@@ -782,7 +782,7 @@ func _fill_editor(t: int) -> void:
 	ed.add_child(trow)
 	for n in TYPE_LIST:
 		var b := _chip(n, n == String(a["type"]))
-		b.tooltip_text = String(SoldierType.TYPE_HELP.get(n, n))
+		b.tooltip_text = SoldierType.help(n, n)
 		b.disabled = locked
 		b.pressed.connect(func(): game.set_company(t, i, "", n); _fill_roster(t); _fill_editor(t))
 		trow.add_child(b)
@@ -864,7 +864,7 @@ func _update_type_bits(t: int) -> void:
 	if _type_help[t] != null and is_instance_valid(_type_help[t]):
 		_hover(_type_help[t], "")
 		_type_help[t].tooltip_text = "%s. On the range he hits a man %d%% of the time at 100 m; reloads in %d s." % [
-			SoldierType.TYPE_HELP.get(String(a["type"]), "A build of your own"),
+			SoldierType.help(String(a["type"])),
 			int(round(100.0 * Ballistics.p_range(sk, 100.0))), int(round(Soldier.RELOAD * 1.2 / (0.8 + 0.4 * sk)))]
 	_updating = true
 	for p in _type_sliders[t]:
@@ -1104,7 +1104,7 @@ func show_pick() -> void:
 	var fl := Label.new()
 	fl.text = "Fort:"
 	fl.add_theme_font_size_override("font_size", 13)
-	_hover(fl, "A fort - a breastwork across the front with a gate at the back - at one side's end of the field. Its walls are cover to fire over; field guns (Gunner companies) can breach them, four balls to a stretch.")
+	_hover(fl, "A fort at one side's end of the field: a curtain wall too high to climb, with a rampart behind it that the garrison fires from, and two narrow gates (front and back) - the only ways in until field guns (Gunner companies) breach a wall, four balls to a stretch.")
 	frt.add_child(fl)
 	if camp and epic_on:
 		# the epic's forts are part of the front: fields 1 and 4 Red's, 8 and 11 Blue's

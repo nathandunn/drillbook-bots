@@ -678,6 +678,16 @@ func grenade_burst(at: Vector3, thrower: Soldier) -> void:
 			o.under_fire = true
 			if d < 5.0:
 				o.stun(rng.randf_range(2.0, 4.0) * (1.0 - d / 6.0))   # knocked flat, ears ringing
+	# a fort wall close by: a grenade can bring part of it down - far less surely than a cannon ball
+	if field.fort_side >= 0:
+		for i in field.pieces.size():
+			var pc: Dictionary = field.pieces[i]
+			if pc["kind"] == "fortwall" and Field._rect_distance(pc["rect"], Vector2(at.x, at.z)) < 1.5 and rng.randf() < 0.12:
+				field.strike_piece(i)
+				if thrower != null:
+					stats["wall_hits"][thrower.team] += 1
+				_last_harm_t = elapsed
+				break
 	for i in 6:
 		var dir := Vector3.FORWARD.rotated(Vector3.UP, TAU * i / 6.0)
 		field.add_smoke(at + Vector3(0, 0.5, 0) - dir * 2.5 + dir * rng.randf_range(0.0, 2.0), dir, 2.5)

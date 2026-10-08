@@ -164,6 +164,11 @@ const FORT_HALF_W := 40.0    # the fort: a redoubt across most of the front ...
 const FORT_FRONT := 38.0     # ... its front wall this far out from the side's edge
 const FORT_BACK := 10.0      # ... its rear wall this far out (a gate in it)
 const FORT_WALL_HP := 4      # cannon balls to breach one stretch of wall
+const FORT_WALL_H := 3.2     # the curtain wall: too high to climb or to fire over from the ground
+const RAMPART_H := 2.0       # the rampart behind it: a man standing on it fires over the parapet
+const RAMPART_TOP := 3.0     # metres of flat walk behind the wall ...
+const RAMPART_RAMP := 4.0    # ... and the slope (the steps) down into the fort
+const FORT_GATE := 3.0       # the gates (front and back): narrow
 var _terrain_mi: MeshInstance3D = null
 
 var pieces: Array[Dictionary] = []   # {rect: Rect2 (x,z), h: float, kind: String, tall: bool}
@@ -182,7 +187,7 @@ var _ht_h := 0
 
 
 func height_at(x: float, z: float) -> float:
-	if hills.is_empty():
+	if hills.is_empty() and fort_side < 0:
 		return 0.0
 	if _ht_w > 0:
 		var fx := (x - HT_X0) / HT_STEP
@@ -209,7 +214,7 @@ func _build_height_table() -> void:
 
 
 func _height_exact(x: float, z: float) -> float:
-	var h := 0.0
+	var h := _rampart_at(x, z)
 	for hl in hills:
 		var dx: float = (x - hl[0]) / hl[2]
 		var dz: float = (z - hl[1]) / hl[3]
@@ -218,6 +223,30 @@ func _height_exact(x: float, z: float) -> float:
 			var r := sqrt(r2)
 			h += hl[4] * (0.5 + 0.5 * cos(PI * r))   # smooth dome: full height at the centre, nothing at the rim
 	return h
+
+
+## The fort's rampart: a walk RAMPART_H high along the inside of every wall, RAMPART_TOP wide,
+## sloping down to the floor of the fort (the steps up) - and down to the ground at the gates.
+func _rampart_at(x: float, z: float) -> float:
+	if fort_side < 0:
+		return 0.0
+	var r := fort_area()
+	if not r.has_point(Vector2(x, z)):
+		return 0.0
+	var dx := minf(x - r.position.x, r.end.x - x) - 0.5   # from the side walls' inner faces
+	var dz := minf(z - r.position.y, r.end.y - z) - 0.5   # from the front and back walls'
+	var gate := smoothstep(FORT_GATE * 0.5, FORT_GATE * 0.5 + 4.0, absf(x))   # down to the ground in a gateway
+	return maxf(_bank(dz) * gate, _bank(dx))
+
+
+static func _bank(d: float) -> float:
+	if d <= 0.0:
+		return 0.0
+	if d <= RAMPART_TOP:
+		return RAMPART_H
+	if d < RAMPART_TOP + RAMPART_RAMP:
+		return RAMPART_H * (1.0 - (d - RAMPART_TOP) / RAMPART_RAMP)
+	return 0.0
 
 
 ## Where a point sits on the ground.
@@ -238,7 +267,7 @@ func _ready() -> void:
 	hills = []
 	for h in HILLS.get(layout_name, []):
 		hills.append([h[0] * SCALE, h[1] * SCALE, h[2] * SCALE, h[3] * SCALE, h[4] * 1.25])
-	if not hills.is_empty():
+	if not hills.is_empty() or fort_side >= 0:
 		_build_height_table()
 	_build_terrain()
 
@@ -480,25 +509,26 @@ func fort_area() -> Rect2:
 	return Rect2(-FORT_HALF_W, minf(z_front, z_back), FORT_HALF_W * 2.0, absf(z_front - z_back))
 
 
-## The fort's walls: a breastwork 1.3 m high and a metre thick (men fire over it, kneeling behind
-## it), the front in four stretches, a side wall each end, the rear with a gate in the middle.
-## Each stretch takes FORT_WALL_HP cannon balls to breach.
+## The fort's walls: a curtain wall FORT_WALL_H high and a metre thick - too high to climb or to
+## fire over from the ground; the garrison fires over it from the rampart behind (_rampart_at).
+## The front in four stretches with a narrow gate between the middle two, a side wall each end,
+## the rear with a narrow gate. Each stretch takes FORT_WALL_HP cannon balls to breach.
 func _fort_walls() -> Array:
 	var r := fort_area()
-	var h := 1.3
+	var h := FORT_WALL_H
 	var t := 1.0
 	var out := []
 	var front_z := r.position.y if fort_side == 1 else r.end.y
 	var back_z := r.end.y if fort_side == 1 else r.position.y
-	var seg := r.size.x / 4.0
-	for k in 4:
-		out.append([r.position.x + seg * (k + 0.5), front_z, seg - 0.2, t, h, "fortwall"])
+	var g := FORT_GATE * 0.5
+	# the front: four stretches, the gate between the middle two
+	for span in [[-FORT_HALF_W, -FORT_HALF_W * 0.5], [-FORT_HALF_W * 0.5, -g], [g, FORT_HALF_W * 0.5], [FORT_HALF_W * 0.5, FORT_HALF_W]]:
+		out.append([(span[0] + span[1]) * 0.5, front_z, span[1] - span[0] - 0.2, t, h, "fortwall"])
 	for side in [-1.0, 1.0]:
 		out.append([side * (FORT_HALF_W - t * 0.5), r.get_center().y, t, r.size.y, h, "fortwall"])
-	var gate := 6.0
-	var half := (r.size.x - gate) * 0.5
-	out.append([r.position.x + half * 0.5, back_z, half, t, h, "fortwall"])
-	out.append([r.end.x - half * 0.5, back_z, half, t, h, "fortwall"])
+	# the back: a narrow gate in the middle
+	for span in [[-FORT_HALF_W, -g], [g, FORT_HALF_W]]:
+		out.append([(span[0] + span[1]) * 0.5, back_z, span[1] - span[0], t, h, "fortwall"])
 	return out
 
 
@@ -807,6 +837,27 @@ func line_of_fire(from: Vector3, to: Vector3) -> float:
 		if not _segment_hits_rect(a, b, r):
 			continue
 		var near_target := _rect_distance(r, b) < 2.2
+		if pc["kind"] == "fortwall":
+			# where the line crosses the wall, is it above the parapet?
+			var cc := r.get_center()
+			var tt := 0.5
+			if r.size.x >= r.size.y:
+				tt = (cc.y - a.y) / (b.y - a.y) if absf(b.y - a.y) > 0.001 else 0.5
+			else:
+				tt = (cc.x - a.x) / (b.x - a.x) if absf(b.x - a.x) > 0.001 else 0.5
+			tt = clampf(tt, 0.0, 1.0)
+			var top: float = height_at(cc.x, cc.y) + float(pc["h"])
+			var y := lerpf(from.y, to.y, tt)
+			if y > top + 0.05:
+				if near_target:
+					best = minf(best, 0.35)   # a man on the rampart: head and shoulders over the parapet
+				continue
+			# the line to his head clears it: only his head shows
+			var yh := lerpf(from.y, to.y + 0.7, tt)
+			if near_target and yh > top + 0.05:
+				best = minf(best, 0.2)
+				continue
+			return 0.0
 		if pc["tall"]:
 			if near_target:
 				best = minf(best, 0.3)
@@ -814,8 +865,8 @@ func line_of_fire(from: Vector3, to: Vector3) -> float:
 				return 0.0
 		elif near_target:
 			best = minf(best, 0.45)
-	# the ground: walk the line and see whether a hill gets in the way
-	if not hills.is_empty():
+	# the ground: walk the line and see whether a hill (or a rampart) gets in the way
+	if not hills.is_empty() or fort_side >= 0:
 		var d := from.distance_to(to)
 		var steps := maxi(int(d / 2.0), 1)
 		for k in range(1, steps):

@@ -401,6 +401,24 @@ func _decide() -> void:
 		if (bunch >= 4 or walled) and manager.friends_near(self, enemy.global_position, 4.0) == 0:
 			_throw_grenade(enemy.global_position)
 			return
+	if grenades > 0 and _grenade_cd <= 0.0 and not in_melee and field.fort_side == 1 - team and (enemy == null or enemy_d > 25.0):
+		# their fort, its garrison out of sight behind the wall: a grenade over the parapet
+		for i in field.pieces.size():
+			var pc: Dictionary = field.pieces[i]
+			if pc["kind"] != "fortwall":
+				continue
+			var wc: Vector2 = (pc["rect"] as Rect2).get_center()
+			var wd := Vector2(global_position.x, global_position.z).distance_to(wc)
+			if wd < 8.0 or wd > 20.0:
+				continue
+			var near_wall: Vector2 = wc
+			var r: Rect2 = pc["rect"]
+			near_wall = Vector2(clampf(global_position.x, r.position.x, r.end.x), clampf(global_position.z, r.position.y, r.end.y))
+			for o in manager.fighting(1 - team):
+				if Vector2(o.global_position.x, o.global_position.z).distance_to(near_wall) < 4.0:
+					_throw_grenade(Vector3(near_wall.x, 0, near_wall.y))
+					return
+			break
 
 	# the drill first: the first rule that holds and can be done decides; "follow sergeant"
 	# (or no rule at all) hands the tick to the engine below
@@ -1171,6 +1189,9 @@ func garrisoned_against(e: Soldier) -> bool:
 func _try_thrust(enemy: Soldier) -> void:
 	if thrust_timer > 0.0:
 		return
+	# a fort's curtain wall between us: too high to reach over - the gate or a breach, or nothing
+	if not is_climber() and manager.field.fort_side >= 0 and manager.field.fort_wall_on(Vector2(global_position.x, global_position.z), Vector2(enemy.global_position.x, enemy.global_position.z)) >= 0:
+		return
 	thrust_timer = BAYONET_COOLDOWN / (0.7 + 0.5 * soldier_type.skill("melee"))
 	thrusts += 1
 	_thrust_anim = 0.3
@@ -1180,12 +1201,27 @@ func _try_thrust(enemy: Soldier) -> void:
 	if not enemy.loaded and enemy.action != "melee" and enemy.action != "charge":
 		p_hit *= 1.1   # caught with the ramrod in the barrel
 	# a fort's wall between us: the man behind it has the better of it - the other is climbing
-	var over_wall := manager.field.fort_side >= 0 and manager.field.fort_wall_on(Vector2(global_position.x, global_position.z), Vector2(enemy.global_position.x, enemy.global_position.z)) >= 0
+	# fighting in a gateway or a breach, or up the rampart's steps: the man above has the better of it
+	var over_wall := enemy.global_position.y > global_position.y + 0.8
+	# from his side, not his front: he can't turn to parry everyone
+	var to_me := global_position - enemy.global_position
+	to_me.y = 0.0
+	var flank := to_me.length() > 0.01 and enemy.facing_dir().dot(to_me.normalized()) < 0.35
+	# three on one: he parries one blade and the others come in
+	var mates := 0
+	for o in manager.fighting(team):
+		if o != self and o.global_position.distance_to(enemy.global_position) < 2.2 and (o.in_melee or o.charging):
+			mates += 1
+	p_hit *= 1.0 + 0.3 * float(mini(mates, 3))
+	if flank:
+		p_hit *= 1.25
 	if over_wall:
-		p_hit *= 0.5 if enemy.team == manager.field.fort_side else 1.3
+		p_hit *= 0.6
+	elif global_position.y > enemy.global_position.y + 0.8:
+		p_hit *= 1.3
 	elif enemy.kneeling:
 		p_hit *= 1.2
-	elif not enemy.running and not enemy.charging and enemy.alone < 0.5:
+	elif not flank and not enemy.running and not enemy.charging and enemy.alone < 0.5:
 		p_hit *= 0.8   # a formed rank standing to receive: a hedge of bayonets, shoulder to shoulder
 	if enemy._stunned > 0.0:
 		p_hit *= 2.0   # down and dazed
@@ -1286,6 +1322,15 @@ func _flee() -> void:
 # ---------------------------------------------------------------- movement
 
 var _wp := Vector3.ZERO
+const CLIMB_TIME := 2.5
+var _climb := -1.0            # going over a wall: 0..1, -1 when not
+var _climb_from := Vector3.ZERO
+var _climb_to := Vector3.ZERO
+
+
+## Shinobi climb walls.
+func is_climber() -> bool:
+	return soldier_type != null and soldier_type.label() == "Shinobi"
 var _wp_goal := Vector3(INF, 0, INF)
 var _wp_t := 0.0
 
@@ -1293,8 +1338,34 @@ var _wp_t := 0.0
 func _move(delta: float) -> void:
 	# the way round: walk to a waypoint when the straight line to the goal meets a wall, a house
 	# or a river (a bridge is the only way over); asked again every 0.4 s or when the goal moves
+	# a Shinobi goes over a fort's wall rather than round to the gate
+	if _climb >= 0.0:
+		_climb += delta / CLIMB_TIME
+		var cp := _climb_from.lerp(_climb_to, clampf(_climb, 0.0, 1.0))
+		global_position = Vector3(cp.x, field.height_at(cp.x, cp.z) + sin(clampf(_climb, 0.0, 1.0) * PI) * (Field.FORT_WALL_H + 0.2), cp.z)
+		velocity = Vector3.ZERO
+		if _climb >= 1.0:
+			_climb = -1.0
+			collision_mask = LAYER_WORLD | LAYER_MEN
+		return
 	var target := goal
-	if action != "melee" and global_position.distance_to(goal) > 1.2:
+	var over := -1
+	if is_climber() and action != "rout" and field.fort_side >= 0:
+		over = field.fort_wall_on(Vector2(global_position.x, global_position.z), Vector2(goal.x, goal.z))
+	if over >= 0:
+		var wr: Rect2 = field.pieces[over]["rect"]
+		if Field._rect_distance(wr, Vector2(global_position.x, global_position.z)) < 1.4:
+			# up and over: a couple of seconds on the wall, and down the other side
+			var gd := goal - global_position
+			gd.y = 0.0
+			var across := Vector3(0, 0, signf(gd.z)) if wr.size.x >= wr.size.y else Vector3(signf(gd.x), 0, 0)
+			_climb_from = global_position
+			_climb_to = field.free_point(global_position + across * (Field._rect_distance(wr, Vector2(global_position.x, global_position.z)) + 2.6))
+			_climb = 0.0
+			collision_mask = LAYER_MEN
+			return
+		# straight at the wall, not round by the gate
+	elif action != "melee" and global_position.distance_to(goal) > 1.2:
 		_wp_t -= delta
 		if _wp_t <= 0.0 or _wp_goal.distance_to(goal) > 1.5 or global_position.distance_to(_wp) < 0.8:
 			_wp_t = 0.4

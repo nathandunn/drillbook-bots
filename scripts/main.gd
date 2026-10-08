@@ -99,6 +99,12 @@ func _ready() -> void:
 		return
 	headless = (DisplayServer.get_name() == "headless" or args.has("sim")) and not args.has("ui")
 	manager.headless = headless
+	if args.has("value"):
+		# --value=Cavalry:2,Gunner:2.5 - what a man of each type is worth in men of the line
+		for kv in String(args["value"]).split(",", false):
+			var pr := kv.split(":")
+			if pr.size() == 2:
+				SoldierType.VALUE[pr[0]] = float(pr[1])
 	fort_side = int(args.get("fort", "-1"))   # --fort=0 (Red holds one) / 1 (Blue)
 	if args.has("field") and Field.LAYOUTS.has(args["field"]):
 		_rebuild_field(args["field"])
@@ -149,8 +155,9 @@ func _ready() -> void:
 			for c in mini(parts.size(), MatchManager.MAX_COMPANIES):
 				var f := parts[c].split("/")
 				var third: String = f[2].strip_edges() if f.size() > 2 else ""
-				var co := manager.new_company(t, c, f[0].strip_edges(), f[1].strip_edges() if f.size() > 1 else "Even",
-					third if MatchManager.SLOTS.has(third) else MatchManager.SLOTS[mini(c, 3)], per)
+				var tn: String = f[1].strip_edges() if f.size() > 1 else "Even"
+				var co := manager.new_company(t, c, f[0].strip_edges(), tn,
+					third if MatchManager.SLOTS.has(third) else MatchManager.SLOTS[mini(c, 3)], SoldierType.men_for(tn, per))
 				if MatchManager.RANKS.has(third):
 					co["rank"] = third   # Drill/Type/Front|Line|Back|Held back
 				if co.get("drill") == null:
@@ -651,11 +658,19 @@ func _build_epic_armies() -> void:
 			var d: Dictionary = src[i % src.size()]
 			var nm := "%s%d" % [d["name"], i / src.size() + 1]
 			var men := []
-			for k in COMPANY_MEN:
+			for k in SoldierType.men_for(String(d["type"]), COMPANY_MEN):
 				men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], nm, k + 1], "seed": randi(), "kills": 0, "rounds": 0})
 			out.append({"name": nm, "drill": d["drill"], "type": d["type"], "type_obj": (d["type_obj"] as SoldierType).copy(),
 				"men": men, "fights": false, "rank": String(d.get("rank", "Auto")), "slot": d.get("slot", "")})
 		armies[t] = out
+
+
+## What an army is worth at full strength, in men.
+func _army_full(t: int) -> int:
+	var n := 0
+	for a in armies[t]:
+		n += SoldierType.men_for(String(a["type"]), COMPANY_MEN)
+	return n
 
 
 ## After an epic war: the Armies screen's twelve companies again.
@@ -816,7 +831,7 @@ func _prepare_battle(t: int) -> void:
 	for c in picked.size():
 		var a: Dictionary = ar[picked[c]]
 		var co := manager.new_company(t, c, a["drill"], a["type"], slots[c % slots.size()], (a["men"] as Array).size())
-		co["full"] = COMPANY_MEN   # its strength bar measures what is left of the full company
+		co["full"] = SoldierType.men_for(String(a["type"]), COMPANY_MEN)   # its strength bar measures what is left of the full company
 
 		co["name"] = a["name"]
 		co["type"] = (a["type_obj"] as SoldierType).copy()
@@ -866,7 +881,7 @@ func _merge_army(t: int) -> Array:
 			var on: int = (ar[o]["men"] as Array).size()
 			if o == i or on < MERGE_BELOW:
 				continue
-			var room: int = COMPANY_MEN - on
+			var room: int = SoldierType.men_for(String(ar[o]["type"]), COMPANY_MEN) - on
 			if room >= n and room > best_room:
 				best = o
 				best_room = room
@@ -1226,10 +1241,10 @@ func _on_round_ended(result: Dictionary) -> void:
 	var summary := {"round": campaign_round, "field": layout, "field_no": fought_on,
 		"next_field": next_layout, "next_field_no": campaign_field, "front": front.duplicate(), "wins": campaign_wins.duplicate(),
 		"kills": campaign_kills.duplicate(), "history": campaign_rounds.duplicate(true), "counts": counts,
-		"men_before": men_before, "men_after": men_after, "men_full": (EPIC_COMPANIES if epic else ARMY_COMPANIES) * COMPANY_MEN,
+		"men_before": men_before, "men_after": men_after, "men_full": maxi(_army_full(0), _army_full(1)),
 		"armies": [army_view(0), army_view(1)], "merges": merges, "over": over, "campaign_winner": cw, "why": why,
 		"fall_back": _fall_back.duplicate(), "war_units": war_unit_rows(), "result": result, "ai_picks": _ai_picks.duplicate(), "ai_type_picks": _ai_type_picks.duplicate(), "ai_doctrines": _last_doctrine.duplicate(), "epic": epic, "forts": EPIC_FORTS if epic else {},
-		"men_start": EPIC_COMPANIES * COMPANY_MEN if epic else ARMY_COMPANIES * COMPANY_MEN}
+		"men_start": maxi(_army_full(0), _army_full(1))}
 	if not over:
 		# the next battlefield goes up now, so it can be surveyed before the companies are chosen
 		_rebuild_field(next_layout)
@@ -1302,13 +1317,24 @@ func _init_armies() -> void:
 		armies[t] = []
 		for i in ARMY_COMPANIES:
 			var s: Dictionary = src[i % src.size()]
-			armies[t].append({"name": ARMY_NAMES[i], "drill": String(s["persona_name"]), "type": String(s["type_name"]),
-				"type_obj": (s["type"] as SoldierType).copy(), "men": _fresh_men(t, i), "fights": i < FIGHTING})
+			var dn := String(s["persona_name"])
+			var tn := String(s["type_name"])
+			# the last two of the twelve: a squadron of horse and a battery of guns
+			if i == ARMY_COMPANIES - 2:
+				dn = "Cavalry"
+				tn = "Cavalry"
+			elif i == ARMY_COMPANIES - 1:
+				dn = "Artillery"
+				tn = "Gunner"
+			armies[t].append({"name": ARMY_NAMES[i], "drill": dn, "type": tn,
+				"type_obj": SoldierType.preset(tn) if tn != String(s["type_name"]) else (s["type"] as SoldierType).copy(), "men": _fresh_men(t, i, tn), "fights": i < FIGHTING})
 
 
-func _fresh_men(t: int, i: int) -> Array:
+func _fresh_men(t: int, i: int, type_name := "") -> Array:
+	if type_name == "" and i < (armies[t] as Array).size():
+		type_name = String(armies[t][i].get("type", "Even"))
 	var men := []
-	for k in COMPANY_MEN:
+	for k in SoldierType.men_for(type_name, COMPANY_MEN):
 		men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], ARMY_NAMES[i % ARMY_NAMES.size()], k + 1], "seed": randi(), "kills": 0, "rounds": 0})
 	return men
 
@@ -1347,6 +1373,8 @@ func set_company(t: int, i: int, drill_name: String, type_name: String) -> void:
 	if type_name != "":
 		a["type_obj"] = SoldierType.preset(type_name)
 		a["type"] = type_name if type_name != "Random" else (a["type_obj"] as SoldierType).label()
+		if not campaign_active:
+			a["men"] = _fresh_men(t, i)   # a company is sized by what its men are worth
 
 
 func set_company_rank(t: int, i: int, rank: String) -> void:
@@ -1367,7 +1395,7 @@ func copy_to_all(t: int, i: int) -> void:
 func _prepare_single() -> void:
 	for t in 2:
 		for i in (armies[t] as Array).size():
-			if (armies[t][i]["men"] as Array).size() < COMPANY_MEN:
+			if (armies[t][i]["men"] as Array).size() != SoldierType.men_for(String(armies[t][i]["type"]), COMPANY_MEN):
 				armies[t][i]["men"] = _fresh_men(t, i)
 		_prepare_battle(t)
 

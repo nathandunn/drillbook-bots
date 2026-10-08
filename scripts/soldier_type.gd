@@ -41,6 +41,26 @@ const TYPE_HELP := {
 	"Cavalry": "On horseback: twice as fast as a running man, a fearful charge with the sabre - but a big target that cannot take cover or kneel",
 }
 
+## What a man of each type is worth, in men of the line: a company is sized by worth, so a
+## company of riders or gunners has fewer men than a company of foot (a field gun and its crew
+## of five count as ten men). Set by the exchange-rate lab (tools/batch/value_gen.py).
+static var VALUE := {"Cavalry": 2.0, "Gunner": 2.0}
+
+
+## The type's description, with what its men are worth when it is more than one man of the line.
+static func help(type_name: String, fallback := "A build of your own") -> String:
+	var h := String(TYPE_HELP.get(type_name, fallback))
+	var v := float(VALUE.get(type_name, 1.0))
+	if absf(v - 1.0) > 0.01:
+		h += ". Each man is worth %s men of the line, so a company has %s the men" % [("%.1f" % v).trim_suffix(".0"), "half" if absf(v - 2.0) < 0.01 else "1/%s of" % ("%.1f" % v).trim_suffix(".0")]
+	return h
+
+
+## Men in a company of this type worth `per` men of the line.
+static func men_for(type_name: String, per: int) -> int:
+	return maxi(1, int(round(float(per) / float(VALUE.get(type_name, 1.0)))))
+
+
 const CURVE := 0.8
 const EVEN := 0.25
 
