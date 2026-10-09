@@ -3,7 +3,7 @@
 drill "Linebreaker"
 about "Charges the centre in open order, a shot now and then to disrupt. Fires once at close range, then the bayonet. Stands and volleys a charge, then counter-charges. Runs when the rest run."
 type Grenadier
-dials aggression 0.95 discipline 0.50 cohesion 0.20 cover 0.00 patience 0.10 nerve 0.85
+dials aggression 0.95 discipline 0.50 cohesion 0.20 cover 0.00 patience 0.10 nerve 0.70
 
 sergeant:
   when enemy charging and enemy within 10              -> charge; form open

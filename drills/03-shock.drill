@@ -2,7 +2,7 @@
 drill "Shock"
 about "One volley close in, then the bayonet. Never waits, rarely breaks."
 type Grenadier
-dials aggression 0.95 discipline 0.60 cohesion 0.70 cover 0.10 patience 0.25 nerve 0.70
+dials aggression 0.95 discipline 0.60 cohesion 0.70 cover 0.10 patience 0.25 nerve 0.60
 
 sergeant:
   when smoke between us and enemy within 50 -> charge

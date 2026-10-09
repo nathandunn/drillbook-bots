@@ -1206,12 +1206,16 @@ func _try_thrust(enemy: Soldier) -> void:
 	# from his side, not his front: he can't turn to parry everyone
 	var to_me := global_position - enemy.global_position
 	to_me.y = 0.0
-	var flank := to_me.length() > 0.01 and enemy.facing_dir().dot(to_me.normalized()) < 0.35
+	# (only once the fight has settled into a scrum - not the first rush of a charge, which
+	# already has the charge's weight behind it)
+	var settled := not (charging and running)
+	var flank := settled and to_me.length() > 0.01 and enemy.facing_dir().dot(to_me.normalized()) < 0.35
 	# three on one: he parries one blade and the others come in
 	var mates := 0
-	for o in manager.fighting(team):
-		if o != self and o.global_position.distance_to(enemy.global_position) < 2.2 and (o.in_melee or o.charging):
-			mates += 1
+	if settled:
+		for o in manager.fighting(team):
+			if o != self and o.global_position.distance_to(enemy.global_position) < 2.2 and o.in_melee:
+				mates += 1
 	p_hit *= 1.0 + 0.3 * float(mini(mates, 3))
 	if flank:
 		p_hit *= 1.25
