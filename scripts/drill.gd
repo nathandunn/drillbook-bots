@@ -50,6 +50,11 @@ const CONDITIONS := [
 	[["enemy", "closer", "than", "#D"], "enemy_within"],
 	[["enemy", "beyond", "#D"], "enemy_beyond"],
 	[["enemy", "further", "than", "#D"], "enemy_beyond"],
+	[["horse", "charging"], "horse_charging"],
+	[["enemy", "horse", "charging"], "horse_charging"],
+	[["enemy", "mounted"], "enemy_mounted"],
+	[["enemy", "horse"], "enemy_mounted"],
+	[["enemy", "on", "foot"], "enemy_on_foot"],
 	[["enemy", "charging"], "enemy_charging"],
 	[["enemy", "in", "cover"], "enemy_in_cover"],
 	[["enemy", "broken"], "enemy_broken"],
@@ -176,6 +181,7 @@ const YARD := 0.9144
 
 var name := ""
 var about := ""
+var era := ""   # "" any; "1640s" a pike-and-shot drill (shown with the 1640s types)
 var type_name := "Even"
 var dials := {}
 var sergeant_rules: Array = []   # {cond, actions: Array[{id, args}], line, text}
@@ -205,8 +211,12 @@ static func parse(text: String) -> Drill:
 			d.name = _quoted(line.substr(6))
 		elif low.begins_with("about "):
 			d.about = _quoted(line.substr(6))
+		elif low.begins_with("era "):
+			d.era = line.substr(4).strip_edges()
 		elif low.begins_with("type "):
-			d.type_name = line.substr(5).strip_edges().capitalize()
+			d.type_name = line.substr(5).strip_edges()
+			if not SoldierType.PRESETS.has(d.type_name):
+				d.type_name = d.type_name.capitalize()
 			if not SoldierType.PRESETS.has(d.type_name):
 				d.errors.append("line %d: no such type '%s' (Even, Marksman, Grenadier, Runner, Ironside, Brawler, Scout, Shinobi)" % [ln, d.type_name])
 		elif low.begins_with("dials "):

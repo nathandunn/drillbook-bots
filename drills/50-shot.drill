@@ -1,0 +1,20 @@
+# 1640s shot (2026-10-18): musketeers by the book - ranks firing in turn from seventy metres (the countermarch), close up
+# on the pikes when horse come on, never charge first - until the charges are spent, then in with the sword.
+drill "Shot"
+era 1640s
+about "Musketeers by the book: ranks firing in turn from seventy metres (the countermarch), close up when horse come on, a last ragged fire at will when foot charge home, never charge first - until the charges are spent, then in with the sword."
+type Musketeer
+dials aggression 0.25 discipline 0.80 cohesion 0.80 cover 0.30 patience 0.15 nerve 0.60
+
+sergeant:
+  when horse charging and enemy within 40       -> fall back 12; form tight; stand fast
+  when enemy charging and enemy on foot and enemy within 35 -> hold; form tight; fire at will
+  when enemy breaking or enemy broken           -> advance fast; fire at will
+  when out of ammo                              -> charge
+  when enemy within 70                          -> hold; form tight; fire at will
+  otherwise                                     -> advance; hold fire
+
+man:
+  when volley called and loaded                 -> fire
+  when enemy within 5 and not loaded            -> charge
+  otherwise                                     -> follow sergeant

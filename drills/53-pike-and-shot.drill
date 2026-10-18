@@ -1,0 +1,18 @@
+# 1640s mixed company (2026-10-18): a Dutch company, pikes in the middle and shot on the sleeves.
+drill "Pike and Shot"
+era 1640s
+about "A Dutch company: the shot volley by halves at forty-five metres while the pikes stand; against horse it closes up and stands fast; it goes in when the enemy wavers."
+type Pike and shot
+dials aggression 0.45 discipline 0.85 cohesion 0.90 cover 0.10 patience 0.60 nerve 0.70
+
+sergeant:
+  when horse charging                                   -> hold; form tight; stand fast; volley
+  when enemy breaking or enemy broken                   -> charge
+  when enemy within 18 and enemy on foot and winning the exchange -> charge
+  when enemy within 45                                  -> hold; form tight; volley by halves
+  when enemy within 75                                  -> advance slow; form tight; volley when 70% loaded
+  otherwise                                             -> advance; form tight; hold fire
+
+man:
+  when volley called and loaded                         -> fire
+  otherwise                                             -> follow sergeant

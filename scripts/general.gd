@@ -174,11 +174,11 @@ func _assign_roles(m: MatchManager) -> void:
 # ---------------------------------------------------------------- what the general sees
 
 static func _shooter(type_name: String) -> bool:
-	return type_name in ["Marksman", "Scout"]
+	return type_name in ["Marksman", "Scout", "Archer", "Dragoon"]
 
 
 static func _bayonet(type_name: String) -> bool:
-	return type_name in ["Brawler", "Grenadier", "Ironside", "Shinobi"]
+	return type_name in ["Brawler", "Grenadier", "Ironside", "Shinobi", "Pikeman", "Clubman", "Harquebusier", "Cuirassier", "Hussar"]
 
 
 func _make_up(m: MatchManager, side: int) -> Dictionary:

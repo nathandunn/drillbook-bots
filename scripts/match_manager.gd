@@ -76,6 +76,11 @@ var battalion_names := ["Your drills", "Line battalion"]
 var sel := [0, 0]
 var side_n := [0, 0]            # men fielded at the start, per side
 var co_n := {}                  # ck -> men fielded at the start
+var rations := ["Full", "Full"]  # per side: Half / Full / Generous (the muster's food; sets nerve)
+
+
+func ration_of(t: int) -> String:
+	return String(rations[t])
 var committed := {}             # ck -> x the reserve was sent to
 var co_labels: Dictionary = {}  # ck -> Label3D over the company
 var co_bars: Dictionary = {}    # ck -> [QuadMesh fill, starting men] - strength bar under the label
@@ -1067,12 +1072,15 @@ func _run_sergeant(t: int, c: int) -> void:
 		for e in near_e:
 			if not field.water_between(centre, e.global_position):
 				reach_d = minf(reach_d, e.global_position.distance_to(centre))
+	var gun_men := 0
 	for m in men:
-		if m.loaded:
-			loaded_frac += 1.0
+		if m.has_gun:
+			gun_men += 1
+			if m.loaded:
+				loaded_frac += 1.0
 		if not enemies.is_empty() and m.global_position.distance_to(enemy_centre) <= engage:
 			in_range += 1
-	loaded_frac /= men.size()
+	loaded_frac = loaded_frac / gun_men if gun_men > 0 else 1.0   # pikes and bills: never "empty"
 
 	order["spacing"] = 0.8 + (1.0 - mix["cohesion"]) * 3.0
 	# the line's centre creeps toward the enemy's, a sergeant with cohesion keeps it together
@@ -1185,9 +1193,9 @@ func _run_sergeant(t: int, c: int) -> void:
 	# bayonets and goes in while it is still strong enough, or goes back out of range
 	var empty := 0
 	for m in men:
-		if m.ammo <= 0 and not m.loaded:
+		if m.has_gun and m.ammo <= 0 and not m.loaded:
 			empty += 1
-	order["shot_out"] = empty * 2 >= men.size()
+	order["shot_out"] = gun_men > 0 and empty * 2 >= gun_men
 	order["withdraw"] = false
 	if retreat_side == t:
 		# the retreat is ordered: off the back of the field, every company
@@ -1197,7 +1205,7 @@ func _run_sergeant(t: int, c: int) -> void:
 		order["withdraw"] = true
 		order["shot_out"] = true   # (no play overrides it)
 		order["rally_z"] = home_z(t) * 1.15
-	elif empty * 2 >= men.size() and not enemies.is_empty() and mode != "charge":
+	elif gun_men > 0 and empty * 2 >= gun_men and not enemies.is_empty() and mode != "charge":
 		# assault only when it can carry: close and not outnumbered, or bayonet men still strong,
 		# or the enemy breaking; otherwise a company with nothing to shoot leaves the field
 		var ratio := strength_ratio(t)
@@ -1429,6 +1437,8 @@ func shared_sense(id: String, args: Array, t: int, c: int, r: RandomNumberGenera
 			var n := 0
 			var l := 0
 			for s in fighting(1 - t):
+				if not s.has_gun:
+					continue
 				n += 1
 				if s.loaded:
 					l += 1
@@ -1437,6 +1447,8 @@ func shared_sense(id: String, args: Array, t: int, c: int, r: RandomNumberGenera
 			var n := 0
 			var l := 0
 			for s in fighting(t):
+				if not s.has_gun:
+					continue
 				n += 1
 				if s.loaded:
 					l += 1
@@ -1497,12 +1509,26 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 			var n_e := 0
 			var l_e := 0
 			for e in enemies:
-				if e.is_routed:
+				if e.is_routed or not e.has_gun:
 					continue
 				n_e += 1
 				if e.loaded:
 					l_e += 1
 			return n_e > 0 and float(l_e) / float(n_e) < 0.5
+		"enemy_mounted", "enemy_on_foot":
+			var m_e := 0
+			for e in enemies:
+				if e.mounted:
+					m_e += 1
+			var frac := float(m_e) / maxf(enemies.size(), 1)
+			return not enemies.is_empty() and (frac >= 0.4 if id == "enemy_mounted" else frac < 0.4)
+		"horse_charging":
+			if nd >= 70.0:
+				return false
+			for e in enemies:
+				if e.mounted and (e.charging or String(orders[1 - t][e.company].get("mode", "")) == "charge"):
+					return true
+			return false
 		"spotted":
 			# a company is spotted when a third of the enemy men within 90 m are looking its way
 			if not bool(c["seen"]):
@@ -1540,13 +1566,19 @@ func _sgt_sense(id: String, args: Array, c: Dictionary) -> bool:
 			# the company: half its men empty (out of ammo), or its mean rounds left under N
 			var k := 0
 			var rounds := 0.0
+			var gm := 0
 			for m in men:
+				if not m.has_gun:
+					continue
+				gm += 1
 				rounds += m.ammo
 				if m.ammo <= 0 and not m.loaded:
 					k += 1
+			if gm == 0:
+				return false   # pikes have no ammunition to run out of
 			if id == "out_of_ammo":
-				return float(k) / maxf(men.size(), 1) >= 0.5
-			return rounds / maxf(men.size(), 1) < float(args[0])
+				return float(k) / float(gm) >= 0.5
+			return rounds / float(gm) < float(args[0])
 		"alone":
 			return men.size() <= 2
 		"volley_called":
@@ -1922,6 +1954,8 @@ const RANK_DEPTH := {"Front": 0.0, "Line": 10.0, "Back": 20.0, "Held back": 0.0}
 
 
 static func default_rank(type_name: String) -> String:
+	if Kit.has(type_name):
+		return String(Kit.KITS[type_name].get("rank", "Line"))
 	match type_name:
 		"Brawler", "Grenadier", "Ironside", "Shinobi":
 			return "Front"

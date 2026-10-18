@@ -36,6 +36,9 @@ var fort_side := -1      # a fort for this side at its end of the field (every b
 var _designs := [[], []]   # the twelve companies of the Armies screen, kept while an epic war is on
 const ARMY_NAMES := ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 var front: Array[String] = []
+var era := "1860s"               # "1860s" (rifle and bayonet) or "1640s" (pike and shot, bought on a budget)
+var budget := [Era.DEFAULT_BUDGET, Era.DEFAULT_BUDGET]   # per side, whole pounds at ten men a company
+var days := [Era.DEFAULT_DAYS, Era.DEFAULT_DAYS]         # per side: days in the field the money must cover
 var armies := [[], []]   # per side: {name, drill, type, type_obj, men: [records], fights}
 var campaign_active := false
 var campaign_round := 0            # 1-based; 0 = not started
@@ -251,6 +254,11 @@ func _ready() -> void:
 		_close_pick()
 		_next_round()
 		return
+	if args.has("era"):
+		set_era(String(args["era"]))   # --era=1640s: pike and shot
+	if args.has("uitest1640"):
+		_ui_walk_1640()
+		return
 	if args.has("uitest"):
 		# --ui --uitest: walk the Armies and Choose Companies screens the way a player would
 		_ui_walk()
@@ -454,6 +462,8 @@ func _on_match_ended(result: Dictionary) -> void:
 		if headless:
 			print(summary["text"])
 			print("SUMMARY " + JSON.stringify(summary["data"]))
+			if OS.get_environment("DRILL_DBG") != "":
+				print("DBG ", JSON.stringify(Soldier.dbg))
 			get_tree().quit()
 			return
 		hud.batch_progress(0, 0)
@@ -932,6 +942,20 @@ var _ai_reason := ["", ""]
 ## the enemy has, over the fields the war will be fought on - a mix unless one drill is clearly
 ## better. Its twelve companies take that army's drills and types.
 func _ai_raise(t: int) -> void:
+	if era == "1640s":
+		# no table of fought battles for the 1640s yet: the computer raises one of the period's
+		# armies that its budget can pay for, not the one the enemy has
+		var choices := []
+		for an in Era.ARMIES:
+			if an == army_names[1 - t]:
+				continue
+			fill_army(t, an)
+			if not over_budget(t):
+				choices.append(an)
+		var pick: String = choices[randi() % choices.size()] if not choices.is_empty() else "Peasant host"
+		fill_army(t, pick)
+		_ai_reason[t] = "raised the %s" % pick
+		return
 	var fields := []
 	for f in front:
 		if not fields.has(f):
@@ -954,6 +978,12 @@ func _ai_raise(t: int) -> void:
 ## campaign it may also retrain them; in an epic it uses the companies it has.
 func _ai_plan(t: int) -> void:
 	var n := _computer_count(t)
+	if era == "1640s":
+		_default_picks(t, n)
+		_prepare_battle(t)
+		_ai_picks[t] = manager.battalion_label(t)
+		_ai_type_picks[t] = manager._types_label(t)
+		return
 	var fld: String = front[campaign_field - 1] if not front.is_empty() else field.layout_name
 	var enemy := _enemy_profile(t)
 	var ar: Array = armies[t]
@@ -1022,6 +1052,8 @@ func _ai_plan(t: int) -> void:
 ## The computer's picks for a whole battalion: a doctrine per company, answering the enemy
 ## battalion's average temper, never the same doctrine for every company.
 func _ai_pick(t: int, opening: bool) -> String:
+	if era == "1640s":
+		return manager.battalion_label(t)   # it fights with the drills it raised its companies with
 	var e := Personality.preset("Balanced")
 	var ecos: Array = manager.companies[1 - t]
 	for tr in Personality.TRAITS:
@@ -1358,8 +1390,17 @@ func set_company_men(n: int) -> void:
 	_refresh_men_all()
 
 
-## Quick fill: an army patterned on a battalion preset (its four companies, repeated).
+## Quick fill: an army patterned on a battalion preset (its four companies, repeated) - or, in the
+## 1640s, one of the twelve-company armies of the period.
 func fill_army(t: int, bname: String) -> void:
+	if Era.ARMIES.has(bname):
+		var arm: Array = Era.ARMIES[bname]
+		for i in (armies[t] as Array).size():
+			var e: Array = arm[i % arm.size()]
+			set_company(t, i, String(e[0]), String(e[1]))
+			armies[t][i]["rank"] = "Auto"
+		army_names[t] = bname
+		return
 	var spec: Array = MatchManager.BATTALIONS.get(bname, [])
 	if spec.is_empty():
 		return
@@ -1368,6 +1409,50 @@ func fill_army(t: int, bname: String) -> void:
 		if (armies[t] as Array).size() == ARMY_COMPANIES and i >= ARMY_COMPANIES - 2:
 			e = ["Cavalry", "Cavalry"] if i == ARMY_COMPANIES - 2 else ["Artillery", "Gunner"]   # the horse and the guns stay
 		set_company(t, i, String(e[0]), String(e[1]))
+
+
+var army_names := ["", ""]   # the preset each army was last filled from (shown on the muster)
+
+
+## Switch the war: both armies are refilled with that era's armies (1640s: Swedish for Red, New
+## Model for Blue; 1860s: the battalions they had).
+func set_era(e: String) -> void:
+	if campaign_active or not Era.NAMES.has(e):
+		return
+	era = e
+	if era == "1640s":
+		fill_army(0, "Swedish brigade")
+		fill_army(1, "New Model Army")
+	else:
+		for t in 2:
+			army_names[t] = ""
+			fill_army(t, String(manager.battalion_names[t]) if MatchManager.BATTALIONS.has(manager.battalion_names[t]) else "Line battalion")
+	_refresh_men_all()
+
+
+## The muster roll's bill for a side: every company raised at full strength, for its days in the
+## field on its rations - {kit, pay, food, total} in pence, and soldiers on the roll.
+func muster_cost(t: int) -> Dictionary:
+	var out := {"kit": 0, "pay": 0, "food": 0, "total": 0, "soldiers": 0, "horses": 0}
+	for a in armies[t]:
+		var tn := String(a["type"])
+		var figs := SoldierType.men_for(tn, COMPANY_MEN)
+		var c := Kit.company_cost(tn, figs, int(days[t]), manager.ration_of(t))
+		for k in ["kit", "pay", "food", "total"]:
+			out[k] += int(c[k])
+		out["soldiers"] += figs * Kit.MEN_PER_FIGURE
+		if Kit.is_mounted(tn):
+			out["horses"] += figs * Kit.MEN_PER_FIGURE
+	return out
+
+
+## The side's budget in pence: the pounds chosen, doubled for companies of twenty.
+func budget_pence(t: int) -> int:
+	return int(budget[t]) * 240 * maxi(1, COMPANY_MEN / 10)
+
+
+func over_budget(t: int) -> bool:
+	return era == "1640s" and int(muster_cost(t)["total"]) > budget_pence(t)
 
 
 ## One company's drill and type (type by preset name; "" leaves it as it is).
@@ -1502,6 +1587,62 @@ func _ui_walk() -> void:
 	print("epic abandoned; army back to %d companies" % (armies[0] as Array).size())
 	get_tree().quit()
 
+
+
+## --ui --uitest1640 --shots=dir: the 1640s war - the muster with its budget, an over-budget army
+## refused, the pick, and a battle of pike and shot looked at close and from afar.
+func _ui_walk_1640() -> void:
+	set_era("1640s")
+	hud.open_setup("test")
+	hud.refresh_setup()
+	await _shot("p_setup")
+	var c0: Dictionary = muster_cost(0)
+	print("1640s muster: red %s of %s, blue %s of %s; red A %s/%s" % [Kit.pounds(int(c0["total"])), Kit.pounds(budget_pence(0)),
+		Kit.pounds(int(muster_cost(1)["total"])), Kit.pounds(budget_pence(1)), armies[0][0]["drill"], armies[0][0]["type"]])
+	budget[0] = 3000
+	hud.refresh_setup()
+	print("over budget at £3000: %s, blocks: %s" % [over_budget(0), hud._budget_blocks()])
+	await _shot("p_over")
+	budget[0] = Era.DEFAULT_BUDGET
+	hud._setup_note.visible = false
+	fill_army(1, "Cavalier horse")
+	hud.refresh_setup()
+	hud.show_pick()
+	for i in [0, 1, 2, 3, 8]:
+		if not armies[0][i]["fights"]:
+			toggle_army_pick(0, i)
+	await _shot("p_pick")
+	hud.new_match_requested.emit()
+	print("battle: %d v %d men; red types %s; blue types %s" % [manager.side_total(0), manager.side_total(1), manager._types_label(0), manager._types_label(1)])
+	await get_tree().create_timer(2.0).timeout
+	await _shot("p_battle0")
+	var looks := [[10.0, 14.0], [22.0, 11.0], [34.0, 16.0], [48.0, 30.0]]
+	for lk in looks:
+		await get_tree().create_timer(float(lk[0]) - manager.elapsed if float(lk[0]) > manager.elapsed else 0.5).timeout
+		# look where the fighting is: the red man nearest an enemy
+		var best: Soldier = null
+		var bd := INF
+		for sd in manager.alive_soldiers():
+			if sd.team != 0:
+				continue
+			var en: Soldier = manager.nearest_enemy_any(sd)
+			if en != null and sd.global_position.distance_to(en.global_position) < bd:
+				bd = sd.global_position.distance_to(en.global_position)
+				best = sd
+		if best != null:
+			cam._focus = best.global_position
+			cam.fit_all = false
+		cam.dist = float(lk[1])
+		await get_tree().create_timer(0.6).timeout
+		await _shot("p_battle%d" % int(lk[0]))
+	print("at %d s: %d v %d standing" % [int(manager.elapsed), manager.alive_count(0), manager.alive_count(1)])
+	# a 1640s campaign against the computer: it raises an army it can pay for
+	hud.commanders[1] = "computer"
+	hud.campaign_requested.emit()
+	await get_tree().create_timer(0.5).timeout
+	print("campaign: blue %s (%s), over budget %s; red over budget %s; blue picks %d" % [army_names[1], _ai_reason[1], over_budget(1), over_budget(0), _fielded(1)])
+	await _shot("p_campaign")
+	get_tree().quit()
 
 
 ## --shots=dir: save what the screen shows (under a real or virtual display).

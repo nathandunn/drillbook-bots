@@ -1,0 +1,16 @@
+# 1640s (2026-10-18): Gustavus Adolphus's salvee - march in close, one great volley, then in.
+drill "Salvee"
+era 1640s
+about "Gustavus's way: march in close, give one great salvo at twenty-five metres, then go in with sword and butt while they reel."
+type Musketeer
+dials aggression 0.80 discipline 0.85 cohesion 0.85 cover 0.00 patience 0.90 nerve 0.70
+
+sergeant:
+  when horse charging and enemy within 35       -> hold; form tight; stand fast; volley
+  when phase is fired and enemy within 30       -> charge
+  when enemy within 28                          -> hold; form tight; volley; set phase fired
+  otherwise                                     -> advance; form tight; hold fire
+
+man:
+  when volley called and loaded                 -> fire
+  otherwise                                     -> follow sergeant

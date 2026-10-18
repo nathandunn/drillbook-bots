@@ -1,0 +1,17 @@
+# 1640s (2026-10-18): farmer conscripts and clubmen - a rush when the enemy is close and few,
+# gone for home when it goes badly.
+drill "Clubmen"
+era 1640s
+about "Farmers with bills and flails: a howling rush when the enemy is close and not too many, gone for home when it goes badly."
+type Clubman
+dials aggression 0.70 discipline 0.20 cohesion 0.50 cover 0.40 patience 0.30 nerve 0.28
+
+sergeant:
+  when my losses over 30%                                -> fall back 40
+  when horse charging                                    -> fall back 20
+  when enemy breaking                                    -> charge
+  when enemy within 30 and not enemy outnumbers us       -> charge
+  otherwise                                              -> advance
+
+man:
+  otherwise                                              -> follow sergeant

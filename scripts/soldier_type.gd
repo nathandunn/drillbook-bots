@@ -26,6 +26,18 @@ const PRESETS := {
 	"Shinobi":   {"run": 0.38, "melee": 0.45, "accuracy": 0.02, "stamina": 0.06, "stealth": 0.34},
 	"Gunner":    {"run": 0.20, "melee": 0.20, "accuracy": 0.30, "stamina": 0.40, "stealth": 0.15},
 	"Cavalry":   {"run": 0.55, "melee": 0.50, "accuracy": 0.05, "stamina": 0.15, "stealth": 0.00},
+	# 1640s (Era "1640s"): what the men are good at; their weapons and armour are in Kit
+	"Musketeer":    {"run": 0.22, "melee": 0.20, "accuracy": 0.30, "stamina": 0.30, "stealth": 0.23},
+	"Firelock":     {"run": 0.22, "melee": 0.20, "accuracy": 0.32, "stamina": 0.30, "stealth": 0.21},
+	"Pikeman":      {"run": 0.15, "melee": 0.35, "accuracy": 0.05, "stamina": 0.45, "stealth": 0.25},
+	"Archer":       {"run": 0.25, "melee": 0.15, "accuracy": 0.45, "stamina": 0.20, "stealth": 0.20},
+	"Clubman":      {"run": 0.25, "melee": 0.30, "accuracy": 0.10, "stamina": 0.30, "stealth": 0.30},
+	"Pike and shot":  {"run": 0.20, "melee": 0.30, "accuracy": 0.25, "stamina": 0.30, "stealth": 0.20},
+	"Dragoon":      {"run": 0.50, "melee": 0.20, "accuracy": 0.30, "stamina": 0.15, "stealth": 0.10},
+	"Harquebusier": {"run": 0.55, "melee": 0.45, "accuracy": 0.10, "stamina": 0.15, "stealth": 0.00},
+	"Cuirassier":   {"run": 0.45, "melee": 0.55, "accuracy": 0.10, "stamina": 0.15, "stealth": 0.00},
+	"Hussar":       {"run": 0.60, "melee": 0.50, "accuracy": 0.05, "stamina": 0.10, "stealth": 0.00},
+	"Saker":        {"run": 0.20, "melee": 0.20, "accuracy": 0.30, "stamina": 0.40, "stealth": 0.15},
 }
 
 const TYPE_HELP := {
@@ -39,6 +51,17 @@ const TYPE_HELP := {
 	"Shinobi": "Fast and hard to see, deadly with the blade; tires fast and can barely shoot",
 	"Gunner": "Serves the guns (a field gun for every five men): roundshot out to 400 m that skips through ranks and breaches fort walls",
 	"Cavalry": "On horseback: twice as fast as a running man, a fearful charge with the sabre - but a big target that cannot take cover or kneel",
+	"Musketeer": "1640s shot: matchlock musket and sword",
+	"Firelock": "1640s shot with a flintlock: fewer misfires",
+	"Pikeman": "1640s pike: no gun, a 4.5 m reach and a corslet; braced pikes stop horse",
+	"Archer": "Longbowman: quick, long shooting that plate shrugs off",
+	"Clubman": "Farmer conscript with a bill: cheap, brittle, many",
+	"Pike and shot": "A mixed company: pikes in the middle, musketeers on the sleeves",
+	"Dragoon": "Mounted shot with a carbine",
+	"Harquebusier": "1640s horse: pistols and sword, buff coat and breastplate",
+	"Cuirassier": "Armoured horse: pistols and sword, nearly ball-proof",
+	"Hussar": "Winged hussar: the lance charge, then the sabre",
+	"Saker": "1640s field guns and their gunners",
 }
 
 ## What a man of each type is worth, in men of the line: a company is sized by worth, so a
@@ -48,9 +71,16 @@ static var VALUE := {"Cavalry": 1.25, "Gunner": 2.5}   # value lab 2026-10-07: 1
 
 
 ## The type's description, with what its men are worth when it is more than one man of the line.
+static func value_of(type_name: String) -> float:
+	var kv := Kit.value(type_name)
+	return kv if kv > 0.0 else float(VALUE.get(type_name, 1.0))
+
+
 static func help(type_name: String, fallback := "A build of your own") -> String:
 	var h := String(TYPE_HELP.get(type_name, fallback))
-	var v := float(VALUE.get(type_name, 1.0))
+	if Kit.has(type_name):
+		h += ". " + String(Kit.KITS[type_name].get("note", ""))
+	var v := value_of(type_name)
 	if absf(v - 1.0) > 0.01:
 		h += ". Each man is worth %s men of the line: a company worth 10 men has %d" % [String.num(v, 2), men_for(type_name, 10)]
 	return h
@@ -58,13 +88,14 @@ static func help(type_name: String, fallback := "A build of your own") -> String
 
 ## Men in a company of this type worth `per` men of the line.
 static func men_for(type_name: String, per: int) -> int:
-	return maxi(1, int(round(float(per) / float(VALUE.get(type_name, 1.0)))))
+	return maxi(1, int(round(float(per) / value_of(type_name))))
 
 
 const CURVE := 0.8
 const EVEN := 0.25
 
 var props: Dictionary = {}
+var kit := ""   # a 1640s type keeps its kit (its weapons) whatever its properties are tuned to
 
 
 func _init(from: Dictionary = {}) -> void:
@@ -81,7 +112,10 @@ static func preset(preset_name: String) -> SoldierType:
 		for p in PROPS:
 			d[p] = rng.randf_range(0.05, 1.0)
 		return SoldierType.new(d)
-	return SoldierType.new(PRESETS.get(preset_name, PRESETS["Even"]))
+	var t := SoldierType.new(PRESETS.get(preset_name, PRESETS["Even"]))
+	if Kit.has(preset_name):
+		t.kit = preset_name
+	return t
 
 
 func get_prop(p: String) -> float:
@@ -133,20 +167,28 @@ func skill(p: String) -> float:
 
 
 func copy() -> SoldierType:
-	return SoldierType.new(props)
+	var t := SoldierType.new(props)
+	t.kit = kit
+	return t
 
 
 func jittered(rng: RandomNumberGenerator, spread: float = 0.03) -> SoldierType:
 	var d := {}
 	for p in PROPS:
 		d[p] = maxf(get_prop(p) + rng.randf_range(-spread, spread), 0.02)
-	return SoldierType.new(d)
+	var t := SoldierType.new(d)
+	t.kit = kit
+	return t
 
 
 func label() -> String:
+	if kit != "":
+		return kit
 	var best := "Custom"
 	var best_d := 0.06
 	for n in PRESETS:
+		if Kit.has(n):
+			continue   # a 1640s type is known by its kit, never guessed from its numbers
 		var d := 0.0
 		for p in PROPS:
 			d += absf(get_prop(p) - float(PRESETS[n][p]))

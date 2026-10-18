@@ -1,0 +1,14 @@
+# 1640s horse (2026-10-18): Prince Rupert's cavaliers - straight at whatever is in front, and after
+# the beaten wherever they run.
+drill "Gallop"
+era 1640s
+about "Rupert's cavaliers: straight at whatever is in front at the gallop, sword in hand, and after the beaten wherever they run."
+type Harquebusier
+dials aggression 0.98 discipline 0.30 cohesion 0.50 cover 0.00 patience 0.20 nerve 0.70
+
+sergeant:
+  when enemy within 140                                  -> charge
+  otherwise                                              -> advance fast
+
+man:
+  otherwise                                              -> charge

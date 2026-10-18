@@ -84,6 +84,7 @@ var _head_campaign_btn: Button
 var _field_chips := {}
 var campaign_men := 10        # men a company in the next campaign (10 or 20)
 var _men_chips := {}
+var _era_chips := {}
 var cam: CameraRig = null
 var _field_help: Label = null
 
@@ -512,6 +513,18 @@ func show_start() -> void:
 				_top.visible = true
 				f.call())
 			vb.add_child(b)
+		var pike := _button("» Pike and shot (1640s)")
+		pike.custom_minimum_size = Vector2(300, 56)
+		pike.add_theme_font_size_override("font_size", 20)
+		_accent(pike)
+		pike.tooltip_text = "The 1640s: matchlocks, pikes, horse, sakers, archers and clubmen - raise your army on a budget that pays for kit, wages and food"
+		pike.pressed.connect(func():
+			_start.visible = false
+			_top.visible = true
+			if game != null:
+				game.set_era("1640s")
+			open_setup("Pike and shot: raise your army - it has to fit the money."))
+		vb.add_child(pike)
 		var armies := _button("Armies")
 		armies.tooltip_text = "Set up both armies first"
 		armies.pressed.connect(func():
@@ -565,6 +578,21 @@ func _build_teams_overlay() -> void:
 	_men_note.add_theme_font_size_override("font_size", 12)
 	_men_note.add_theme_color_override("font_color", Color(0.7, 0.7, 0.65))
 	srow.add_child(_men_note)
+	var erow := HFlowContainer.new()
+	box.add_child(erow)
+	var el := Label.new()
+	el.text = "The war: "
+	el.add_theme_font_size_override("font_size", 14)
+	erow.add_child(el)
+	for en in Era.NAMES:
+		var b := _chip(en, false)
+		b.tooltip_text = String(Era.HELP[en])
+		b.pressed.connect(func():
+			if game != null:
+				game.set_era(en)
+			refresh_setup())
+		erow.add_child(b)
+		_era_chips[en] = b
 	var cols := HFlowContainer.new()
 	cols.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cols.add_theme_constant_override("h_separation", 8)
@@ -582,6 +610,8 @@ func _build_teams_overlay() -> void:
 	_setup_camp_btn.custom_minimum_size = Vector2(0, 46)
 	_accent(_setup_camp_btn)
 	_setup_camp_btn.pressed.connect(func():
+		if not campaign_on and _budget_blocks():
+			return
 		_close_overlays()
 		if campaign_on:
 			show_pick()
@@ -592,6 +622,8 @@ func _build_teams_overlay() -> void:
 	_setup_epic_btn.custom_minimum_size = Vector2(0, 46)
 	_accent(_setup_epic_btn)
 	_setup_epic_btn.pressed.connect(func():
+		if _budget_blocks():
+			return
 		_close_overlays()
 		epic_requested.emit())
 	foot.add_child(_setup_epic_btn)
@@ -602,7 +634,7 @@ func _build_teams_overlay() -> void:
 		if campaign_on:
 			_close_overlays()
 			campaign_abandoned.emit()
-		else:
+		elif not _budget_blocks():
 			show_pick())
 	foot.add_child(_setup_single_btn)
 	var pad := Control.new()
@@ -637,6 +669,9 @@ func refresh_setup() -> void:
 		_men_chips[men].button_pressed = int(game.COMPANY_MEN) == men
 		_men_chips[men].disabled = campaign_on
 	_men_note.text = "  (%d a side with four companies in; fixed once a campaign starts)" % (int(game.COMPANY_MEN) * 4)
+	for en in _era_chips:
+		_era_chips[en].button_pressed = String(game.era) == en
+		_era_chips[en].disabled = campaign_on
 	for t in 2:
 		_fill_side(t)
 	_setup_epic_btn.visible = not campaign_on
@@ -693,12 +728,15 @@ func _fill_side(t: int) -> void:
 	vb.add_child(fl)
 	var frow := HFlowContainer.new()
 	vb.add_child(frow)
-	for bn in MatchManager.BATTALIONS:
-		var b := _chip(bn, false)
-		b.tooltip_text = MatchManager.BATTALION_HELP.get(bn, "")
+	var presets: Array = Era.ARMIES.keys() if String(game.era) == "1640s" else MatchManager.BATTALIONS.keys()
+	for bn in presets:
+		var b := _chip(bn, String(game.army_names[t]) == bn)
+		b.tooltip_text = Era.ARMY_HELP.get(bn, MatchManager.BATTALION_HELP.get(bn, ""))
 		b.disabled = locked
 		b.pressed.connect(func(): game.fill_army(t, bn); refresh_setup())
 		frow.add_child(b)
+	if String(game.era) == "1640s":
+		_fill_muster(t, vb, locked)
 	# the companies
 	var rl := Label.new()
 	rl.text = "The companies - tap one to change it"
@@ -715,6 +753,88 @@ func _fill_side(t: int) -> void:
 	_editor_box[t] = ed
 	_fill_editor(t)
 	_cursor_for_tree(vb)
+
+
+## The 1640s muster: what the army costs - kit once, then wages and food for every day in the
+## field - against the money the side has.
+func _fill_muster(t: int, vb: VBoxContainer, locked: bool) -> void:
+	var mult := maxi(1, int(game.COMPANY_MEN) / 10)
+	var brow := HFlowContainer.new()
+	vb.add_child(brow)
+	var bl := Label.new()
+	bl.text = "Money: "
+	bl.add_theme_font_size_override("font_size", 14)
+	brow.add_child(bl)
+	_hover(bl, "What the treasury will pay for this army. Every company costs its kit once (muskets, pikes, armour, horses) and then wages and food for every day in the field - horse eat far more than foot. Each man on the field stands for %d on the muster roll." % Kit.MEN_PER_FIGURE)
+	for bp in Era.BUDGETS:
+		var b := _chip("£%s" % _thousands(bp * mult), int(game.budget[t]) == bp)
+		b.disabled = campaign_on
+		b.pressed.connect(func(): game.budget[t] = bp; refresh_setup())
+		brow.add_child(b)
+	var drow := HFlowContainer.new()
+	vb.add_child(drow)
+	var dl := Label.new()
+	dl.text = "Days in the field: "
+	dl.add_theme_font_size_override("font_size", 14)
+	drow.add_child(dl)
+	for dd in Era.DAYS:
+		var b := _chip("%d" % dd, int(game.days[t]) == dd)
+		b.disabled = campaign_on
+		b.pressed.connect(func(): game.days[t] = dd; refresh_setup())
+		drow.add_child(b)
+	var rrow := HFlowContainer.new()
+	vb.add_child(rrow)
+	var rl := Label.new()
+	rl.text = "Rations: "
+	rl.add_theme_font_size_override("font_size", 14)
+	rrow.add_child(rl)
+	for rn in Kit.RATIONS:
+		var b := _chip(rn, manager.ration_of(t) == rn)
+		b.tooltip_text = String(Kit.RATIONS[rn]["help"])
+		b.disabled = campaign_on
+		b.pressed.connect(func(): manager.rations[t] = rn; refresh_setup())
+		rrow.add_child(b)
+	var c: Dictionary = game.muster_cost(t)
+	var bud: int = game.budget_pence(t)
+	var over: bool = int(c["total"]) > bud
+	var led := Label.new()
+	led.text = "Kit %s  ·  wages %s  ·  food %s  =  %s of %s\n%s soldiers, %s horses on the roll" % [Kit.pounds(int(c["kit"])), Kit.pounds(int(c["pay"])), Kit.pounds(int(c["food"])),
+		Kit.pounds(int(c["total"])), Kit.pounds(bud), _thousands(int(c["soldiers"])), _thousands(int(c["horses"]))]
+	led.add_theme_font_size_override("font_size", 13)
+	led.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(led)
+	var st := Label.new()
+	st.add_theme_font_size_override("font_size", 14)
+	if over:
+		st.text = "Over budget by %s - the paymaster will not sign it. Disband something, buy cheaper, or shorten the campaign." % Kit.pounds(int(c["total"]) - bud)
+		st.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
+	else:
+		st.text = "%s left in the war chest" % Kit.pounds(bud - int(c["total"]))
+		st.add_theme_color_override("font_color", Color(0.6, 0.9, 0.55))
+	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(st)
+
+
+func _thousands(n: int) -> String:
+	var sgn := "-" if n < 0 else ""
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return sgn + s + out
+
+
+## A 1640s army that costs more than its side can pay cannot take the field.
+func _budget_blocks() -> bool:
+	if game == null or String(game.era) != "1640s":
+		return false
+	for t in 2:
+		if game.over_budget(t):
+			_setup_note.text = "The %s army is over budget - the paymaster will not sign it. Disband a company, buy cheaper troops, cut the days in the field or the rations." % MatchManager.TEAM_NAMES[t]
+			_setup_note.visible = true
+			return true
+	return false
 
 
 func _fill_roster(t: int) -> void:
@@ -776,6 +896,8 @@ func _fill_editor(t: int) -> void:
 	var drow := HFlowContainer.new()
 	ed.add_child(drow)
 	for n in Drill.names():
+		if not Era.drill_ok(Drill.named(n), String(game.era)):
+			continue
 		var b := _chip(n, n == String(a["drill"]))
 		var dn: Drill = Drill.named(n)
 		b.tooltip_text = (dn.about if dn != null else n) + "  (its own type: %s)" % (dn.type_name if dn != null else "")
@@ -795,7 +917,7 @@ func _fill_editor(t: int) -> void:
 	ed.add_child(tl)
 	var trow := HFlowContainer.new()
 	ed.add_child(trow)
-	for n in TYPE_LIST:
+	for n in Era.types(String(game.era), TYPE_LIST):
 		var b := _chip(n, n == String(a["type"]))
 		b.tooltip_text = SoldierType.help(n, n)
 		b.disabled = locked
@@ -876,7 +998,14 @@ func _update_type_bits(t: int) -> void:
 	var a: Dictionary = game.armies[t][_sel[t]]
 	var ty: SoldierType = a["type_obj"]
 	var sk: float = ty.skill("accuracy")
-	if _type_help[t] != null and is_instance_valid(_type_help[t]):
+	if _type_help[t] != null and is_instance_valid(_type_help[t]) and Kit.has(String(a["type"])):
+		var k: Dictionary = Kit.of(String(a["type"]))
+		_hover(_type_help[t], "")
+		var cc := Kit.company_cost(String(a["type"]), SoldierType.men_for(String(a["type"]), int(game.COMPANY_MEN)), int(game.days[t]), manager.ration_of(t))
+		_type_help[t].tooltip_text = "%s.%s Company of %d (standing for %d): %s for %d days." % [SoldierType.help(String(a["type"])),
+			(" Fires out to %d m, about every %d s; %d rounds." % [int(k["range"]), int(round(float(k["reload"]))), int(k["ammo"])]) if String(k.get("gun", "")) != "" else "",
+			SoldierType.men_for(String(a["type"]), int(game.COMPANY_MEN)), SoldierType.men_for(String(a["type"]), int(game.COMPANY_MEN)) * Kit.MEN_PER_FIGURE, Kit.pounds(int(cc["total"])), int(game.days[t])]
+	elif _type_help[t] != null and is_instance_valid(_type_help[t]):
 		_hover(_type_help[t], "")
 		_type_help[t].tooltip_text = "%s. On the range he hits a man %d%% of the time at 100 m; reloads in %d s." % [
 			SoldierType.help(String(a["type"])),

@@ -1,0 +1,19 @@
+# 1640s (2026-10-18): Polish winged hussars - one terrible charge with the lance in close order,
+# back out to take up fresh lances if it does not break them.
+drill "Lance Charge"
+era 1640s
+about "Winged hussars: one terrible charge with the lance in close order from a hundred metres; back out to take up fresh lances if it does not break them."
+type Hussar
+dials aggression 0.90 discipline 0.75 cohesion 0.90 cover 0.00 patience 0.50 nerve 0.85
+
+sergeant:
+  when enemy breaking or enemy broken                    -> charge
+  when losing the exchange                               -> fall back 60
+  when enemy within 110                                  -> charge; form tight
+  otherwise                                              -> advance
+
+man:
+  when charging                                          -> charge
+  when enemy running nearby and enemy within 60          -> charge
+  when enemy within 6                                    -> charge
+  otherwise                                              -> follow sergeant

@@ -1,0 +1,23 @@
+# 1640s horse (2026-10-18): Cromwell's Ironsides - knee to knee, sword in hand; never at a standing
+# hedge of pikes from the front; re-form after the charge.
+drill "Charge Home"
+era 1640s
+about "Cromwell's horse: wait for the moment, then knee to knee at a round trot and in with the sword. Hits their horse, a busy flank or empty muskets - never a standing hedge of pikes - and re-forms after."
+type Harquebusier
+dials aggression 0.80 discipline 0.75 cohesion 0.85 cover 0.00 patience 0.40 nerve 0.75
+
+sergeant:
+  when enemy breaking or enemy broken                    -> charge
+  when enemy mounted and enemy within 100                -> charge; form tight
+  when enemy engaged elsewhere and enemy within 110      -> charge; form tight
+  when enemy reloading and enemy within 60               -> charge; form tight
+  when losing the exchange                               -> fall back 40
+  when enemy within 90                                   -> fall back 15; hold fire
+  when enemy within 140                                  -> hold; hold fire
+  otherwise                                              -> advance; hold fire
+
+man:
+  when enemy running nearby and enemy within 60          -> charge
+  when charging                                          -> charge
+  when enemy within 6                                    -> charge
+  otherwise                                              -> follow sergeant

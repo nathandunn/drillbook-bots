@@ -129,7 +129,15 @@ var kills := 0
 var bayonet_kills := 0
 var grenade_kills := 0
 var cannon_kills := 0
-var mounted := false            # a horseman (the Cavalry type)
+var mounted := false            # a horseman (the Cavalry type, and the 1640s horse)
+var kit: Dictionary = {}          # what he carries: Kit.of(type) - his gun, hand weapon, armour, horse
+var has_gun := true               # a pikeman, a clubman or a gunner without a piece of his own: false
+var reach := BAYONET_REACH        # his hand weapon's reach: a pike 4.5 m
+var steel_range := STEEL_RANGE    # an enemy this close is a matter for the hand weapon
+var max_range := MAX_RANGE        # the furthest he fires
+var armour := 0.0                 # chance his plate turns a ball
+var lance_ready := false          # a hussar's lance, good for the first shock
+var _lance_t := 0.0
 var _horse_legs: Array = []
 var suppression := 0.0         # balls coming close: 0 none .. 1 can't lift his head
 var prone := false
@@ -139,6 +147,9 @@ var thrusts := 0
 var thrust_hits := 0
 var dmg_done := 0.0
 var friendly_hits := 0
+var misfires := 0
+static var dbg := {}               # DRILL_DBG=1: who struck whom in hand-to-hand, for tuning
+static var dbg_on := OS.get_environment("DRILL_DBG") != ""
 
 # body
 var body_root: Node3D
@@ -184,17 +195,36 @@ func apply_type() -> void:
 	var run_m := 0.6 + 0.8 * st.skill("run")
 	walk_speed = WALK * (0.8 + 0.4 * st.skill("run"))
 	run_speed = RUN * run_m
-	mounted = st.label() == "Cavalry"
+	var co_size := 1
+	if manager != null:
+		co_size = int(manager.co_n.get(MatchManager.ck(team, company), 1))
+	kit = Kit.of(st.label(), slot, co_size)
+	mounted = bool(kit.get("mounted", false))
 	if mounted:
 		walk_speed *= 1.6   # a horse at the walk and the trot ...
 		run_speed *= 1.9    # ... and at the gallop
+		if manager != null and manager.ration_of(team) == "Half":
+			walk_speed *= 0.9   # half rations: thin horses
+			run_speed *= 0.88
 	# a trained marksman reloads in the 20 s floor; an even man ~24 s, a raw hand ~30 s
 	# the accurate arm is the slow one: a rifle's ball has to be rammed down the grooves, so a
 	# marksman shoots further and truer but less often (Even ~22 s a round, Marksman ~27 s)
-	reload_time = RELOAD * (1.0 + 0.5 * st.skill("accuracy"))
-	ammo = AMMO
+	if String(kit["gun"]) == "rifle":
+		reload_time = RELOAD * (1.0 + 0.5 * st.skill("accuracy"))
+		ammo = AMMO
+	else:
+		# a smoothbore or a bow: the drill of loading is what a trained man is quicker at
+		reload_time = float(kit["reload"]) * (1.15 - 0.3 * st.skill("accuracy"))
+		ammo = int(kit["ammo"])
+	has_gun = String(kit["gun"]) != "" and ammo > 0
+	loaded = has_gun
+	max_range = float(kit["range"]) if has_gun else 0.0
+	reach = float(kit["reach"])
+	steel_range = maxf(STEEL_RANGE, reach + 1.1)
+	armour = float(kit["armour"])
+	lance_ready = bool(kit.get("lance", false))
 	grenades = GRENADES if soldier_type != null and soldier_type.label() == "Grenadier" else 0
-	melee_mult = 0.55 + 0.9 * st.skill("melee")
+	melee_mult = (0.55 + 0.9 * st.skill("melee")) * float(kit.get("melee_mult", 1.0))
 	stamina_max = STAMINA_MAX * (0.6 + 0.8 * st.skill("stamina"))
 	regen_mult = 0.6 + 0.8 * st.skill("stamina")
 	stamina = stamina_max
@@ -283,6 +313,12 @@ func _tick_timers(delta: float) -> void:
 	var outnumbered: float = clampf(1.0 - manager.morale_ratio(team), 0.0, 1.0)
 	# ... and a man with nobody at his elbow feels every bit of it: loose order has its price
 	courage = p("nerve") * 1.15 - losses * 0.75 - hurt * 0.3 - fear * 0.35 - outnumbered * 0.25 - alone * 0.2 + 0.05
+	# the muster: hungry men are quicker to go, well-fed ones stand longer
+	courage += float(Kit.RATIONS.get(manager.ration_of(team), Kit.RATIONS["Full"])["nerve"])
+	if not has_gun and not mounted and not in_melee:
+		# a pike or a bill under fire has nothing to answer it with: standing and taking it is the
+		# hardest thing a body of men is asked to do
+		courage -= fear * 0.3
 	_stand_fast = maxf(_stand_fast - delta, 0.0)
 	if not is_routed and under_fire and courage < 0.1 and manager.elapsed > 3.0 and _stand_fast <= 0.0 and float(manager.stand_fast_until.get(MatchManager.ck(team, company), -1.0)) < manager.elapsed:
 		_rout()
@@ -314,7 +350,17 @@ func _decide() -> void:
 	alone = 1.0 if mates == 0 else (0.4 if mates == 1 else 0.0)
 	want_run = false
 	kneeling = false
-	in_melee = enemy != null and enemy_d < STEEL_RANGE
+	# the pike's full reach tells against horse coming on; against foot it is a push of pike at
+	# close quarters, where the long weapon has little start on a sword
+	in_melee = enemy != null and enemy_d < (steel_range if enemy.mounted else minf(steel_range, STEEL_RANGE + 0.6))
+	if bool(kit.get("lance", false)) and not lance_ready and not in_melee and enemy_d > 40.0:
+		# well out of it: a fresh lance from the spares and the hussar is ready for another shock
+		_lance_t += DECISION_INTERVAL
+		if _lance_t > 8.0:
+			_lance_t = 0.0
+			lance_ready = true
+			reach = float(kit["reach"])
+			steel_range = maxf(STEEL_RANGE, reach + 1.1)
 
 	if is_routed:
 		# a man who has broken runs for the rear and off the field, in reach of the enemy's rifles
@@ -470,6 +516,11 @@ func _decide() -> void:
 		return
 
 	# firing
+	if Soldier.dbg_on and has_gun and enemy != null and enemy_d <= fire_range_to(enemy):
+		var why := "loaded" if loaded else "empty"
+		if loaded and not _can_fire_at(enemy):
+			why = "blocked:" + _why_not(enemy)
+		Soldier.dbg["fire:" + why] = int(Soldier.dbg.get("fire:" + why, 0)) + 1
 	if loaded and enemy != null and enemy_d <= fire_range_to(enemy) and enemy_d >= STEEL_RANGE and _can_fire_at(enemy):
 		var my_range := 75.0 - 50.0 * p("patience")
 		var volley_now: bool = order["volley_id"] != _volley_seen and order["volley_age"] < 0.7 \
@@ -582,7 +633,13 @@ func _drill_sense(id: String, args: Array) -> bool:
 		"enemy_hidden":
 			return e == null or field.line_of_fire(global_position + Vector3(0, EYE_HEIGHT, 0), e.global_position + Vector3(0, 1.0, 0)) <= 0.0
 		"enemy_reloading":
-			return e != null and not e.loaded
+			return e != null and e.has_gun and not e.loaded
+		"enemy_mounted":
+			return e != null and e.mounted
+		"enemy_on_foot":
+			return e != null and not e.mounted
+		"horse_charging":
+			return e != null and e.mounted and (e.charging or e.running) and ed < 45.0
 		"spotted":
 			return e != null and is_spotted_by(e)
 		"behind_enemy":
@@ -590,7 +647,7 @@ func _drill_sense(id: String, args: Array) -> bool:
 		"loaded":
 			return loaded
 		"out_of_ammo":
-			return ammo <= 0 and not loaded
+			return has_gun and ammo <= 0 and not loaded
 		"ammo_under":
 			return ammo < int(args[0])
 		"in_cover":
@@ -1011,6 +1068,26 @@ func _can_fire_at(enemy: Soldier) -> bool:
 	return true
 
 
+func _why_not(enemy: Soldier) -> String:
+	if prone:
+		return "prone"
+	var from := global_position + Vector3(0, EYE_HEIGHT, 0)
+	var to := enemy.global_position + Vector3(0, 1.0, 0)
+	if field.line_of_fire(from, to) <= 0.0:
+		return "los"
+	var d := from.distance_to(to)
+	if d > 12.0 and field.visibility(from, to) < 0.12:
+		return "smoke"
+	if d > enemy.notice_range():
+		return "unseen"
+	var friend := manager.friend_in_line(self, enemy)
+	if friend != null and (p("discipline") > 0.4 or friend.global_position.distance_to(global_position) < 5.0):
+		return "friend_in_line"
+	if p("discipline") > 0.3 and manager.friend_beyond(self, enemy, 90.0) != null:
+		return "friend_beyond"
+	return "?"
+
+
 ## A hand grenade: thrown (a second and a half to land and burn down the fuse), then a burst -
 ## the men right by it go down, the ones near are shaken, and the smoke hangs thick.
 func stun(t: float) -> void:
@@ -1045,9 +1122,22 @@ func _fire(enemy: Soldier) -> void:
 			return
 		enemy = alt
 	enemy.under_fire = true   # being aimed at and fired on is being under fire
-	_last_fire_t = manager.elapsed
-	field.add_smoke(global_position + Vector3(0, EYE_HEIGHT, 0), enemy.global_position - global_position, 1.0)
-	if manager.fx != null:
+	var gun := String(kit.get("gun", "rifle"))
+	var bow := gun == "bow"
+	if not bow:
+		_last_fire_t = manager.elapsed
+	if rng.randf() < float(kit.get("misfire", 0.0)):
+		# a flash in the pan, or the match gone out: prime again (half a reload) and nothing goes
+		loaded = false
+		reload_left = reload_time * 0.5
+		_halt = 1.5
+		_fire_anim = 0.2
+		misfires += 1
+		field.add_smoke(global_position + Vector3(0, EYE_HEIGHT, 0), enemy.global_position - global_position, 0.25)
+		return
+	if not bow:
+		field.add_smoke(global_position + Vector3(0, EYE_HEIGHT, 0), enemy.global_position - global_position, 1.0 if gun != "pistol" else 0.4)
+	if manager.fx != null and not bow:
 		manager.fx.shot(global_position)
 	loaded = false
 	ammo = maxi(ammo - 1, 0)
@@ -1078,7 +1168,7 @@ func _fire(enemy: Soldier) -> void:
 	var right := dir.cross(Vector3.UP).normalized()
 	var up := right.cross(dir)
 	# the spread: the man's own, opened up by battle and by everything else about the moment
-	var sig := Ballistics.sigma_range(soldier_type.skill("accuracy")) * 0.001 * Ballistics.BATTLE
+	var sig := Ballistics.sigma_range(soldier_type.skill("accuracy")) * 0.001 * Ballistics.BATTLE * float(kit.get("spread", 1.0))
 	var mv := velocity.length()
 	if mv > 0.5:
 		sig *= 2.0 if mv < 2.5 else 3.3   # firing on the move costs a lot; at the run, most of it
@@ -1154,10 +1244,18 @@ func _fire(enemy: Soldier) -> void:
 			end_x = best_x
 			if victim.team == team:
 				friendly_hits += 1
+	if hit and victim.armour > 0.0:
+		# plate: a breastplate turns some balls; an arrow, most
+		var turn := victim.armour * (2.4 if bow else 1.0)
+		if rng.randf() < minf(turn, 0.9):
+			hit = false
+			victim.fear = minf(victim.fear + 0.04, 0.6)
+			if manager.fx != null and rng.randf() < 0.5:
+				manager.fx.clash(victim.global_position + Vector3(0, 1.2, 0))
 	if hit:
 		# where it lands matters: the body and head kill, the legs mostly wound
 		var upper := oy > top * 0.5
-		var kill := rng.randf() < (0.62 if upper else 0.2)
+		var kill := rng.randf() < (float(kit.get("kill", 0.62)) if upper else 0.2)
 		var dmg := MAX_HP if kill else WOUND
 		victim.take_damage(dmg, "rifle", self)
 		if victim.team != team:
@@ -1247,12 +1345,46 @@ func _try_thrust(enemy: Soldier) -> void:
 		p_hit *= 1.8
 	if unaware:
 		p_hit = maxf(p_hit, 0.92)
+	# pikes and horse: a formed body of pikes facing the horse is a hedge it will not ride into -
+	# the pike strikes first and the horse that comes on is impaled; from a flank it is just men
+	var braced: bool = bool(enemy.kit.get("brace", false)) and mounted and not enemy.is_routed and not enemy.running \
+		and not from_behind and not flank and manager.friends_near(enemy, enemy.global_position, 3.0) >= 1
+	if braced:
+		if Soldier.dbg_on:
+			Soldier.dbg["braced"] = int(Soldier.dbg.get("braced", 0)) + 1
+		p_hit *= 0.35
+		if charging and rng.randf() < 0.5:
+			charging = false   # the horse balks at the points
+			fear = minf(fear + 0.1, 0.6)
+	if bool(kit.get("brace", false)) and enemy.mounted and not from_behind:
+		p_hit *= 1.5 * (1.25 if enemy.running else 1.0)
+	if String(kit.get("melee", "")) == "pike" and not enemy.mounted and global_position.distance_to(enemy.global_position) < 2.2:
+		p_hit *= 0.65   # inside the point: the pike is a clumsy thing at arm's length
+	var lance_hit := lance_ready and mounted and running and not braced
+	if lance_hit:
+		p_hit *= 1.4
 	var landed := rng.randf() < clampf(p_hit, 0.08, 0.97)
+	if Soldier.dbg_on:
+		var dk := "%s>%s:%s" % [soldier_type.label(), enemy.soldier_type.label(), "hit" if landed else "miss"]
+		Soldier.dbg[dk] = int(Soldier.dbg.get(dk, 0)) + 1
+	if lance_ready and mounted and running:
+		# one shock and the lance is gone - broken in a man or thrown away; the sabre for the rest
+		lance_ready = false
+		reach = 2.0
+		steel_range = maxf(STEEL_RANGE, reach + 1.1)
 	if not landed and manager.fx != null and rng.randf() < 0.5:
 		manager.fx.clash(global_position)   # parried: steel on steel
 	if landed:
 		thrust_hits += 1
 		var dmg := BAYONET_DMG * melee_mult * rng.randf_range(0.8, 1.3)
+		if lance_hit:
+			dmg *= 2.2
+		if enemy.armour > 0.0 and not from_behind and rng.randf() < enemy.armour * 0.5:
+			# the blade skids off the plate
+			thrust.emit(self, false)
+			if manager.fx != null:
+				manager.fx.clash(global_position)
+			return
 		if from_behind:
 			dmg *= 2.2 if unaware else 1.5
 			# a blade in the back: the men about him feel it - the enemy is behind the line
@@ -1381,12 +1513,17 @@ func _move(delta: float) -> void:
 	var dist := to_goal.length()
 	var speed := 0.0
 	var dir := Vector3.ZERO
-	var stop_at := 0.35 if action != "melee" and action != "charge" else BAYONET_REACH - 0.4
+	# a pike holds horse off at the length of the shaft; against foot the press closes to sword's
+	# length, where both sides can strike
+	var foe: Soldier = self.target
+	var reach_now := reach if (foe == null or not is_instance_valid(foe) or foe.mounted) else minf(reach, BAYONET_REACH + 0.6)
+	var stop_at := 0.35 if action != "melee" and action != "charge" else reach_now - 0.4
 	if _halt > 0.0 and action != "melee" and action != "rout":
 		dist = 0.0
 	if dist > stop_at:
 		dir = to_goal / dist
-		running = want_run and not tired()
+		# nobody runs with a sixteen-foot pike and a corslet - except away
+		running = want_run and not tired() and (String(kit.get("melee", "")) != "pike" or is_routed)
 		speed = run_speed if running else walk_speed
 		if dist < 2.0 and not running:
 			speed *= clampf(dist / 1.5, 0.4, 1.0)
@@ -1487,8 +1624,9 @@ func _build_body() -> void:
 	var trouser := StandardMaterial3D.new()
 	trouser.albedo_color = Color(0.35, 0.36, 0.45) if team == 1 else Color(0.5, 0.5, 0.52)
 
-	if soldier_type != null and soldier_type.label() == "Cavalry":
+	if mounted:
 		_build_horse()
+	var head_kind := _head_kind()
 	var torso := MeshInstance3D.new()
 	torso.mesh = _box(Vector3(0.5, 0.65, 0.3))
 	torso.material_override = _mat
@@ -1499,16 +1637,62 @@ func _build_body() -> void:
 	head.material_override = _eye_mat
 	head.position = Vector3(0, 1.66, 0)
 	body_root.add_child(head)
+	var steel_m := StandardMaterial3D.new()
+	steel_m.albedo_color = Color(0.68, 0.7, 0.74)
+	var felt := StandardMaterial3D.new()
+	felt.albedo_color = Color(0.2, 0.15, 0.1)
 	var cap := MeshInstance3D.new()
-	cap.mesh = _box(Vector3(0.32, 0.16, 0.34))
-	cap.material_override = _dark_mat
-	cap.position = Vector3(0, 1.86, -0.02)
-	body_root.add_child(cap)
 	var peak := MeshInstance3D.new()
-	peak.mesh = _box(Vector3(0.3, 0.03, 0.12))
-	peak.material_override = _dark_mat
-	peak.position = Vector3(0, 1.79, -0.2)
+	match head_kind:
+		"pot":
+			# a pot or morion: a steel bowl with a brim
+			cap.mesh = _box(Vector3(0.34, 0.16, 0.36))
+			cap.material_override = steel_m
+			cap.position = Vector3(0, 1.86, 0)
+			peak.mesh = _box(Vector3(0.44, 0.03, 0.46))
+			peak.material_override = steel_m
+			peak.position = Vector3(0, 1.79, 0)
+		"close":
+			# a close helmet: the whole head in steel
+			cap.mesh = _box(Vector3(0.34, 0.34, 0.36))
+			cap.material_override = steel_m
+			cap.position = Vector3(0, 1.72, 0)
+			peak.mesh = _box(Vector3(0.06, 0.12, 0.42))
+			peak.material_override = steel_m
+			peak.position = Vector3(0, 1.93, 0)
+		"hat":
+			# a broad-brimmed felt hat
+			cap.mesh = _box(Vector3(0.3, 0.18, 0.3))
+			cap.material_override = felt
+			cap.position = Vector3(0, 1.88, 0)
+			peak.mesh = _box(Vector3(0.6, 0.03, 0.6))
+			peak.material_override = felt
+			peak.position = Vector3(0, 1.8, 0)
+		_:
+			cap.mesh = _box(Vector3(0.32, 0.16, 0.34))
+			cap.material_override = _dark_mat
+			cap.position = Vector3(0, 1.86, -0.02)
+			peak.mesh = _box(Vector3(0.3, 0.03, 0.12))
+			peak.material_override = _dark_mat
+			peak.position = Vector3(0, 1.79, -0.2)
+	body_root.add_child(cap)
 	body_root.add_child(peak)
+	if armour > 0.0:
+		# back and breast: a plate over the coat (to the thighs for a cuirassier)
+		var breast := MeshInstance3D.new()
+		breast.mesh = _box(Vector3(0.52, 0.5 if armour < 0.4 else 0.8, 0.34))
+		breast.material_override = steel_m
+		breast.position = Vector3(0, 1.22 if armour < 0.4 else 1.08, 0)
+		body_root.add_child(breast)
+	if soldier_type != null and soldier_type.label() == "Hussar":
+		# the wings: two feathered frames on the back
+		for wx in [-0.18, 0.18]:
+			var wing := MeshInstance3D.new()
+			wing.mesh = _box(Vector3(0.05, 1.0, 0.14))
+			wing.material_override = _eye_mat
+			wing.position = Vector3(wx, 1.75, 0.22)
+			wing.rotation.x = -0.25
+			body_root.add_child(wing)
 	arm_l = MeshInstance3D.new()
 	arm_l.mesh = _box(Vector3(0.14, 0.6, 0.14))
 	arm_l.material_override = _mat
@@ -1522,7 +1706,7 @@ func _build_body() -> void:
 	leg_l = _leg(trouser, -0.14)
 	leg_r = _leg(trouser, 0.14)
 	_add_markings(torso, cap)
-	# the rifle: stock, barrel, bayonet
+	# the weapon in his hands: rifle and bayonet, a musket, a pike, a lance, a bow, a bill or a sword
 	rifle = Node3D.new()
 	rifle.position = Vector3(0.22, 1.3, -0.25)
 	body_root.add_child(rifle)
@@ -1531,21 +1715,35 @@ func _build_body() -> void:
 	var steel := StandardMaterial3D.new()
 	steel.albedo_color = Color(0.7, 0.72, 0.75)
 	steel.metallic = 0.6
-	var stock := MeshInstance3D.new()
-	stock.mesh = _box(Vector3(0.07, 0.09, 0.9))
-	stock.material_override = wood
-	stock.position = Vector3(0, -0.02, -0.15)
-	rifle.add_child(stock)
-	var barrel := MeshInstance3D.new()
-	barrel.mesh = _box(Vector3(0.035, 0.035, 1.1))
-	barrel.material_override = steel
-	barrel.position = Vector3(0, 0.04, -0.4)
-	rifle.add_child(barrel)
-	var bayonet := MeshInstance3D.new()
-	bayonet.mesh = _box(Vector3(0.02, 0.02, 0.42))
-	bayonet.material_override = steel
-	bayonet.position = Vector3(0, 0.04, -1.15)
-	rifle.add_child(bayonet)
+	var wk := weapon_kind()
+	var parts := []   # [size, position, material]
+	match wk:
+		"rifle":
+			parts = [[Vector3(0.07, 0.09, 0.9), Vector3(0, -0.02, -0.15), wood], [Vector3(0.035, 0.035, 1.1), Vector3(0, 0.04, -0.4), steel],
+				[Vector3(0.02, 0.02, 0.42), Vector3(0, 0.04, -1.15), steel]]
+		"musket":
+			parts = [[Vector3(0.08, 0.1, 0.8), Vector3(0, -0.02, -0.1), wood], [Vector3(0.045, 0.045, 1.25), Vector3(0, 0.04, -0.45), steel]]
+		"carbine":
+			parts = [[Vector3(0.07, 0.09, 0.55), Vector3(0, -0.02, -0.05), wood], [Vector3(0.04, 0.04, 0.75), Vector3(0, 0.04, -0.3), steel]]
+		"pike":
+			parts = [[Vector3(0.05, 0.05, 5.0), Vector3(0, 0.0, -1.7), wood], [Vector3(0.06, 0.06, 0.3), Vector3(0, 0.0, -4.3), steel]]
+		"lance":
+			var pennon := StandardMaterial3D.new()
+			pennon.albedo_color = team_color.lightened(0.3)
+			parts = [[Vector3(0.06, 0.06, 4.2), Vector3(0, 0.0, -1.5), wood], [Vector3(0.05, 0.05, 0.3), Vector3(0, 0.0, -3.7), steel],
+				[Vector3(0.02, 0.22, 0.4), Vector3(0, 0.12, -3.2), pennon]]
+		"bill":
+			parts = [[Vector3(0.05, 0.05, 2.3), Vector3(0, 0.0, -0.7), wood], [Vector3(0.04, 0.2, 0.32), Vector3(0, 0.05, -1.9), steel]]
+		"bow":
+			parts = [[Vector3(0.04, 1.5, 0.05), Vector3(0, 0.0, -0.35), wood], [Vector3(0.01, 1.4, 0.01), Vector3(0, 0.0, -0.22), _eye_mat]]
+		_:
+			parts = [[Vector3(0.05, 0.05, 0.18), Vector3(0, 0.0, 0.05), wood], [Vector3(0.03, 0.08, 0.85), Vector3(0, 0.0, -0.45), steel]]
+	for pt in parts:
+		var mi := MeshInstance3D.new()
+		mi.mesh = _box(pt[0])
+		mi.material_override = pt[2]
+		mi.position = pt[1]
+		rifle.add_child(mi)
 	_smoke = CPUParticles3D.new()
 	_smoke.emitting = false
 	_smoke.one_shot = true
@@ -1578,12 +1776,12 @@ func _build_body() -> void:
 	# one mesh for each moving part, under one shared vertex-coloured material: ~22 draws a man
 	# become 6 (the web renderer draws every mesh separately)
 	var mk := company % MatchManager.MARKS.size()
-	_core_mi = MeshBaker.bake_into(body_root, [arm_l, arm_r, leg_l, leg_r, rifle], "core/%d/%d" % [team, mk])
+	_core_mi = MeshBaker.bake_into(body_root, [arm_l, arm_r, leg_l, leg_r, rifle], "core/%d/%d/%s/%d/%s" % [team, mk, head_kind, int(armour * 100.0), soldier_type.label() if soldier_type.label() == "Hussar" else ""])
 	MeshBaker.bake_into(arm_l, [], "arm/%d/%d" % [team, mk])
 	MeshBaker.bake_into(arm_r, [], "arm/%d/%d" % [team, mk])
 	MeshBaker.bake_into(leg_l, [], "leg/%d" % team)
 	MeshBaker.bake_into(leg_r, [], "leg/%d" % team)
-	MeshBaker.bake_into(rifle, [_smoke], "rifle")
+	MeshBaker.bake_into(rifle, [_smoke], "rifle/%s/%d" % [wk, team])
 	_smoke.visible = false
 
 	label = Label3D.new()
@@ -1613,6 +1811,37 @@ func _build_body() -> void:
 	_bar_fg.material_override = _bar_material(Color(0.3, 0.9, 0.3, 0.95), 2)
 	_bar_fg.position = Vector3(0, 2.12, 0.001)
 	add_child(_bar_fg)
+
+
+## What he holds: the shape of his weapon on the field.
+func weapon_kind() -> String:
+	var g := String(kit.get("gun", "rifle"))
+	var m := String(kit.get("melee", "bayonet"))
+	if g == "rifle":
+		return "rifle"
+	if m in ["pike", "lance", "bill"]:
+		return m
+	if g == "bow":
+		return "bow"
+	if g in ["matchlock", "firelock"]:
+		return "musket"
+	if g == "carbine":
+		return "carbine"
+	return "sword"
+
+
+## What is on his head: a cap (1860s), a felt hat, a pot helmet or a close helmet.
+func _head_kind() -> String:
+	if not Kit.has(soldier_type.label() if soldier_type != null else ""):
+		return "cap"
+	match soldier_type.label():
+		"Pikeman", "Harquebusier", "Hussar":
+			return "pot"
+		"Cuirassier":
+			return "close"
+		"Pike and shot":
+			return "pot" if String(kit.get("melee", "")) == "pike" else "hat"
+	return "hat"
 
 
 ## Stripes, spots and the rest, by company, so the units can be told apart at a glance.
@@ -1742,7 +1971,12 @@ func _animate(delta: float) -> void:
 	elif _thrust_anim > 0.0:
 		_thrust_anim -= delta
 		rz = -0.25 - 0.5 * sin(_thrust_anim / 0.3 * PI)
-	elif not loaded and not running:
+	elif String(kit.get("melee", "")) in ["pike", "lance", "bill"]:
+		# a pole arm: upright on the march, levelled at the enemy when he is close or coming on
+		var close := target != null and is_instance_valid(target) and global_position.distance_to(target.global_position) < 18.0
+		rx = 0.0 if (action == "charge" or action == "melee" or close) else 1.45
+		rz = -0.25
+	elif not loaded and not running and has_gun:
 		rx = 1.35   # ramrod work
 		rz = -0.15
 	elif action == "charge" or action == "melee":
@@ -1873,7 +2107,7 @@ func _spawn_ragdoll(attacker: Soldier) -> void:
 ## Firing uphill costs nothing here: the crest already hides the men behind it.
 func fire_range_to(e: Soldier) -> float:
 	var dh := global_position.y - e.global_position.y
-	return MAX_RANGE * clampf(1.0 + 0.16 * dh, 1.0, 1.5)
+	return max_range * clampf(1.0 + 0.16 * dh, 1.0, 1.5)
 
 
 ## Has he stood still long enough to have aimed?

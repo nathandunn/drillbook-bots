@@ -25,7 +25,7 @@ func clear() -> void:
 
 
 static func is_gun_company(co: Dictionary) -> bool:
-	return String(co.get("type_name", "")) == "Gunner"
+	return Kit.is_guns(String(co.get("type_name", "")))
 
 
 ## Place the guns of every Gunner company at its starting place.

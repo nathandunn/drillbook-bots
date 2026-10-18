@@ -1,0 +1,20 @@
+# 1640s heavy horse (2026-10-18): the caracole - trot up to pistol shot, fire, wheel off.
+drill "Caracole"
+era 1640s
+about "The old German way: trot up to pistol shot, fire, wheel off to reload. Charges home only on horse, broken foot, or once the pistols are spent."
+type Cuirassier
+dials aggression 0.50 discipline 0.80 cohesion 0.80 cover 0.00 patience 0.80 nerve 0.80
+
+sergeant:
+  when enemy breaking or enemy broken                    -> charge
+  when enemy mounted and enemy within 60                 -> charge; form tight
+  when out of ammo and enemy within 80                   -> charge; form tight
+  when enemy within 14                                   -> volley; fall back 30
+  when enemy within 70                                   -> advance
+  otherwise                                              -> advance; hold fire
+
+man:
+  when volley called and loaded                          -> fire
+  when enemy within 13 and loaded                        -> fire
+  when charging                                          -> charge
+  otherwise                                              -> follow sergeant

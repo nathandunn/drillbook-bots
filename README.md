@@ -49,6 +49,37 @@ and for the man). There is no eval - only those words.
 - Seed drills Regulars, Skirmishers, Shock, Militia, Veterans reproduce the Volley Bots presets
   within batch noise; Thin Red Line and Fabian Screen are worked examples.
 
+## The 1640s: pike and shot, bought on a budget
+
+**The war: 1640s** on the Armies screen (or **Pike and shot** on the start screen, `--era=1640s` on
+the command line) swaps the rifle-musket war for the English Civil War and the Thirty Years' War.
+
+- **Types** (`scripts/kit.gd` holds what each carries, `SoldierType` what the men are good at):
+  - Musketeer (matchlock, ~1 in 8 misfires) and Firelock (flint, half the misfires).
+  - Pikeman: no gun, a 4.5 m reach and a corslet. A formed body of pikes facing horse is a
+    hedge: the horse strikes at a third and the pike strikes first.
+  - **Pike and shot**: a mixed company, the middle third pikes and musketeers on the sleeves.
+  - Archer: shoots every 8 s out to 95 m, but plate turns most arrows.
+  - Clubman: farmer conscripts with bills; cheap, brittle, many.
+  - Dragoon: mounted shot with a carbine.
+  - Harquebusier, Cuirassier and Hussar: horse with pistols. The Hussar's lance hits once at 2.2×,
+    then he needs a fresh one.
+  - Saker: field guns.
+- **Drills** (`drills/50-…60-`): Shot, Salvee, Pike Block, Pike and Shot, Charge Home, Gallop,
+  Caracole, Lance Charge, Archers, Clubmen, Dragoons. They use new words `horse charging`,
+  `enemy mounted` / `enemy horse` and `enemy on foot`.
+- **Money**: every company costs its kit once, then wages and food (fodder too) for each day in
+  the field, in 1640s pence. The prices are the Pike & Shot Bots table, and each man on the field
+  stands for 5 on the roll.
+  - Each side picks a budget (£3,000-£12,000, doubled at 20 men a company), days in the field
+    (30-180) and rations.
+  - Half rations: food ×0.5, nerve −0.12, horses slower. Generous: food ×1.3, nerve +0.06.
+  - An army over budget cannot take the field.
+- **Armies**: Swedish brigade, Spanish tercio, New Model Army, Cavalier horse, Dutch companies,
+  Peasant host, The old ways, Polish-Lithuanian.
+  - In a campaign, a computer commander raises one it can pay for. There is no fought-battle
+    table for the 1640s yet.
+
 Spec: `claude/drillbook-bots-spec.md` in the Ai Sim Framework project. What follows is the
 Volley Bots README.
 

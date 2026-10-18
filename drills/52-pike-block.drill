@@ -1,0 +1,19 @@
+# 1640s pike (2026-10-18): a hedge of points. Stands against horse; goes in at push of pike when
+# the enemy foot are close, wavering or busy with our shot.
+drill "Pike Block"
+era 1640s
+about "A hedge of points: stands fast against horse, keeps by the shot, and goes in at push of pike when enemy foot come close or waver."
+type Pikeman
+dials aggression 0.55 discipline 0.85 cohesion 0.95 cover 0.00 patience 0.50 nerve 0.80
+
+sergeant:
+  when horse charging                                       -> hold; form tight; stand fast
+  when enemy mounted and enemy within 30                    -> hold; form tight; stand fast
+  when enemy breaking or enemy broken                       -> charge
+  when enemy on foot and enemy within 25                    -> charge; form tight
+  when neighbour engaged and enemy on foot and enemy within 50 -> advance; form tight
+  otherwise                                                 -> advance slow; form tight
+
+man:
+  when enemy horse and enemy within 8                       -> hold
+  otherwise                                                 -> follow sergeant

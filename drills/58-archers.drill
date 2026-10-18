@@ -1,0 +1,15 @@
+# 1640s (2026-10-18): longbowmen - a storm of arrows from long range, give ground before a charge.
+drill "Archers"
+era 1640s
+about "Longbowmen: a storm of arrows from ninety metres, and give ground before anything that charges."
+type Archer
+dials aggression 0.20 discipline 0.60 cohesion 0.60 cover 0.50 patience 0.10 nerve 0.50
+
+sergeant:
+  when enemy charging and enemy within 30                -> fall back 25; fire at will
+  when enemy within 92                                  -> hold; fire at will
+  otherwise                                              -> advance; hold fire
+
+man:
+  when enemy within 92 and loaded                       -> fire
+  otherwise                                              -> follow sergeant

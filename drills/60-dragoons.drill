@@ -1,0 +1,15 @@
+# 1640s (2026-10-18): dragoons - mounted shot that ride to cover and shoot from it.
+drill "Dragoons"
+era 1640s
+about "Mounted shot: ride fast to a hedge or a wall, shoot from it, and ride off from anything that charges."
+type Dragoon
+dials aggression 0.30 discipline 0.50 cohesion 0.40 cover 0.80 patience 0.40 nerve 0.50
+
+sergeant:
+  when enemy charging and enemy within 35                -> fall back 40
+  when enemy within 55                                   -> hold; find cover; fire at will
+  otherwise                                              -> advance fast; find cover; hold fire
+
+man:
+  when enemy within 50 and loaded                        -> fire
+  otherwise                                              -> follow sergeant
