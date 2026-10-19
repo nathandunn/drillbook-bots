@@ -13,33 +13,41 @@ const HELP := {
 ## The 1640s types on the company editor, in the order shown.
 const TYPES_1640 := ["Musketeer", "Firelock", "Pikeman", "Pike and shot", "Archer", "Clubman", "Dragoon", "Harquebusier", "Cuirassier", "Hussar", "Saker"]
 
-## Twelve-company armies of the 1640s: [drill, type] per company, A to L. The first four are the ones
-## that go in first. Each fits a £7,000 budget at ten men a company, 90 days, full rations.
+## Twenty-company armies of the 1640s: [drill, type] per company, A to T. The first four are the ones
+## that go in first. Each fits a £12,000 budget at ten men a company, 90 days, full rations.
 const ARMIES := {
 	"Swedish brigade": [["Salvee", "Musketeer"], ["Pike Block", "Pikeman"], ["Salvee", "Musketeer"], ["Charge Home", "Harquebusier"],
 		["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Shot", "Musketeer"], ["Charge Home", "Harquebusier"],
-		["Pike and Shot", "Pike and shot"], ["Dragoons", "Dragoon"], ["Gallop", "Harquebusier"], ["Artillery", "Saker"]],
+		["Pike and Shot", "Pike and shot"], ["Dragoons", "Dragoon"], ["Gallop", "Harquebusier"], ["Artillery", "Saker"],
+		["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Salvee", "Musketeer"], ["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Charge Home", "Harquebusier"], ["Dragoons", "Dragoon"], ["Artillery", "Saker"]],
 	"Spanish tercio": [["Pike and Shot", "Pike and shot"], ["Pike Block", "Pikeman"], ["Pike and Shot", "Pike and shot"], ["Caracole", "Cuirassier"],
 		["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Shot", "Musketeer"], ["Caracole", "Cuirassier"],
-		["Pike and Shot", "Pike and shot"], ["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Artillery", "Saker"]],
+		["Pike and Shot", "Pike and shot"], ["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Artillery", "Saker"],
+		["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Caracole", "Cuirassier"], ["Shot", "Musketeer"], ["Artillery", "Saker"]],
 	"New Model Army": [["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Shot", "Musketeer"], ["Charge Home", "Harquebusier"],
 		["Charge Home", "Harquebusier"], ["Shot", "Firelock"], ["Pike Block", "Pikeman"], ["Dragoons", "Dragoon"],
-		["Shot", "Musketeer"], ["Charge Home", "Harquebusier"], ["Shot", "Firelock"], ["Artillery", "Saker"]],
+		["Shot", "Musketeer"], ["Charge Home", "Harquebusier"], ["Shot", "Firelock"], ["Artillery", "Saker"],
+		["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Shot", "Musketeer"], ["Charge Home", "Harquebusier"], ["Shot", "Firelock"], ["Pike Block", "Pikeman"], ["Dragoons", "Dragoon"], ["Shot", "Musketeer"]],
 	"Cavalier horse": [["Gallop", "Harquebusier"], ["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Gallop", "Harquebusier"],
 		["Caracole", "Cuirassier"], ["Shot", "Musketeer"], ["Gallop", "Harquebusier"], ["Pike Block", "Pikeman"],
-		["Shot", "Musketeer"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Artillery", "Saker"]],
+		["Shot", "Musketeer"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Artillery", "Saker"],
+		["Shot", "Musketeer"], ["Pike Block", "Pikeman"], ["Shot", "Musketeer"], ["Gallop", "Harquebusier"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Shot", "Musketeer"], ["Pike Block", "Pikeman"]],
 	"Dutch companies": [["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Charge Home", "Harquebusier"],
 		["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"],
-		["Charge Home", "Harquebusier"], ["Dragoons", "Dragoon"], ["Charge Home", "Harquebusier"], ["Artillery", "Saker"]],
+		["Charge Home", "Harquebusier"], ["Dragoons", "Dragoon"], ["Charge Home", "Harquebusier"], ["Artillery", "Saker"],
+		["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Charge Home", "Harquebusier"], ["Dragoons", "Dragoon"], ["Artillery", "Saker"]],
 	"Peasant host": [["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Pike and Shot", "Pike and shot"],
 		["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"],
-		["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Charge Home", "Harquebusier"], ["Clubmen", "Clubman"]],
+		["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Charge Home", "Harquebusier"], ["Clubmen", "Clubman"],
+		["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Pike and Shot", "Pike and shot"], ["Pike and Shot", "Pike and shot"], ["Charge Home", "Harquebusier"]],
 	"The old ways": [["Archers", "Archer"], ["Pike Block", "Pikeman"], ["Archers", "Archer"], ["Lance Charge", "Hussar"],
 		["Archers", "Archer"], ["Pike Block", "Pikeman"], ["Archers", "Archer"], ["Lance Charge", "Hussar"],
-		["Archers", "Archer"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Archers", "Archer"]],
+		["Archers", "Archer"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Archers", "Archer"],
+		["Archers", "Archer"], ["Archers", "Archer"], ["Archers", "Archer"], ["Pike Block", "Pikeman"], ["Pike Block", "Pikeman"], ["Lance Charge", "Hussar"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"]],
 	"Polish-Lithuanian": [["Lance Charge", "Hussar"], ["Shot", "Musketeer"], ["Lance Charge", "Hussar"], ["Dragoons", "Dragoon"],
 		["Shot", "Musketeer"], ["Clubmen", "Clubman"], ["Lance Charge", "Hussar"], ["Clubmen", "Clubman"],
-		["Shot", "Musketeer"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Artillery", "Saker"]],
+		["Shot", "Musketeer"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Artillery", "Saker"],
+		["Shot", "Musketeer"], ["Shot", "Musketeer"], ["Shot", "Musketeer"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Clubmen", "Clubman"], ["Dragoons", "Dragoon"], ["Charge Home", "Harquebusier"]],
 }
 const ARMY_HELP := {
 	"Swedish brigade": "Gustavus Adolphus: salvoes at close range, pikes beside the shot, aggressive horse and a regimental gun",
@@ -54,10 +62,17 @@ const ARMY_HELP := {
 
 ## The muster's money, per side: budget in whole pounds (at ten men a company; doubled at twenty),
 ## days in the field and rations.
-const BUDGETS := [3000, 5000, 7000, 9000, 12000]
+const BUDGETS := [6000, 9000, 12000, 15000, 20000]
 const DAYS := [30, 60, 90, 180]
-const DEFAULT_BUDGET := 7000
+const DEFAULT_BUDGET := 12000
 const DEFAULT_DAYS := 90
+
+## The 1640s war: twenty companies raised once and never replaced, up to ten into any one battle,
+## and ten battles to carry the front - so every company spent is one fewer for the end.
+const COMPANIES := 20
+const PICK := 10
+const BATTLES := 10
+const LETTERS := ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"]
 
 
 ## The drills shown for an era: its own, and the drills that suit any war.

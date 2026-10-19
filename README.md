@@ -71,12 +71,20 @@ the command line) swaps the rifle-musket war for the English Civil War and the T
 - **Money**: every company costs its kit once, then wages and food (fodder too) for each day in
   the field, in 1640s pence. The prices are the Pike & Shot Bots table, and each man on the field
   stands for 5 on the roll.
-  - Each side picks a budget (£3,000-£12,000, doubled at 20 men a company), days in the field
+  - Each side picks a budget (£6,000-£20,000 for 20 companies, doubled at 20 men a company), days in the field
     (30-180) and rations.
   - Half rations: food ×0.5, nerve −0.12, horses slower. Generous: food ×1.3, nerve +0.06.
   - An army over budget cannot take the field.
+- **The war (a chess match of attrition)**: each side raises **20 companies** once, on its budget,
+  and never recruits. A campaign is **at most 10 battles** along the front of eleven fields. Each
+  win pushes the front, and the war goes to whoever carries the enemy's last field or, after ten
+  battles, holds more of the front.
+  - Before every battle you choose **up to 10 companies** to send in, and **each one's drill**.
+    Types are fixed for the war: raised pikes stay pikes.
+  - Survivors carry over, and companies too weak to stand are merged.
 - **Armies**: Swedish brigade, Spanish tercio, New Model Army, Cavalier horse, Dutch companies,
-  Peasant host, The old ways, Polish-Lithuanian.
+  Peasant host, The old ways, Polish-Lithuanian. All are 20 companies and fit the default
+  £12,000.
   - In a campaign, a computer commander raises one it can pay for. There is no fought-battle
     table for the 1640s yet.
 

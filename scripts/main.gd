@@ -256,6 +256,9 @@ func _ready() -> void:
 		return
 	if args.has("era"):
 		set_era(String(args["era"]))   # --era=1640s: pike and shot
+	if args.has("war1640"):
+		_war_walk_1640()
+		return
 	if args.has("uitest1640"):
 		_ui_walk_1640()
 		return
@@ -706,7 +709,21 @@ func set_fort(side: int) -> void:
 
 
 func pick_limit() -> int:
+	if era == "1640s":
+		return Era.PICK
 	return EPIC_PICK if epic and campaign_active else 999
+
+
+## Battles in a war before it is called: ten in the 1640s (every battle counts), more otherwise.
+func round_cap() -> int:
+	if epic:
+		return EPIC_ROUND_CAP
+	return Era.BATTLES if era == "1640s" else ROUND_CAP
+
+
+## Companies an army is raised with: twenty in the 1640s, twelve in the 1860s.
+func army_size() -> int:
+	return Era.COMPANIES if era == "1640s" else ARMY_COMPANIES
 
 
 func _army_men(t: int) -> int:
@@ -782,6 +799,8 @@ func _computer_count(t: int) -> int:
 		n = maxi(n, avail - randi_range(0, 1))   # a last stand: nearly everyone
 	if _army_men(t) < _army_men(1 - t) * 0.7:
 		n += 1
+	if era == "1640s":
+		return clampi(n + 1, mini(3, avail), mini(avail, Era.PICK))
 	return clampi(n, mini(2, avail), avail)
 
 
@@ -799,7 +818,12 @@ func toggle_army_pick(t: int, i: int) -> void:
 
 ## Choose Companies' quick picks: everyone who can stand, or the freshest four.
 func pick_all(t: int) -> void:
-	if epic and campaign_active:
+	if (epic and campaign_active) or era == "1640s":
+		if era == "1640s":
+			_default_picks(t, Era.PICK)
+			if hud != null:
+				hud.refresh_pick()
+			return
 		_default_picks(t, EPIC_PICK)
 		if hud != null:
 			hud.refresh_pick()
@@ -973,13 +997,101 @@ func _ai_raise(t: int) -> void:
 	_ai_reason[t] = "raised %s: %s" % [r[0], r[1]]
 
 
+## The 1640s computer: which of its companies go in and under what orders. It reads the enemy
+## from what he sent last time (or his whole muster before the first battle), then makes up a
+## force the period would recognise - two shot to a pike, a quarter horse, a gun if it has one -
+## from its freshest companies of each kind, and gives each the drill that answers the enemy:
+## salvoes when he has little horse, the countermarch when he has much; horse that charges home
+## against pikes and gallops against shot.
+const AI_GROUP := {"Musketeer": "shot", "Firelock": "shot", "Archer": "shot", "Dragoon": "shot", "Pikeman": "pike",
+	"Pike and shot": "mixed", "Harquebusier": "horse", "Cuirassier": "horse", "Hussar": "horse", "Saker": "guns", "Clubman": "levy"}
+
+
+func _ai_plan_1640(t: int, n: int) -> void:
+	var ar: Array = armies[t]
+	# what the enemy is made of
+	var seen := {}
+	var etotal := 0.0
+	var ecos: Array = manager.companies[1 - t] if campaign_round > 0 else []
+	if ecos.is_empty():
+		for a in armies[1 - t]:
+			if (a["men"] as Array).size() > 0:
+				var g := String(AI_GROUP.get(String(a["type"]), "shot"))
+				seen[g] = float(seen.get(g, 0.0)) + 1.0
+				etotal += 1.0
+	else:
+		for co in ecos:
+			var g := String(AI_GROUP.get(String(co.get("type_name", "")), "shot"))
+			seen[g] = float(seen.get(g, 0.0)) + 1.0
+			etotal += 1.0
+	var e_horse := float(seen.get("horse", 0.0)) / maxf(etotal, 1.0)
+	var e_pike := (float(seen.get("pike", 0.0)) + 0.5 * float(seen.get("mixed", 0.0))) / maxf(etotal, 1.0)
+	# what we want: shares of the n companies
+	var horse_share := clampf(0.25 + (0.15 if e_pike < 0.15 else 0.0) - (0.1 if e_pike > 0.35 else 0.0), 0.1, 0.45)
+	var want := {"horse": int(round(n * horse_share)), "guns": 1 if n >= 8 else 0}
+	var foot := n - int(want["horse"]) - int(want["guns"])
+	# pikes are the backbone: nearly half the foot, more when their horse is about
+	want["pike"] = int(round(foot * (0.5 if e_horse > 0.1 else 0.4)))
+	want["shot"] = foot - int(want["pike"])
+	# the freshest of each kind first
+	var by_group := {}
+	for i in ar.size():
+		if (ar[i]["men"] as Array).is_empty():
+			continue
+		var g := String(AI_GROUP.get(String(ar[i]["type"]), "shot"))
+		if g == "mixed":
+			g = "pike" if int(want.get("pike", 0)) > 0 else "shot"   # a mixed company is either
+		if g == "levy":
+			g = "shot"
+		if not by_group.has(g):
+			by_group[g] = []
+		by_group[g].append(i)
+	for g in by_group:
+		(by_group[g] as Array).sort_custom(func(x, y): return (ar[x]["men"] as Array).size() > (ar[y]["men"] as Array).size())
+	for a in ar:
+		a["fights"] = false
+	var taken := 0
+	for g in ["horse", "guns", "pike", "shot"]:
+		var k := 0
+		for i in by_group.get(g, []):
+			if k >= int(want.get(g, 0)) or taken >= n:
+				break
+			ar[i]["fights"] = true
+			k += 1
+			taken += 1
+	# short of a kind: make up the number from the freshest of anything
+	if taken < n:
+		var rest := []
+		for i in ar.size():
+			if not ar[i]["fights"] and (ar[i]["men"] as Array).size() > 0:
+				rest.append(i)
+		rest.sort_custom(func(x, y): return (ar[x]["men"] as Array).size() > (ar[y]["men"] as Array).size())
+		for i in rest:
+			if taken >= n:
+				break
+			ar[i]["fights"] = true
+			taken += 1
+	# orders that answer the enemy
+	for a in ar:
+		if not a["fights"]:
+			continue
+		match String(a["type"]):
+			"Musketeer", "Firelock":
+				a["drill"] = "Salvee" if e_horse < 0.15 else "Shot"
+			"Harquebusier":
+				a["drill"] = "Charge Home" if e_pike > 0.2 else "Gallop"
+			"Cuirassier":
+				a["drill"] = "Charge Home" if e_pike > 0.25 else "Caracole"
+	_ai_reason[t] = "%d in: horse %d, pike %d, shot %d, guns %d against %d%% horse, %d%% pike" % [taken, want["horse"], want["pike"], want["shot"], want["guns"], int(e_horse * 100), int(e_pike * 100)]
+
+
 ## A computer side's companies for the next battle: how many (its blind guess), which army shape
 ## suits this field against what it expects, and which of its companies make that shape - in a
 ## campaign it may also retrain them; in an epic it uses the companies it has.
 func _ai_plan(t: int) -> void:
 	var n := _computer_count(t)
 	if era == "1640s":
-		_default_picks(t, n)
+		_ai_plan_1640(t, n)
 		_prepare_battle(t)
 		_ai_picks[t] = manager.battalion_label(t)
 		_ai_type_picks[t] = manager._types_label(t)
@@ -1217,11 +1329,11 @@ func _on_round_ended(result: Dictionary) -> void:
 		else:
 			cw = 0 if men_after[1] == 0 else 1
 			why = "%s has nobody left to fight" % MatchManager.TEAM_NAMES[1 - cw]
-	elif campaign_round >= (EPIC_ROUND_CAP if epic else ROUND_CAP):
+	elif campaign_round >= round_cap():
 		over = true
 		var mid := (FRONT_LEN + 1) / 2
 		cw = 0 if campaign_field > mid else (1 if campaign_field < mid else (0 if men_after[0] >= men_after[1] else 1))
-		why = "after %d battles the war is called for whoever holds more of the front" % (EPIC_ROUND_CAP if epic else ROUND_CAP)
+		why = "after %d battles the war is called for whoever holds more of the front" % round_cap()
 	_fall_back = {}
 	if not over:
 		if w == 0:
@@ -1370,7 +1482,7 @@ func _fresh_men(t: int, i: int, type_name := "") -> Array:
 		type_name = String(armies[t][i].get("type", "Even"))
 	var men := []
 	for k in SoldierType.men_for(type_name, COMPANY_MEN):
-		men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], ARMY_NAMES[i % ARMY_NAMES.size()], k + 1], "seed": randi(), "kills": 0, "rounds": 0})
+		men.append({"name": "%s%s %d" % [MatchManager.TEAM_NAMES[t][0], Era.LETTERS[i % Era.LETTERS.size()], k + 1], "seed": randi(), "kills": 0, "rounds": 0})
 	return men
 
 
@@ -1420,6 +1532,7 @@ func set_era(e: String) -> void:
 	if campaign_active or not Era.NAMES.has(e):
 		return
 	era = e
+	_resize_armies(army_size())
 	if era == "1640s":
 		fill_army(0, "Swedish brigade")
 		fill_army(1, "New Model Army")
@@ -1428,6 +1541,20 @@ func set_era(e: String) -> void:
 			army_names[t] = ""
 			fill_army(t, String(manager.battalion_names[t]) if MatchManager.BATTALIONS.has(manager.battalion_names[t]) else "Line battalion")
 	_refresh_men_all()
+
+
+## Grow (copying the last company) or trim each army to n companies.
+func _resize_armies(n: int) -> void:
+	for t in 2:
+		var ar: Array = armies[t]
+		while ar.size() > n:
+			ar.pop_back()
+		while ar.size() < n:
+			var src: Dictionary = ar[ar.size() - 1]
+			var i := ar.size()
+			ar.append({"name": Era.LETTERS[i], "drill": src["drill"], "type": src["type"], "type_obj": (src["type_obj"] as SoldierType).copy(),
+				"men": [], "fights": false, "rank": "Auto"})
+			ar[i]["men"] = _fresh_men(t, i)
 
 
 ## The muster roll's bill for a side: every company raised at full strength, for its days in the
@@ -1643,6 +1770,55 @@ func _ui_walk_1640() -> void:
 	print("campaign: blue %s (%s), over budget %s; red over budget %s; blue picks %d" % [army_names[1], _ai_reason[1], over_budget(1), over_budget(0), _fielded(1)])
 	await _shot("p_campaign")
 	get_tree().quit()
+
+
+## --ui --war1640 [--shots=dir]: a whole 1640s war against the computer, every battle simulated -
+## twenty companies, up to ten a battle (an eleventh refused), orders changed before battles, the
+## war called after ten.
+func _war_walk_1640() -> void:
+	set_era("1640s")
+	hud.commanders[1] = "computer"
+	if OS.get_cmdline_user_args().has("--both"):
+		hud.commanders[0] = "computer"
+	hud.campaign_requested.emit()
+	await get_tree().create_timer(0.3).timeout
+	print("war: %d v %d companies, cap %d battles, pick limit %d; blue %s" % [(armies[0] as Array).size(), (armies[1] as Array).size(), round_cap(), pick_limit(), _ai_reason[1]])
+	for i in 11:
+		if not armies[0][i]["fights"]:
+			toggle_army_pick(0, i)
+	print("red put forward %d (an eleventh refused: %s)" % [_fielded(0), _fielded(0) == Era.PICK])
+	await _shot("w_pick")
+	var drills := ["Pike Block", "Pike and Shot", "Shot", "Salvee"]
+	var guard := 0
+	while campaign_active and guard < 14:
+		guard += 1
+		if hud.commanders[0] == "computer":
+			_ai_plan(0)
+		# change a couple of orders each battle, and rest the most worn companies
+		var ar: Array = armies[0]
+		for k in ar.size():
+			if ar[k]["fights"] and String(ar[k]["type"]) in ["Pikeman", "Musketeer"] and randf() < 0.5:
+				set_company(0, k, drills[randi() % drills.size()] if String(ar[k]["type"]) == "Musketeer" and randf() < 0.5 else String(ar[k]["drill"]), "")
+		hud._close_overlays()
+		var r0 := campaign_round
+		hud.simulate_requested.emit()
+		await manager.match_ended
+		await get_tree().create_timer(0.4).timeout
+		print("  battle %d on field %d: %s; wins %d-%d; companies standing %d v %d, men %d v %d; blue: %s" % [r0 + 1, campaign_field, String(campaign_rounds[-1]["winner_name"]) if not campaign_rounds.is_empty() else "?",
+			campaign_wins[0], campaign_wins[1], _standing(0), _standing(1), _army_men(0), _army_men(1), _ai_reason[1]])
+		if campaign_active and hud.commanders[0] != "computer":
+			_default_picks(0, Era.PICK)
+	await _shot("w_end")
+	print("war over after %d battles: %s" % [campaign_round, hud.results_title.text if hud.results_title != null else ""])
+	get_tree().quit()
+
+
+func _standing(t: int) -> int:
+	var n := 0
+	for a in armies[t]:
+		if (a["men"] as Array).size() > 0:
+			n += 1
+	return n
 
 
 ## --shots=dir: save what the screen shows (under a real or virtual display).

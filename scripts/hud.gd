@@ -517,7 +517,7 @@ func show_start() -> void:
 		pike.custom_minimum_size = Vector2(300, 56)
 		pike.add_theme_font_size_override("font_size", 20)
 		_accent(pike)
-		pike.tooltip_text = "The 1640s: matchlocks, pikes, horse, sakers, archers and clubmen - raise your army on a budget that pays for kit, wages and food"
+		pike.tooltip_text = "The 1640s: raise twenty companies on a budget that pays for kit, wages and food - matchlocks, pikes, horse, sakers, archers, clubmen. Then a war of ten battles: up to ten companies in each, orders chosen before every one, and no recruits - every company spent is one fewer for the end"
 		pike.pressed.connect(func():
 			_start.visible = false
 			_top.visible = true
@@ -549,7 +549,7 @@ func _build_teams_overlay() -> void:
 	_setup_note.visible = false
 	box.add_child(_setup_note)
 	var note := Label.new()
-	note.text = "Twelve companies an army - point at anything for what it means."
+	note.text = "Twelve companies an army (twenty in the 1640s) - point at anything for what it means."
 	_hover(note, "Each army is twelve companies. Make each one here: its drill (how it fights - written rules for when to fire, charge, take cover and give ground) and its type (what its men are good at). Before every battle you only choose which companies go in; they line up by themselves, left to right in letter order, and a fifth and more form a second line.")
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.add_theme_font_size_override("font_size", 13)
@@ -732,7 +732,7 @@ func _fill_side(t: int) -> void:
 	for bn in presets:
 		var b := _chip(bn, String(game.army_names[t]) == bn)
 		b.tooltip_text = Era.ARMY_HELP.get(bn, MatchManager.BATTALION_HELP.get(bn, ""))
-		b.disabled = locked
+		b.disabled = locked or (campaign_on and String(game.era) == "1640s")
 		b.pressed.connect(func(): game.fill_army(t, bn); refresh_setup())
 		frow.add_child(b)
 	if String(game.era) == "1640s":
@@ -917,10 +917,13 @@ func _fill_editor(t: int) -> void:
 	ed.add_child(tl)
 	var trow := HFlowContainer.new()
 	ed.add_child(trow)
+	var raised: bool = campaign_on and String(game.era) == "1640s"   # a company raised is what it is for the war
+	if raised:
+		_small(ed, "Raised as %s for the whole war - only its drill can change." % a["type"])
 	for n in Era.types(String(game.era), TYPE_LIST):
 		var b := _chip(n, n == String(a["type"]))
 		b.tooltip_text = SoldierType.help(n, n)
-		b.disabled = locked
+		b.disabled = locked or raised
 		b.pressed.connect(func(): game.set_company(t, i, "", n); _fill_roster(t); _fill_editor(t))
 		trow.add_child(b)
 	_type_help[t] = tl   # the type's description and numbers show when pointed at
@@ -976,7 +979,7 @@ func _fill_editor(t: int) -> void:
 	# 3. the rest of the army
 	var cp := _button("Copy company %s to the whole army" % a["name"])
 	cp.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	cp.disabled = locked
+	cp.disabled = locked or (campaign_on and String(game.era) == "1640s")
 	cp.pressed.connect(func(): game.copy_to_all(t, i); _fill_roster(t); _fill_editor(t))
 	ed.add_child(cp)
 	_cursor_for_tree(ed)
@@ -1106,6 +1109,44 @@ func close_pick() -> void:
 		_pick_overlay.visible = false
 
 
+## One row per company going in: its letter and type, and the drill it fights this battle by.
+func _orders_rows(t: int, ar: Array) -> void:
+	var head := Label.new()
+	head.text = "Orders for this battle - the drill each company fights by:"
+	head.add_theme_font_size_override("font_size", 13)
+	_hover(head, "A company is raised as one type for the whole war, but its orders are yours to choose before every battle: the same pikes can stand fast as a hedge or go in at push of pike; the same horse can charge home or caracole.")
+	_pick_box.add_child(head)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	_pick_box.add_child(grid)
+	for i in ar.size():
+		var a: Dictionary = ar[i]
+		if not a["fights"] or (a["men"] as Array).is_empty():
+			continue
+		var l := Label.new()
+		l.text = "%s · %s · %d men" % [a["name"], a["type"], (a["men"] as Array).size()]
+		l.add_theme_font_size_override("font_size", 13)
+		grid.add_child(l)
+		var ob := OptionButton.new()
+		ob.add_theme_font_size_override("font_size", 13)
+		ob.focus_mode = Control.FOCUS_NONE
+		var k := 0
+		for dn in Drill.names():
+			var d: Drill = Drill.named(dn)
+			if not Era.drill_ok(d, "1640s"):
+				continue
+			ob.add_item(dn)
+			ob.set_item_tooltip(k, d.about)
+			if dn == String(a["drill"]):
+				ob.select(k)
+			k += 1
+		var idx := i
+		ob.item_selected.connect(func(sel: int):
+			game.set_company(t, idx, ob.get_item_text(sel), ""))
+		grid.add_child(ob)
+
+
 func refresh_pick() -> void:
 	if _pick_overlay != null and _pick_overlay.visible:
 		show_pick()
@@ -1179,15 +1220,25 @@ func show_pick() -> void:
 			_section(_pick_box, "%s - %d of up to %d companies going in, %d men  (army: %d companies, %d men left)" % [
 				MatchManager.TEAM_NAMES[t], n, int(game.EPIC_PICK), men, standing, left])
 		else:
-			_section(_pick_box, "%s - %d companies, %d men going in" % [MatchManager.TEAM_NAMES[t], n, men])
+			if String(game.era) == "1640s":
+				var standing2 := 0
+				for a in ar:
+					if (a["men"] as Array).size() > 0:
+						standing2 += 1
+				_section(_pick_box, "%s - %d of up to %d companies going in, %d men  (army: %d of %d companies still standing)" % [
+					MatchManager.TEAM_NAMES[t], n, Era.PICK, men, standing2, ar.size()])
+			else:
+				_section(_pick_box, "%s - %d companies, %d men going in" % [MatchManager.TEAM_NAMES[t], n, men])
 		var qrow := HFlowContainer.new()
 		_pick_box.add_child(qrow)
 		if not secret:
 			var fresh := _chip("Freshest ten" if camp and epic_on else "Freshest four", false)
+			if String(game.era) == "1640s":
+				fresh.text = "Freshest four"
 			fresh.pressed.connect(func(): game.pick_freshest(t))
 			qrow.add_child(fresh)
 			if not (camp and epic_on):
-				var all := _chip("Everyone", false)
+				var all := _chip("Freshest ten" if String(game.era) == "1640s" else "Everyone", false)
 				all.pressed.connect(func(): game.pick_all(t))
 				qrow.add_child(all)
 			var hint := Label.new()
@@ -1211,6 +1262,9 @@ func show_pick() -> void:
 			var idx := i
 			b.pressed.connect(func(): army_pick.emit(t, idx))
 			ab.add_child(b)
+		# 1640s: the orders each company going in fights by, chosen before every battle
+		if not secret and String(game.era) == "1640s":
+			_orders_rows(t, ar)
 		# the play: one plan the whole army follows (or the general's own choice)
 		if secret:
 			var sl := _small(_pick_box, "Plan: the computer's general decides - and may change his mind (shown during the battle)")
