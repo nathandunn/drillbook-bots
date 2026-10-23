@@ -402,6 +402,8 @@ func _decide() -> void:
 		return
 
 	# a gunner serves his gun: his place is beside it, facing the enemy, whatever else is going on
+	if company >= (manager.companies[team] as Array).size():
+		return   # the battle is over and the next one's companies are already being drawn up
 	if manager.artillery != null and Artillery.is_gun_company(manager.companies[team][company]):
 		var post := manager.artillery.crew_post(team, company, slot)
 		if post != Vector3.INF:
